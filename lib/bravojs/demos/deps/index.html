@@ -1,0 +1,17 @@
+<html>
+  <head>
+    <script src="../../bravo.js"></script>
+  </head>
+  <body>
+    <textarea readonly cols=80 rows=25 id="stdout"></textarea>
+  </body>
+  <script>
+
+module.declare([ { area: "../area/area" } ], function(require, exports, module) {
+
+  print("The area of a rectangle 3 x 4 units is " + require("area").rectangle(3,4));
+
+})
+
+  </script>
+</html>

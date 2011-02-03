@@ -1,0 +1,32 @@
+HTML
+{
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+INPUT
+{
+  margin-top:		10px;
+  margin-bottom: 	10px;
+  border: 		1px solid #999999;
+  padding: 		2px;
+}
+
+INPUT[type="text"]
+{
+  width:		3em;
+}
+
+FORM
+{
+  border:		1px solid black;
+  padding:		10px;
+  width:		25em;
+  text-align:		center;
+}
+
+H1
+{
+  font-weight:		bold;
+  font-size:		1.3em;
+}
+

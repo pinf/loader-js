@@ -1,0 +1,29 @@
+Welcome to BravoJS
+
+Copyright (c) 2010 PageMail, Inc.
+Released under the terms of the MIT License.
+
+BravoJS is an implementation of an unratified proposed draft for CommonJS 
+Modules/2.0
+
+The current draft this code is based on is located at 
+http://www.page.ca/~wes/CommonJS/modules-2.0-5/commonjs%20modules%202.0-5.pdf
+
+Caveat User: BravoJS is based on an early draft of an unratified CommonJS 
+specification. This means that using this product as it stands today will 
+most likely lead you to writing modules which are not compatible with any 
+other CommonJS platform.
+
+Wes Garland
+wes@page.ca
+
+
+Manifest
+--------
+bravo.js		The CommonJS Modules/2.0 environment with default loader
+plugins/wonkoll		A module loader plug-in implemented with LazyLoad.js
+plugins/fastload	A module loader plug-in which implements a multi-module
+			transport. Includes server-side component for GPSEE.
+demos/area		A web page which calculates the area of a rectangle
+demos/iojs_tests	An environment to exercise the Modules/1.0 test suite
+                    

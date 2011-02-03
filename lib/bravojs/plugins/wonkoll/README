@@ -1,0 +1,21 @@
+Welcome to the Wonko LazyLoad plug-in
+
+Copyright (c) 2010 PageMail, Inc.
+Released under the terms of the MIT License.
+
+This plug-in alters a CommonJS Modules/2.0 environment to load
+modules with Wonko.com's LazyLoad.js file loader.
+
+Simply load the wonkoll.js script after the CommonJS environment
+and the current version of lazyload.js from wonko.com. This file
+will override module.load, module.provide, and module.declare in
+your environment.
+
+Example:
+
+<head>
+  <script src="/path/to/CommonJSEnvironment.js">
+  <script src="http://pieisgood.org/files/lazyload-2.0.0/lazyload.js">
+  <script src="/path/to/wonkoll.js">
+</head>
+

@@ -1,0 +1,48 @@
+Welcome to the Fastload plug-in
+
+Copyright (c) 2010 PageMail, Inc.
+Released under the terms of the MIT License.
+
+This plug-in alters a CommonJS Modules/2.0 environment to modules
+with a simple multi-module transport system.
+
+Many modules may be requested by, and sent to the client at once. 
+The server component can identify module dependencies (by examining
+module.declare statements) and proactively feed dependencies to
+the client.
+
+Client-Side
+===========
+Simply load the fastload.js script after the CommonJS environment.
+This file will override module.provide in your environment, which 
+should be used by the underlying module system to load whatever 
+modules it needs. You will also need to tell fastload.js where the
+server-side component is located.
+
+Example:
+
+<head>
+  <script src="/path/to/CommonJSEnvironment.js">
+  <script src="/path/to/fastload.js">
+  <script>
+  fastload_config.server_module = "http://myserver.com/cgi-bin/gpsee_fastload.js";    
+  </script>
+</head>
+
+
+Server-Side
+===========
+Select the server-side component you wish to use, and install it. Here
+is a run-down of the various options:
+
+Component		Deps	Minify	Cache	Gzip	CDN
+----------------------	------	------	------	------	------	
+gpsee_fastload.js	Yes	Yes	Yes	Soon	Soon
+
+Legend
+------
+Deps:	Can resolve dependencies on the server-side by examining module.declare
+Minify:	Can minify JavaScript code before transmitting
+Cache:	Can use HTTP-level caching (status 304) to avoid re-transmitting content
+Gzip:	Can use gzip to compress JavaScript code before transmitting
+CDN:	Supports creation of flat files for roll-out on a dumb server, CDN, etc

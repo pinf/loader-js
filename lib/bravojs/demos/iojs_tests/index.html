@@ -1,0 +1,100 @@
+<html>
+<head>
+  <script src="../../bravo.js"></script>
+  <!-- Uncomment to test the LazyLoad.js plug-in module loader
+  <script src="http://pieisgood.org/files/lazyload-2.0.0/lazyload.js"></script>     
+  <script src="../../wonkoll.js"></script>
+  -->
+  <!-- Uncomment to test the jQuery plug-in module loader
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+  <script src="../../plugins/jquery-loader/jquery-loader.js"></script>
+  -->
+  <script src="console.js"></script>
+  <script>
+
+/* 
+ * Note: Tests "determinism" and "relative" will stop the test harness
+ *       from running when the module loader does not handle file-not-found
+ *       errors gracefully.
+ */
+
+var testSuite = "tests/modules/2.0/";
+var tests = 
+[ 
+  "absolute", "cyclic", "exactExports", 
+  "hasOwnProperty", "method", "missing", "monkeys", 
+  "nested", "transitive", "determinism", "relative"
+];
+
+  </script>
+
+</head>
+<body>
+<center style="height:99%">
+<form name=terminal style="height:100%">
+<script>
+/* IE does not have sane TEXTAREA support */
+if (window.navigator.userAgent.indexOf("MSIE") !== -1)
+  document.write('<tt id=stdout></tt>');
+else
+  document.write('<textarea id=stdout wrap="off" readonly></textarea>');
+</script>
+</form>
+</center>
+</body>
+<style type="text/css">
+#stdout
+{
+  width: 	99%;
+  text-align: 	left;
+  border: 	3px solid #999999;
+  background: 	black;
+  color: 	limegreen;
+  padding: 	5px;
+  font-family: terminal, fixed, lucida console, courier;
+  white-space: nowrap;
+}
+
+TEXTAREA#stdout
+{
+  height:	99%;
+}
+
+</style>
+<script>
+print = function(a)
+{
+  bravojs.print(a);
+}
+
+print("\n *** " + new Date());
+var clockStart, clockEnd;
+
+/** Simple, inductive test driver */
+function runTest(testNumber)
+{
+  var testName = tests[testNumber];
+  if (!testName)
+  {
+    clockEnd = new Date();
+    print(" *** Tests Complete; elapsed time: " + Math.round((clockEnd - clockStart) / 100) / 10 + "s");
+    return;
+  }
+
+  bravojs.reset();
+  setTimeout((function() { print("\nRunning test " + testName); }),0);
+  bravojs.runExternalMainModule(testSuite + testName + "/program", function() { runTest(testNumber + 1) });
+}
+
+window.onload = function()
+{
+  clockStart = new Date();
+  runTest(0);
+}
+
+/* window.onerror is noisy because we purposefully test ENOENT */
+try { delete window.onerror } catch(e) {};
+try { if (window.onerror) window.onerror = void 0 } catch(e) {};
+
+</script>
+</html>

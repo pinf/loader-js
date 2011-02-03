@@ -1,0 +1,17 @@
+<html>
+  <head>
+    <script src="../../bravo.js"></script>
+  </head>
+  <body>
+    <textarea readonly cols=80 rows=25 id="stdout"></textarea>
+  </body>
+  <script>
+
+module.declare(function(require, exports, module) {
+
+print("hello, world!!");
+
+})
+
+  </script>
+</html>

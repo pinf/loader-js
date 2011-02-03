@@ -1,0 +1,37 @@
+<html>
+<head>
+  <link rel=stylesheet type="text/css" href="area.css">
+  <script src="../../bravo.js"></script>
+  <!--
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+  <script src="../../plugins/jquery-loader/jquery-loader.js"></script>
+  -->
+  <script>
+
+/** Main module declaration. One function is exported, used in HTML form */
+
+module.declare(["area"], function(require, exports, modules) {
+
+exports.showArea = function showArea()
+{
+  var els = document.forms.area.elements;
+  var l = +els.l.value;
+  var w = +els.w.value;
+  els.area.value = require("area").rectangle(l, w);
+}
+})
+
+  </script>
+</head>
+<body>
+  <h1>Area-of-a-rectangle calculator</h1>
+
+  <form name=area action="javascript:module.main.showArea();">
+    Width:  <input type=text name=w>
+    Length: <input type=text name=l>
+    Area:   <input type=text name=area value='' readonly><br>
+    <input type="submit" value="Calculate">
+  </form>
+</body>
+</html>
+
