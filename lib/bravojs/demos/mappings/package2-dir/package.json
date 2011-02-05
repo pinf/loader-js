@@ -1,0 +1,12 @@
+{
+    "name": "package2",
+    "mappings": {
+        "packageA": {
+            "location": "../package1-dir/"
+        },
+        "packageB": {
+            "catalog": "http://registry/hostname/path/catalog.json",
+            "name": "package3"
+        }
+    }
+}

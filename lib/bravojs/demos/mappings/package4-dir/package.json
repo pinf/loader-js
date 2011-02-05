@@ -1,0 +1,12 @@
+{
+    "name": "package4",
+    "main": "lib-dir/main",
+    "mappings": {
+        "package1": {
+            "location": "../package1-dir/"
+        }
+    },
+    "directories": {
+        "lib": "lib-dir"
+    }
+}

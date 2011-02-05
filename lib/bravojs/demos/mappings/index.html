@@ -1,0 +1,109 @@
+<!--
+/**
+ *  An example of the various CommonJS Modules/2 features as they should be used
+ *  when composing a program out of packages and modules.
+ *
+ *  If it all works you should see the following printed 4 times:
+ *
+ *      package-1(OK),package-2(OK),package-3(OK),package-2,package-1
+ *
+ *  NOTE: This file must be loaded via HTTP:// to work properly.
+ *
+ *  NOTE: This code has only been tested with Firefox 3.6.
+ *
+ *  Copyright (c) 2011, Christoph Dorn
+ *  Christoph Dorn, christoph@christophdorn.com
+ *  MIT License
+ */
+-->
+<html>
+  <head>
+    <script src="../../bravo.js"></script>
+  </head>
+  <body>
+    <textarea readonly cols=80 rows=25 id="stdout"></textarea>
+  </body>
+  <script>
+
+// Memoize a package descriptor to avoid lazy fetching as an example
+// This descriptor is taken as-is from ./package2-dir/!/package.json from where it would
+// normally be loaded via SYNC AJAX.
+require.memoize(bravojs.mainModuleDir + "/package2-dir/!/package.json", [], function() {
+    return {
+        "name": "package2",
+        "mappings": {
+            "packageA": {
+                "location": "../package1-dir/"
+            },
+            "packageB": {
+                // This mapping is resolved via the plugin below
+                "catalog": "http://registry/hostname/path/catalog.json",
+                "name": "package3"
+            }
+        }
+    };
+});
+
+/// Register a bravojs core plugin to resolve package mappings to top-level package IDs
+var Plugin = function() {}
+Plugin.prototype.resolvePackageMapping = function(packageMapping)
+{
+    if(packageMapping.catalog=="http://registry/hostname/path/catalog.json" && packageMapping.name=="package3")
+        return bravojs.mainModuleDir + "/package3-dir/";
+}
+bravojs.registerPlugin(new Plugin());
+
+// Define the packages that are part of our program
+var packages = [
+    {
+        package1: {
+            "location": "./package1-dir/",
+            // The package descriptor for this package does not specify
+            // a main module so we set our own here
+            "descriptor": {
+                "main": "lib/main"
+            }
+        }
+    },
+    {
+        package2: {
+            "location": "./package4-dir/"
+            // The package descriptor for this package does specify
+            // a main module
+        }
+    }
+];
+
+// Boot the program by supplying the package mappings
+module.declare(packages, function(require, exports, module) {
+
+    // Program is booted with all required depdnencies loaded. We can now initialize and execute.
+
+    var options = {
+        mainModuleDir: bravojs.mainModuleDir
+    };
+
+    // Require a package's main module simply by using the label provided to the dependency array
+    var package1 = require("package1");
+    package1.main(options);
+    print(package1.getMessages());
+
+    var package2 = require("package2");
+    package2.main(options);
+    print(package2.getMessages());
+    
+    // The function we are calling lazy-loads extra code into the running program - hence the callback
+    package2.loadSubModule(function(subModule) {
+        subModule.main(options);
+        print(subModule.getMessages());
+    });
+
+    // The function we are calling lazy-loads extra code into the running program - hence the callback
+    package2.loadSubPackage(function(package3) {
+        package3.main(options);
+        print(package3.getMessages());
+    });
+
+});
+  </script>
+</html>
