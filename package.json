@@ -1,3 +1,24 @@
 {
-    "name": "loader-js"
+    "name": "loader-js",
+    "label": "CommonJS Modules Loader",
+    "description": "Versatile & Complete Module Loader for CommonJS JavaScript",
+    "repositories": [
+        {
+            "type": "git",
+            "url": "git://github.com/pinf/loader-js.git"
+        }
+    ],
+    "maintainers": [
+        {
+            "name": "Christoph Dorn",
+            "email": "christoph@christophdorn.com",
+            "web": "http://www.christophdorn.com/"
+        }
+    ],
+    "licenses": [
+       {
+           "type": "MIT",
+           "url": "http://www.opensource.org/licenses/mit-license.php"
+       }
+    ]
 }

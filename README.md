@@ -1,5 +1,5 @@
 
-Versatile & Complete Module loader for CommonJS JavaScript
+Versatile & Complete Module Loader for CommonJS JavaScript
 ==========================================================
 
 Version: v0.1dev
