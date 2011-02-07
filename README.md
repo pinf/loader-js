@@ -1,12 +1,12 @@
 
-Versatile & Complete Module loader for ComonJS JavaScript
-=========================================================
+Versatile & Complete Module loader for CommonJS JavaScript
+==========================================================
 
 Version: v0.1dev
 
 Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
-This module loader brings __CommonJS Modules/2__ _(currently in draft)_ plus
+This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader <program.json>`
