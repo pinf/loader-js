@@ -81,4 +81,5 @@ Links
 
  * CommonJS post: [New CommonJS Modules/2 (draft) loader (BravoJS) with package & mappings support](http://groups.google.com/group/commonjs/browse_thread/thread/94a63889a6ef712f)
  * Design doc: [PINF Fundamental Design: Namespace and Dependency System](https://github.com/cadorn/pinf/blob/master/docs/Design/Foundation.md)
+ * Design doc: [CommonJS Reference Framework](http://code.tolsma.net/blog/commonjs/)
 
