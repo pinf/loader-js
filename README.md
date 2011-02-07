@@ -3,41 +3,42 @@ Versatile & Complete Module loader for ComonJS JavaScript
 =========================================================
 
 Version: v0.1dev
-Status: [See ./NOTES.md](https://github.com/pinf/loader-js/NOTES.md)
+
+Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 This module loader brings __CommonJS Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
- * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader <program.json>`
- * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application (__Not Yet Implemented__)
- * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
+  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader <program.json>`
+  * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application (__Not Yet Implemented__)
+  * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
 
 The loader implements or is compatible with the following specs:
 
- * [CommonJS Modues/2.0draft8 (draft)](http://www.page.ca/~wes/CommonJS/modules-2.0-draft8/)
- * [CommonJS Packages/1.1 (draft)](http://wiki.commonjs.org/wiki/Packages/1.1)
- * [CommonJS Packages/Mappings/C (proposal)](http://wiki.commonjs.org/wiki/Packages/Mappings/C)
+  * [CommonJS Modues/2.0draft8 (draft)](http://www.page.ca/~wes/CommonJS/modules-2.0-draft8/)
+  * [CommonJS Packages/1.1 (draft)](http://wiki.commonjs.org/wiki/Packages/1.1)
+  * [CommonJS Packages/Mappings/C (proposal)](http://wiki.commonjs.org/wiki/Packages/Mappings/C)
 
 The loader extends the core CommonJS platform defined by the above specifications
 with the following additions:
 
- * CommonJS Programs/A (strawman) (__Not Yet Documented__)
- * PINF Workspace/A (strawman) (__Not Yet Documented__)
+  * CommonJS Programs/A (strawman) (__Not Yet Documented__)
+  * PINF Workspace/A (strawman) (__Not Yet Documented__)
 
 The loader can be used:
 
- * By `require()`ing it from any CommonJS module to load a sub-program
- * By calling it from the command line to run a program
+  * By `require()`ing it from any CommonJS module to load a sub-program
+  * By calling it from the command line to run a program
 
 The loader aims to be __complete and fully specification compliant__ where possible.
 
-To learn how to use this loader see [here](https://github.com/pinf/loader-js/docs/Learn.md). (__Not Yet Documented__)
+To learn how to use this loader see [here](https://github.com/pinf/loader-js/blob/master/docs/Learn.md). (__Not Yet Documented__)
 
 
 Requirements
 ============
 
-The loader should work on any CommonJS platform for which there is an adapter.
+The loader should work on any CommonJS platform for which there is an adapter (see _Usage_ below).
 
 UNIX file paths are expected and no testing has been done on Windows.
 
@@ -45,7 +46,7 @@ UNIX file paths are expected and no testing has been done on Windows.
 Example
 =======
 
-Taken from: [https://github.com/pinf/loader-js/demos/HelloWorld/](https://github.com/pinf/loader-js/demos/HelloWorld/)
+Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/)
 
     program.json ~ {
         "main": "github.com/pinf/loader-js/demos/HelloWorld/",
@@ -88,13 +89,27 @@ The following demos are available:
 
     ./pinf-loader ./demos/HelloWorld
 
-To learn how to write programs see [here](https://github.com/pinf/loader-js/docs/WritingPrograms.md). (__Not Yet Documented__)
+To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
 
 
 NodeJS
 ------
 
+Homepage: [http://nodejs.org/](http://nodejs.org/)
+
     node ./pinf-loader <.../[program.json]>    // `$PWD/program.json` implied if not provided
+
+Jetpack
+-------
+
+Homepage: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/)
+
+__Not Yet Implemented__
+
+Browser
+-------
+
+__Not Yet Implemented__
 
 
 Support & Feedback
@@ -106,16 +121,16 @@ Developer mailing list: [http://groups.google.com/group/pinf-dev/](http://groups
 Contribute
 ==========
 
-You can find a list of things to get involved with here: [https://github.com/pinf/loader-js/NOTES.md](https://github.com/pinf/loader-js/NOTES.md)
+You can find a list of things to get involved with here: [https://github.com/pinf/loader-js/blob/master/NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 Collaboration Platform: [https://github.com/pinf/loader-js/](https://github.com/pinf/loader-js/)
 
 Collaboration Process:
 
- # Discuss your change on the mailing list
- # Write a patch on your own
- # Send pull request on github & ping mailing list
- # Discuss pull request on github to refine
+  1. Discuss your change on the mailing list
+  2. Write a patch on your own
+  3. Send pull request on github & ping mailing list
+  4. Discuss pull request on github to refine
 
 You must explicitly license your patch by adding the following to the top of any file you modify
 in order for your patch to be accepted:
@@ -134,14 +149,14 @@ Credits
 
 This project would not be possible without the following:
 
- * [CommonJS](http://www.commonjs.org/) - For framing requirements into specifications
- * [BravoJS](http://code.google.com/p/bravojs/) - For a pure and clean CommonJS Modules/2 loader implementation
- * [NodeJS](http://nodejs.org/) - For providing a solid runtime used by default
- * [nodules](https://github.com/kriszyp/nodules) - For implementing and refining CommonJS Packages/Mappings/C
- * [pinf](https://github.com/cadorn/pinf) - For implementing and refining various designs and specifications
- * [Narwhal](http://narwhaljs.org/) - For providing an experimentation ground while prototyping conceps
- * [Github](http://github.com/) - For igniting a generation of collaborative development
- * [JavaScript](https://developer.mozilla.org/en/javascript) - For the awesome language it is
+  * [CommonJS](http://www.commonjs.org/) - For framing requirements into specifications
+  * [BravoJS](http://code.google.com/p/bravojs/) - For a pure and clean CommonJS Modules/2 loader implementation
+  * [NodeJS](http://nodejs.org/) - For providing a solid runtime used by default
+  * [nodules](https://github.com/kriszyp/nodules) - For implementing and refining CommonJS Packages/Mappings/C
+  * [pinf](https://github.com/cadorn/pinf) - For implementing and refining various designs and specifications
+  * [Narwhal](http://narwhaljs.org/) - For providing an experimentation ground while prototyping conceps
+  * [Github](http://github.com/) - For igniting a generation of collaborative development
+  * [JavaScript](https://developer.mozilla.org/en/javascript) - For the awesome language it is
 
 
 Documentation License

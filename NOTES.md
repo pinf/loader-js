@@ -6,7 +6,7 @@ Summary
 -------
 
 The loader is currently under active development. Production use is possible if
-releases are thoroughly tested.
+releases are thoroughly tested prior to use.
 
 __2011-02-07__:
 
