@@ -86,22 +86,22 @@ module.declare(packages, function(require, exports, module) {
     // Require a package's main module simply by using the label provided to the dependency array
     var package1 = require("package1");
     package1.main(options);
-    print(package1.getMessages());
+    module.print(package1.getMessages());
 
     var package2 = require("package2");
     package2.main(options);
-    print(package2.getMessages());
+    module.print(package2.getMessages());
     
     // The function we are calling lazy-loads extra code into the running program - hence the callback
     package2.loadSubModule(function(subModule) {
         subModule.main(options);
-        print(subModule.getMessages());
+        module.print(subModule.getMessages());
     });
 
     // The function we are calling lazy-loads extra code into the running program - hence the callback
     package2.loadSubPackage(function(package3) {
         package3.main(options);
-        print(package3.getMessages());
+        module.print(package3.getMessages());
     });
 
 });

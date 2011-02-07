@@ -6,6 +6,7 @@ Links
 
   * http://code.google.com/p/bravojs/
   * http://www.page.ca/~wes/CommonJS/modules-2.0-draft8/
+  * http://code.tolsma.net/blog/commonjs/
   * http://wiki.commonjs.org/wiki/Packages/1.1
   * http://wiki.commonjs.org/wiki/Packages/Mappings/C
 
@@ -58,3 +59,4 @@ Changes, Additions & Comments
       require("http://registry/hostname/path/package1/!/").resolve("main");
     Where '!/' is used to signify that we want to load a special object that can resolve IDs for the specified package ID.
   * Relative dependency IDs for module.declare() were resolved based on bravojs.mainModuleDir whereas they should be resolved based on the path of the module.
+  * The spec could use more wording as to whether functions accept relative and/or absolute module identifiers only
