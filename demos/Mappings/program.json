@@ -1,0 +1,28 @@
+{
+    "main": "github.com/pinf/loader-js/demos/Mappings/",
+    "packages": {
+        "registry/hostname/path/package1/": {
+            "locator": {
+                "location": "../../lib/bravojs/demos/mappings/package1-dir/"
+            }
+        },
+        "registry/hostname/path/package4/": {
+            "locator": {
+                "location": "../../lib/bravojs/demos/mappings/package4-dir/",
+                "descriptor": {
+                    "uid": "http://registry/hostname/path/package4/"
+                }
+            }
+        },
+        "github.com/pinf/loader-js/demos/Mappings/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "registry/hostname/path/catalog.json/package3/": {
+            "locator": {
+                "location": "../../lib/bravojs/demos/mappings/package3-dir/"
+            }
+        }
+    }
+}

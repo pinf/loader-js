@@ -1,0 +1,11 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/Mappings/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "package1": "registry/hostname/path/package1/",
+        "package4": "registry/hostname/path/package4/"
+    }
+}

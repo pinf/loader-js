@@ -21,6 +21,7 @@
     <script src="../../bravo.js"></script>
   </head>
   <body>
+    <p><b>NOTE:</b> This file must be loaded via HTTP:// to work properly.</p>
     <textarea readonly cols=80 rows=25 id="stdout"></textarea>
   </body>
   <script>
@@ -44,7 +45,7 @@ require.memoize(bravojs.mainModuleDir + "/package2-dir/!/package.json", [], func
     };
 });
 
-/// Register a bravojs core plugin to resolve package mappings to top-level package IDs
+// Register a bravojs core plugin to resolve package mappings to top-level package IDs
 var Plugin = function() {}
 Plugin.prototype.resolvePackageMapping = function(packageMapping)
 {
@@ -80,7 +81,7 @@ module.declare(packages, function(require, exports, module) {
     // Program is booted with all required depdnencies loaded. We can now initialize and execute.
 
     var options = {
-        mainModuleDir: bravojs.mainModuleDir
+        mainModuleDir: require.paths[0]
     };
 
     // Require a package's main module simply by using the label provided to the dependency array
