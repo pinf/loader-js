@@ -1,0 +1,10 @@
+{
+    "main": "github.com/pinf/loader-js/demos/CommonJSModules1/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/CommonJSModules1/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

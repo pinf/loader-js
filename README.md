@@ -89,6 +89,8 @@ The following demos are available:
 
     ./pinf-loader ./demos/HelloWorld
     ./pinf-loader ./demos/Mappings
+    ./pinf-loader ./demos/CommonJSModules1
+    ./pinf-loader ./demos/CommonJSModules2
 
 To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
 
