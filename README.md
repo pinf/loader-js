@@ -9,7 +9,7 @@ Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
-  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader <program.json>`
+  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader program.json`
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
 
@@ -88,6 +88,7 @@ To run via a specific supported CommonJS platform binary see below.
 The following demos are available:
 
     ./pinf-loader ./demos/HelloWorld
+    ./pinf-loader ./demos/Mappings
 
 To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
 
