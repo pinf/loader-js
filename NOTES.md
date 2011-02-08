@@ -123,7 +123,7 @@ Where:
   * `<packagePath>` is the UNIX path to a package root directory (no trailing slash, absolute path implied).
   * `<resourcePath>` is the UNIX path to a resource in the package from the package root (no beginning slash).
   * `<packageUID>` - is the `uid` property from `package.json` without `http://` prefix.
-    * If hostname (`uid` property is a URL) is a known registry server it is dropped as a prefix as well leaving the registry namespace as the ID.
+    * If hostname (`uid` property is a URL) is a known registry server it is dropped as a prefix as well leaving the registry namespace as the `<packageUID>`.
 
 
 Links
