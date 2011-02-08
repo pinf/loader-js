@@ -1,0 +1,10 @@
+{
+    "main": "github.com/pinf/loader-js/demos/LoadExtraCode/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/LoadExtraCode/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}
