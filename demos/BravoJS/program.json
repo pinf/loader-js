@@ -1,0 +1,17 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/BravoJS/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/BravoJS/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/felixge/node-paperboy/zipball/master": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        }
+    }
+}

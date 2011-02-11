@@ -1,0 +1,22 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/ReloadingJSGI/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/ReloadingJSGI/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/kriszyp/jsgi-node/zipball/v0.2.3": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/pinf/loader-js/demos/ReloadingJSGI/jsgi/": {
+            "locator": {
+                "location": "./jsgi/"
+            }
+        }
+    }
+}

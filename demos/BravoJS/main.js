@@ -14,18 +14,16 @@ module.declare(["paperboy/paperboy", "pinf/loader"], function(require, exports, 
     // Config options
     
     var port = 8003,
-        docroot = PATH.dirname(PATH.dirname(module.id));
+        docroot = PATH.dirname(PATH.dirname(PATH.dirname(PATH.dirname(module.id)))) + "/lib/bravojs";
 
     exports.main = function()
     {
-        module.print("Hello World from GithubArchiveDependency!\n");
-
         if (!PINF_LOADER.mustTerminate())
         {
             module.print("Starting node-paperboy at 'http://localhost:" + port + "/' for: " + docroot + "\n");
-    
-            module.print("Try browsing to:  'http://localhost:" + port + "/main.js'\n");
-    
+
+            module.print("To run BravoJS demos browse to: http://localhost:" + port + "/demos/\n");
+
             HTTP.createServer(function(request, response)
             {
                 var ip = request.connection.remoteAddress;

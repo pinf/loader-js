@@ -49,8 +49,8 @@ The loader should work on any CommonJS platform for which there is an adapter (s
 UNIX file paths are expected and no testing has been done on Windows.
 
 
-Example
-=======
+Example Program
+===============
 
 Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/)
 
@@ -98,6 +98,8 @@ The following demos are available:
     ./pinf-loader -v ./demos/CommonJSModules2
     ./pinf-loader -v ./demos/LoadExtraCode
     ./pinf-loader -v ./demos/GithubArchiveDependency
+    ./pinf-loader -v ./demos/ReloadingJSGI
+    ./pinf-loader -v ./demos/BravoJS
 
 The following tests are available:
 

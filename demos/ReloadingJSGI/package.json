@@ -1,0 +1,12 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/ReloadingJSGI/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "jsgi": {
+            "archive": "https://github.com/kriszyp/jsgi-node/zipball/v0.2.3"
+        }
+    }
+}

@@ -122,6 +122,14 @@ Verify alternate mapping locators:
         archive: "<archiveURL>"
     }
 
+Top-level ID lookup rules when deriving IDs from mapping properties:
+
+  * Check for matching `id`
+  * Check for matching `uid`
+  * Check for matching `uid` + `version`
+  * Check for matching `uid` + `revision`
+  * Check for matching `location`
+
 
 CommonJS Programs/A
 -------------------
