@@ -84,18 +84,20 @@ Usage
 
 If you have the `commonjs` command linked to a supported CommonJS platform binary:
 
-    ./pinf-loader <.../[program.json]>    // `$PWD/program.json` implied if not provided
+    ./pinf-loader [.../[program.json]]    // `$PWD/program.json` implied if not provided
+
+    ./pinf-loader -h
 
 To run via a specific supported CommonJS platform binary see below.
 
 The following demos are available:
 
-    ./pinf-loader ./demos/HelloWorld
-    ./pinf-loader ./demos/Mappings
-    ./pinf-loader ./demos/CommonJSModules1
-    ./pinf-loader ./demos/CommonJSModules2
-    ./pinf-loader ./demos/LoadExtraCode
-    ./pinf-loader ./demos/GithubArchiveDependency
+    ./pinf-loader -v ./demos/HelloWorld
+    ./pinf-loader -v ./demos/Mappings
+    ./pinf-loader -v ./demos/CommonJSModules1
+    ./pinf-loader -v ./demos/CommonJSModules2
+    ./pinf-loader -v ./demos/LoadExtraCode
+    ./pinf-loader -v ./demos/GithubArchiveDependency
 
 The following tests are available:
 
@@ -109,7 +111,7 @@ NodeJS
 
 Homepage: [http://nodejs.org/](http://nodejs.org/)
 
-    node ./pinf-loader <.../[program.json]>    // `$PWD/program.json` implied if not provided
+    node ./pinf-loader [.../[program.json]]
 
 Jetpack
 -------
