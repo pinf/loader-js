@@ -1,0 +1,17 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/GithubArchiveDependency/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/GithubArchiveDependency/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/felixge/node-paperboy/zipball/master": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        }
+    }
+}

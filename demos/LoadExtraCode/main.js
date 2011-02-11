@@ -8,6 +8,14 @@ module.declare([], function(require, exports, module)
         module.print("Hello World from LoadExtraCode!\n");
 
         module.print("Now loading extra code:\n");
+        
+        var count = 2;
+        
+        function checkFinished()
+        {
+            if (count==0)
+                module.print("OK");
+        }
 
         // Load an extra module (and it's dependencies) into the running program
         // The module ID is top-level and will match against the default path set by the loader
@@ -24,6 +32,8 @@ module.declare([], function(require, exports, module)
             
             module.print("  Loaded module said: " + loadedModule.getMessage() + "\n");
 
+            count--;
+            checkFinished();
         });
 
         // Load an extra package (and it's dependencies) into the running program
@@ -40,6 +50,8 @@ module.declare([], function(require, exports, module)
 
             loadedProgramMainModule.main();
 
+            count--;
+            checkFinished();
         });
     }
 });

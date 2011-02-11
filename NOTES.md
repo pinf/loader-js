@@ -42,6 +42,9 @@ TODO
 
   * Review, refine & move here: ./lib/bravojs/NOTES
 
+  * Enforce reserved names for mapping labels based on default modules provided by platform
+  * Enforce `os` from package descriptor
+
 
 Specification Comments
 ======================
@@ -79,6 +82,12 @@ Additions:
   * `uid` property must be a non-resolving or resolving URL.
   * `uid` may resolve to a catalog covering the different release branches of the package.
   * `uid` may resolve to a registry namespace.
+  
+  * `native` boolean to indicate that modules should be treated as-is (i.e. the package contains modules written
+    for the host platform where require() provided by intermediate loaders should be bypassed at all times
+    and modules should not be wrapper or altered in any way.)
+
+
 
   
 [CommonJS Packages/Mappings/C](http://wiki.commonjs.org/wiki/Packages/Mappings/C)
@@ -92,7 +101,7 @@ Additions:
 
 Verify alternate mapping locators:
 
-    # `location`-based locators must end in `/` to infer and refer to a directory
+    // `location`-based locators must end in `/` to infer and refer to a directory
     
     locator: "/<packagePath>/"
     locator: {
@@ -107,12 +116,27 @@ Verify alternate mapping locators:
         name: "<packageName>"
     }
 
+    // `archive`-based locators are URLs that must point to a ZIP archive
+
+    locator: {
+        archive: "<archiveURL>"
+    }
 
 
-Other
------
+CommonJS Programs/A
+-------------------
 
-Top-level ID formats:
+  * A program is booted by calling all packages listed by id in `boot`
+  * `boot` may also be a string package id if only one package is used to boot
+  * All packages listed in `boot` must have matching keys in `packages`
+  * Only packages listed in `packages` may be loaded into the program
+  * Only packages listed in `boot` (and associated dependencies) are loaded into the program at boot time
+  * Additional packages may be loaded into program if listed in `packages`
+
+
+
+Top-level ID formats
+--------------------
 
     /<packagePath>/!/<resourcePath>
     <packageUID>/!/<resouecePath>
@@ -124,6 +148,11 @@ Where:
   * `<resourcePath>` is the UNIX path to a resource in the package from the package root (no beginning slash).
   * `<packageUID>` - is the `uid` property from `package.json` without `http://` prefix.
     * If hostname (`uid` property is a URL) is a known registry server it is dropped as a prefix as well leaving the registry namespace as the `<packageUID>`.
+
+Other
+-----
+
+  * `require()` must look to platform `require()` to resolve top-level IDs that do not resolve within the loader 
 
 
 Links

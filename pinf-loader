@@ -1,5 +1,3 @@
 #! /usr/bin/env commonjs
 
-require("./lib/loader").boot({
-    debug: true
-});
+require("./lib/loader").boot();

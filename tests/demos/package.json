@@ -1,0 +1,7 @@
+{
+    "uid": "http://github.com/pinf/loader-js/tests/demos/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    }
+}

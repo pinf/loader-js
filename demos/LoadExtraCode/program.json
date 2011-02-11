@@ -1,5 +1,5 @@
 {
-    "main": "github.com/pinf/loader-js/demos/LoadExtraCode/",
+    "boot": "github.com/pinf/loader-js/demos/LoadExtraCode/",
     "packages": {
         "github.com/pinf/loader-js/demos/LoadExtraCode/": {
             "locator": {

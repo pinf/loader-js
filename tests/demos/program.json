@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/tests/demos/",
+    "packages": {
+        "github.com/pinf/loader-js/tests/demos/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

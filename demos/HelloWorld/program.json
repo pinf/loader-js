@@ -1,5 +1,5 @@
 {
-    "main": "github.com/pinf/loader-js/demos/HelloWorld/",
+    "boot": "github.com/pinf/loader-js/demos/HelloWorld/",
     "packages": {
         "github.com/pinf/loader-js/demos/HelloWorld/": {
             "locator": {

@@ -11,7 +11,12 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader program.json`
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application (__Not Yet Implemented__)
+  * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
+    * __Standalone__ - Just include one small file in your page (__Not Yet Implemented__)
+    * __[jQuery](http://jquery.org/)__ - Use it in any existing jQuery installation (__Not Yet Implemented__)
+    * __[RequireJS](http://requirejs.org/)__ - Use it in any existing requirejs installation (__Not Yet Implemented__)
+    * __[Dojo](http://dojotoolkit.org/)__ - Use it in any existing Dojo installation (__Not Yet Implemented__)
 
 The loader implements or is compatible with the following specs:
 
@@ -29,6 +34,7 @@ The loader can be used:
 
   * By `require()`ing it from any CommonJS module to load a sub-program
   * By calling it from the command line to run a program
+  * By setting it up as a package server to load programs into a browser
 
 The loader aims to be __complete and fully specification compliant__ where possible.
 
@@ -49,7 +55,7 @@ Example
 Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/)
 
     program.json ~ {
-        "main": "github.com/pinf/loader-js/demos/HelloWorld/",
+        "boot": "github.com/pinf/loader-js/demos/HelloWorld/",
         "packages": {
             "github.com/pinf/loader-js/demos/HelloWorld/": {
                 "locator": {
@@ -61,10 +67,7 @@ Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](ht
 
     package.json ~ {
         "uid": "http://github.com/pinf/loader-js/demos/HelloWorld/",
-        "main": "main.js",
-        "directories": {
-            "lib": ""
-        }
+        "main": "main.js"
     }
 
     main.js ~ module.declare([], function(require, exports, module)
@@ -92,6 +95,11 @@ The following demos are available:
     ./pinf-loader ./demos/CommonJSModules1
     ./pinf-loader ./demos/CommonJSModules2
     ./pinf-loader ./demos/LoadExtraCode
+    ./pinf-loader ./demos/GithubArchiveDependency
+
+The following tests are available:
+
+    ./pinf-loader ./tests/demos
 
 To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
 
@@ -161,6 +169,12 @@ This project would not be possible without the following:
   * [Narwhal](http://narwhaljs.org/) - For providing an experimentation ground while prototyping conceps
   * [Github](http://github.com/) - For igniting a generation of collaborative development
   * [JavaScript](https://developer.mozilla.org/en/javascript) - For the awesome language it is
+
+This project uses code from:
+
+  * [http://code.google.com/p/bravojs/](http://code.google.com/p/bravojs/)
+  * [http://narwhaljs.org/](http://narwhaljs.org/)
+  * [https://github.com/jfd/optparse-js](https://github.com/jfd/optparse-js)
 
 
 Documentation License

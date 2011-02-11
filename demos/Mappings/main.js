@@ -27,16 +27,28 @@ module.declare(["package1/main", "package4/main"], function(require, exports, mo
         package2.main(options);
         module.print(package2.getMessages() + "\n");
         
+        var count = 2;
+        
+        function checkFinished()
+        {
+            if (count==0)
+                module.print("OK");
+        }
+        
         // The function we are calling lazy-loads extra code into the running program - hence the callback
         package2.loadSubModule(function(subModule) {
             subModule.main(options);
             module.print(subModule.getMessages() + "\n");
+            count--;
+            checkFinished();
         });
     
         // The function we are calling lazy-loads extra code into the running program - hence the callback
         package2.loadSubPackage(function(package3) {
             package3.main(options);
             module.print(package3.getMessages() + "\n");
+            count--;
+            checkFinished();
         });
     }
 });

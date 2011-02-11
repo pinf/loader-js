@@ -1,5 +1,5 @@
 {
-    "main": "github.com/pinf/loader-js/demos/CommonJSModules2/",
+    "boot": "github.com/pinf/loader-js/demos/CommonJSModules2/",
     "packages": {
         "github.com/pinf/loader-js/demos/CommonJSModules2/": {
             "locator": {
