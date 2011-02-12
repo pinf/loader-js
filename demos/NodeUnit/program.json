@@ -1,0 +1,17 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/NodeUnit/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/NodeUnit/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/caolan/nodeunit/zipball/0.4.0": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        }
+    }
+}

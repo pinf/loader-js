@@ -100,6 +100,9 @@ The following demos are available:
     ./pinf-loader -v ./demos/GithubArchiveDependency
     ./pinf-loader -v ./demos/ReloadingJSGI
     ./pinf-loader -v ./demos/BravoJS
+    ./pinf-loader -v ./demos/NodeUnit
+    ./pinf-loader -v https://gist.github.com/823078
+    ./pinf-loader -v https://gist.github.com/823315
 
 The following tests are available:
 

@@ -26,14 +26,20 @@ module.declare([], function(require, exports, module)
                         "--terminate"
                     ]
                 }, function(stdout, stderr) {
+
                     if (stderr)
                     {
-                        throw new Error("Demo '"+basePath + "/" + filename+"' failed: " + stderr);
+                        throw new Error("Demo '" + basePath + "/" + filename + "' failed: " + stderr);
                     }
-                    if (stdout.substring(stdout.length-2, stdout.length) != "OK")
+                    if (stdout)
                     {
-                        throw new Error("Demo '"+basePath + "/" + filename+"' failed: " + stdout);
+                        var parts = stdout.split("\n"),
+                            ending = parts.slice(parts.length-2, parts.length);
+                        if (!/(^OK|OK$|OK:)/.test(ending))
+                            throw new Error("Demo '"+basePath + "/" + filename+"' failed: " + stdout);
                     }
+                    else
+                        throw new Error("Demo '"+basePath + "/" + filename+"' failed. No stdout.");
                     count--;
                     if (count==0)
                     {
