@@ -1,0 +1,12 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/PINFCatalog/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/PINFCatalog/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "registry.pinf.org/cadorn.org/github/util/packages/catalog.json/lib-js/master": {
+        }
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/PINFCatalog/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "util": {
+            "catalog": "http://registry.pinf.org/cadorn.org/github/util/packages/catalog.json",
+            "name": "lib-js",
+            "revision": "master"
+        }
+    }
+}
