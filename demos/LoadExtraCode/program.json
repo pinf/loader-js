@@ -5,6 +5,8 @@
             "locator": {
                 "location": "./"
             }
+        },
+        "github.com/pinf/loader-js/demos/HelloWorld/": {
         }
     }
 }
