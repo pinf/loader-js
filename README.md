@@ -101,6 +101,7 @@ The following demos are available:
     ./pinf-loader -v ./demos/ReloadingJSGI
     ./pinf-loader -v ./demos/BravoJS
     ./pinf-loader -v ./demos/NodeUnit
+    ./pinf-loader -v ./demos/PINFCatalog
     ./pinf-loader -v https://gist.github.com/823078
     ./pinf-loader -v https://gist.github.com/823315
 
