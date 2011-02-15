@@ -8,13 +8,6 @@ Summary
 The loader is currently under active development. Production use is possible if
 releases are thoroughly tested prior to use.
 
-__2011-02-07__:
-
-  * Work in progress:
-    * BravoJS refinements
-    * pinf-loader <-> BravoJS interface
-    * Specification authoring
-    * Documentation
 
 Contributors
 ------------
