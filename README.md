@@ -104,6 +104,7 @@ The following demos are available:
     ./pinf-loader -v ./demos/PINFCatalog
     ./pinf-loader -v https://gist.github.com/823078
     ./pinf-loader -v https://gist.github.com/823315
+    cd ./demos/JetpackExtension
 
 The following tests are available:
 

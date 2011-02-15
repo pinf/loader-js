@@ -33,9 +33,6 @@ TODO
   * Implement: [Jetpack](https://jetpack.mozillalabs.com/) adapter
   * Implement: browser adapter
 
-  * Import: Command-line parser from narwhal
-  * Implement: Command-line UI
-
   * Author: Initial ./docs/
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
@@ -44,6 +41,17 @@ TODO
 
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
+
+  * Refactor native module code to use default ProviderPackage
+
+Jetpack
+-------
+
+  * warning: undeclared require(widget) called from ...
+    * When running tests this seems to add an extra test and fail the test suite
+  * Loading programs from archives
+  * Downloading program archives
+  * CLI variables and arguments
 
 
 Specification Comments
@@ -161,6 +169,16 @@ Other
 -----
 
   * `require()` must look to platform `require()` to resolve top-level IDs that do not resolve within the loader 
+
+
+Jetpack Wishlist
+================
+
+  * Get current working directory path
+  * Get environment variables
+  * Get command-line arguments
+  * Keep positioning and size of last test/run profile and apply to new profiles
+
 
 
 Links
