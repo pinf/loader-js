@@ -14,6 +14,17 @@ module.declare([], function(require, exports, module)
             var count = 0;
 
             files.forEach(function(filename) {
+                
+                var exists = true;
+                try {
+                    FS.statSync(basePath + "/" + filename + "/program.json");
+                } catch(e) { exists = false; }
+                
+                if (!exists)
+                {
+                    module.print("Skipping demo: " + basePath + "/" + filename + " (you need to run manually for now)\n");
+                    return;
+                }
 
                 module.print("Running demo: " + basePath + "/" + filename + "\n");
 
