@@ -1,0 +1,13 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/WidgetTest/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/WidgetTest/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "mozilla.org/labs/jetpack/": {
+            "provider": "mozilla.org/labs/jetpack"
+        }
+    }
+}
