@@ -10,7 +10,7 @@ This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(c
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader program.json`
-  * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application (__Not Yet Implemented__)
+  * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application
   * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
     * __Standalone__ - Just include one small file in your page (__Not Yet Implemented__)
@@ -125,7 +125,7 @@ Jetpack
 
 Homepage: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/)
 
-__Not Yet Implemented__
+    cd ./demos/JetpackExtension
 
 Browser
 -------
