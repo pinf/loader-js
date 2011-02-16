@@ -26,6 +26,7 @@ To use the pinf loader in your own Jetpack extension:
              program: packaging.getURLForData("/programs/<ProgramName>/program.json")
          });
 
+__NOTE:__ You require this SDK for some minor patches (only temporary): https://github.com/cadorn/addon-sdk
 
 Dev Notes
 ---------
@@ -34,13 +35,13 @@ Jetpack SDK: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/
 
 Version: 1.0b2
 
+__NOTE:__ You require this SDK for some minor patches (only temporary): https://github.com/cadorn/addon-sdk
+
 Tutorial: [https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started](https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started)
 
 More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 ### Dev Setup (needed if testing, modifying, upgrading or re-packaging extension):
-
-__NOTE:__ If building loader you may require this SDK instead: https://github.com/cadorn/addon-sdk
 
     mkdir sdk
     cd sdk
