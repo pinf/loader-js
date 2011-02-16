@@ -2,11 +2,13 @@
 Status
 ======
 
+__Stability:__ Alpha
+
 Summary
 -------
 
 The loader is currently under active development. Production use is possible if
-releases are thoroughly tested prior to use.
+releases are thoroughly tested prior to use. APIs may slightly change in future.
 
 
 Contributors
@@ -23,7 +25,7 @@ Looking for:
 TODO
 ====
 
-  * Implement: [Jetpack](https://jetpack.mozillalabs.com/) adapter
+  * Complete: [Jetpack](https://jetpack.mozillalabs.com/) adapter
   * Implement: browser adapter
 
   * Author: Initial ./docs/

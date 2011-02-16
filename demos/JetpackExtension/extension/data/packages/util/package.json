@@ -1,0 +1,11 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/JetpackExtension/extension/data/packages/util/",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "jetpack": {
+            "id": "mozilla.org/labs/jetpack/"
+        }
+    }
+}

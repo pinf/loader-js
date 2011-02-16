@@ -10,15 +10,31 @@ Demo
   1. Drag `extension.xpi` into a Firefox 4 browser.
   2. Click on _mozilla icon_ at bottom right of status bar.
 
-
-Notes
+Usage
 -----
 
-Jetpack SDK: https://jetpack.mozillalabs.com/
+To use the pinf loader in your own Jetpack extension:
+
+  1. Download [./lib/pinf-loader.js](https://github.com/pinf/loader-js/blob/master/demos/JetpackExtension/extension/lib/pinf-loader.js) and
+     place at `./lib/pinf-loader.js` in your extension.
+  2. Place _programs_ and _packages_ into respective folders into the `./data` folder in your extension (see: [./data](https://github.com/pinf/loader-js/tree/master/demos/JetpackExtension/extension/data)).
+  3. Boot the programs with:
+
+         require("pinf-loader").boot({
+             program: packaging.getURLForData("/programs/<ProgramName>/program.json")
+         });
+
+
+Dev Notes
+---------
+
+Jetpack SDK: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/)
 
 Version: 1.0b2
 
-Tutorial: https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started
+Tutorial: [https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started](https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started)
+
+More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 ### Dev Setup (needed if testing, modifying, upgrading or re-packaging extension):
 

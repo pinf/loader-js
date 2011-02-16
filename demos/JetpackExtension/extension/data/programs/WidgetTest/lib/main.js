@@ -1,6 +1,7 @@
 
 const WIDGETS = require("jetpack/widget");
 const TABS = require("jetpack/tabs");
+const PREF = require("util/pref");
 
 exports.main = function(env)
 {
@@ -19,4 +20,7 @@ exports.main = function(env)
     {
         return require("jetpack/" + id);
     }
+
+    // Print to console as example
+    module.print("browser.startup.homepage: " + PREF.get("browser.startup.homepage") + "\n");
 }
