@@ -6,12 +6,16 @@ Version: v0.1dev
 
 Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
+![Overview Image](https://github.com/pinf/loader-js/raw/master/docs/images/Overview_v1.png)
+
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader program.json`
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application
   * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (__Not Yet Implemented__)
+  * __[CouchApp](http://couchapp.org/page/index)__ - Use it to serve applications right from your CouchDB database (__Not Yet Implemented__)
+  * __[Titanium](http://www.appcelerator.com/)__ - Use it in any existing Titanium application (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
     * __Standalone__ - Just include one small file in your page (__Not Yet Implemented__)
     * __[jQuery](http://jquery.org/)__ - Use it in any existing jQuery installation (__Not Yet Implemented__)
