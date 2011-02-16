@@ -25,7 +25,9 @@ Looking for:
 TODO
 ====
 
-  * Complete: [Jetpack](https://jetpack.mozillalabs.com/) adapter
+General
+-------
+
   * Implement: browser adapter
 
   * Author: Initial ./docs/
@@ -37,16 +39,23 @@ TODO
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
 
-  * Refactor native module code to use default ProviderPackage
+  * Refactor native module code to use default ProviderPackage?
+
+  * Build and publish commands to provide versioned releases
 
 Jetpack
 -------
 
   * warning: undeclared require(widget) called from ...
     * When running tests this seems to add an extra test and fail the test suite
-  * Loading programs from archives
-  * Downloading program archives
   * CLI variables and arguments
+  * Package parsing to find widgets etc... for security policy stuff
+
+  * ChromeURL to JSGI
+  * Loading programs from archives
+  * Downloading program archives based on mappings
+  * Resource path resolving for packages
+  * Hook package testing into `cfx test`
 
 
 Specification Comments
