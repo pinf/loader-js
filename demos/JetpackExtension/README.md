@@ -7,7 +7,7 @@ jetpack environment and use the jetpack API from within program modules.
 Demo
 ----
 
-  1. Drag `extension.xpi` into a Firefox 4 browser.
+  1. Drag or download [./extension/extension.xpi](https://github.com/pinf/loader-js/raw/master/demos/JetpackExtension/extension/extension.xpi) into a __Firefox 4__ browser.
   2. Click on _mozilla icon_ at bottom right of status bar.
 
 Usage
