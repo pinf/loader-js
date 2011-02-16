@@ -173,7 +173,7 @@ This project would not be possible without the following:
   * [CommonJS](http://www.commonjs.org/) - For framing requirements into specifications
   * [BravoJS](http://code.google.com/p/bravojs/) - For a pure and clean CommonJS Modules/2 loader implementation
   * [NodeJS](http://nodejs.org/) - For providing a solid runtime used by default
-  * [Firefox 4](http://getfirefox.com/) - For providing an amazing browser platform
+  * [Firefox](http://getfirefox.com/) - For providing an amazing browser platform
   * [Jetpack](https://jetpack.mozillalabs.com/) - For providing a decent extension environment, API and tooling
   * [Firebug](http://getfirebug.com/) - For the amazing developer tool it is
   * [nodules](https://github.com/kriszyp/nodules) - For implementing and refining CommonJS Packages/Mappings/C
