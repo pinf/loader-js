@@ -15,10 +15,10 @@ Usage
 
 To use the pinf loader in your own Jetpack extension:
 
-  1. Download [./lib/pinf-loader.js](https://github.com/pinf/loader-js/blob/master/demos/JetpackExtension/extension/lib/pinf-loader.js) and
-     place at `./lib/pinf-loader.js` in your extension.
-  2. Place _programs_ and _packages_ into respective folders into the `./data` folder in your extension (see: [./data](https://github.com/pinf/loader-js/tree/master/demos/JetpackExtension/extension/data)).
-  3. Boot the programs with:
+  1. Download [./extension/lib/pinf-loader.js](https://github.com/pinf/loader-js/blob/master/demos/JetpackExtension/extension/lib/pinf-loader.js) and
+     place it at `./lib/pinf-loader.js` in your extension.
+  2. Place _programs_ and _packages_ into respective folders into the `./data` folder in your extension (see [./extension/data](https://github.com/pinf/loader-js/tree/master/demos/JetpackExtension/extension/data) for example).
+  3. From any jetpack extension module boot a program with:
 
          require("pinf-loader").boot({
              program: packaging.getURLForData("/programs/<ProgramName>/program.json")
