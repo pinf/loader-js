@@ -39,6 +39,7 @@ General
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
 
+  * Refactor `pinf/` modules to be served by ProviderPackage
   * Refactor native module code to use default ProviderPackage?
 
   * Build and publish commands to provide versioned releases
@@ -47,12 +48,10 @@ Jetpack
 -------
 
   * warning: undeclared require(widget) called from ...
-    * When running tests this seems to add an extra test and fail the test suite
   * CLI variables and arguments
   * Package parsing to find widgets etc... for security policy stuff
 
   * ChromeURL to JSGI
-  * Loading programs from archives
   * Downloading program archives based on mappings
   * Resource path resolving for packages
   * Hook package testing into `cfx test`
@@ -76,6 +75,8 @@ Additions:
     Proposed: module.print
 
   * Section 5.2: Paths in `require.paths` may separate a packageID from a resourceID with `!/`. 
+
+  * New `module.pkgId` property
 
 Changes:
 

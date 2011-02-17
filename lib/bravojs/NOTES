@@ -41,6 +41,7 @@ TODO
   * Loader plugins? See: http://wiki.commonjs.org/wiki/Modules/LoaderPlugin
   * Sandboxes to allow for arbitrary sub-program scopes within programs
   * nodejs support to provide module environment on server (like nodules: https://github.com/kriszyp/nodules)
+  * Don't expose delimiters in `module.id`
 
 Changes, Additions & Comments
 -----------------------------
