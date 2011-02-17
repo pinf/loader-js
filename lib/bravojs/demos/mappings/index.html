@@ -27,9 +27,9 @@
   <script>
 
 // Memoize a package descriptor to avoid lazy fetching as an example
-// This descriptor is taken as-is from ./package2-dir/!/package.json from where it would
+// This descriptor is taken as-is from ./package2-dir/@/package.json from where it would
 // normally be loaded via SYNC AJAX.
-require.memoize(bravojs.mainModuleDir + "/package2-dir/!/package.json", [], function() {
+require.memoize(bravojs.mainModuleDir + "/package2-dir/@/package.json", [], function() {
     return {
         "name": "package2",
         "mappings": {

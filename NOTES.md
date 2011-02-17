@@ -74,7 +74,7 @@ Additions:
     should not be over-written.
     Proposed: module.print
 
-  * Section 5.2: Paths in `require.paths` may separate a packageID from a resourceID with `!/`. 
+  * Section 5.2: Paths in `require.paths` may separate a packageID from a resourceID with `@/`. 
 
   * New `module.pkgId` property
 
@@ -159,9 +159,9 @@ CommonJS Programs/A
 Top-level ID formats
 --------------------
 
-    /<packagePath>/!/<resourcePath>
-    <packageUID>/!/<resouecePath>
-    <catalogURL>/<packageName>/!/<resouecePath>
+    /<packagePath>/@/<resourcePath>
+    <packageUID>/@/<resouecePath>
+    <catalogURL>/<packageName>/@/<resouecePath>
 
 Where:
 

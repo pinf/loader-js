@@ -214,7 +214,7 @@ console.log("NET.download("+url+"): " + path);
 
 function normalizePath(filename)
 {
-    var m = filename.match(/^\/__PWD__\/resource:\/(.*?)(@\/(.*))?$/);
+    var m = filename.match(/^\/__PWD__\/resource:\/(.*?)(!\/(.*))?$/);
     if(m)
     {
         if (m[2])
@@ -485,8 +485,8 @@ FILE.dirname = function(path)
   if (!s)
     return ".";
 
-  /* If path ends in "/!/xxx.js" then s will end in /! which needs to be fixed */
-  if (s.charAt(s.length-1)=="!")
+  /* If path ends in "/@/xxx.js" then s will end in /@ which needs to be fixed */
+  if (s.charAt(s.length-1)=="@")
     s += "/";
 
   return s;
@@ -941,8 +941,8 @@ bravojs.dirname = function bravojs_dirname(path)
   if (!s)
     return ".";
 
-  /* If path ends in "/!/xxx.js" then s will end in /! which needs to be fixed */
-  if (s.charAt(s.length-1)=="!")
+  /* If path ends in "/@/xxx.js" then s will end in /@ which needs to be fixed */
+  if (s.charAt(s.length-1)=="@")
     s += "/";
 
   return s;
@@ -964,8 +964,8 @@ bravojs.makeModuleId = function makeModuleId(relativeModuleDir, moduleIdentifier
   }
   else
   {
-    /* <packageID>!/<moduleID> */
-    var parts = moduleIdentifier.split("!/");
+    /* <packageID>@/<moduleID> */
+    var parts = moduleIdentifier.split("@/");
     if (parts.length==1)
     {
       if (moduleIdentifier.charAt(0) === '/')
@@ -993,7 +993,7 @@ bravojs.makeModuleId = function makeModuleId(relativeModuleDir, moduleIdentifier
          */
         if (bravojs.hasContextForId(parts[0]))
         {
-            id = bravojs.contextForId(parts[0]).id + "!/" + parts[1];
+            id = bravojs.contextForId(parts[0]).id + "@/" + parts[1];
         }
         else
         {
@@ -1055,7 +1055,7 @@ bravojs.makeModuleIdFromMapping = function makeModuleIdFromMapping(relativeModul
     throw new Error("Invalid mapping: " + ((mapping.toSource)?mapping.toSource():mapping));
 
   /* Separate the package ID from the module ID so we know where to look for the package root */
-  id += "!/";
+  id += "@/";
 
   if (typeof moduleIdentifier == "undefined")
   {
@@ -1190,7 +1190,7 @@ bravojs.normalizePackageDescriptor = function bravojs_normalizePackageDescriptor
  */
 bravojs.contextForId = function bravojs_contextForId(id)
 {
-  var parts = id.split("!/"),
+  var parts = id.split("@/"),
       id = parts[0];
 
   var ret = bravojs.callPlugins("contextForId", [id]);
@@ -1212,7 +1212,7 @@ bravojs.contextForId = function bravojs_contextForId(id)
 
 bravojs.hasContextForId = function bravojs_hasContext(id)
 {
-  var parts = id.split("!/");
+  var parts = id.split("@/");
   if (parts.length == 2)
     id = parts[0];
   return (typeof bravojs.contexts[id] != "undefined");
@@ -1241,7 +1241,7 @@ bravojs.Context = function bravojs_Context(id)
   if (this.id=="_")
     return;
 
-  id = this.id + "!/package.json";
+  id = this.id + "@/package.json";
 
   if (require.isMemoized(id))
   {
@@ -1296,10 +1296,10 @@ bravojs.Context.prototype.resolveRelativeId = function bravojs_Context_resolveRe
     if (typeof this.descriptor == "undefined" ||
         typeof this.descriptor.main == "undefined")
       throw new Error("'main' property not set in package descriptor for: " + this.id);
-    return this.id + "!/" + this.descriptor.main;
+    return this.id + "@/" + this.descriptor.main;
   }
   else
-    return this.id + "!/" + this.libDir + "/" + moduleIdentifier;
+    return this.id + "@/" + this.libDir + "/" + moduleIdentifier;
 }
 
 bravojs.Context.prototype.resolveAbsoluteId = function bravojs_Context_resolveAbsoluteId(relativeModuleDir, moduleIdentifier) {
@@ -1478,7 +1478,7 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
       throw new Error("Cannot canonically name the resource bearing this main module");
 
     /* Remove package/module ID delimiter */
-    id = id.replace(/\/*!?\/+/g, "\/");
+    id = id.replace(/\/*@?\/+/g, "\/");
 
     /* Some IDs may refer to non-js files */
     if (bravojs.basename(id).indexOf(".") == -1)
@@ -3272,7 +3272,7 @@ exports.boot = function(options)
 
         if (/\.zip$/.test(path[path.length-1]))
         {
-            path[path.length-1] += "@/";
+            path[path.length-1] += "!/";
         }
         if (!path[path.length-1] || path[path.length-1] != "program.json")
         {
@@ -4008,7 +4008,7 @@ Package.prototype.getIsNative = function()
 }
 Package.prototype.requireModule = function(id)
 {
-    id = id.split("!/").pop();
+    id = id.split("@/").pop();
     if (typeof API.ENV.packageProviders == "undefined")
         throw new Error("API.ENV.packageProviders not set. Needed by provider package '"+this.uid+"' for module '"+id+"'.");
     if (typeof API.ENV.packageProviders[this.uid] == "undefined")
@@ -4083,11 +4083,11 @@ Package.prototype.getMainId = function(locator)
 {
     if (typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
     {
-        return this.path + "/!/" + locator.descriptor.main;
+        return this.path + "/@/" + locator.descriptor.main;
     }
     if (typeof this.normalizedDescriptor.json.main == "undefined")
         throw new Error("Package at path '" + this.path + "' does not have the 'main' property set in its package descriptor.");
-    return this.path + "/!/" + this.normalizedDescriptor.json.main;
+    return this.path + "/@/" + this.normalizedDescriptor.json.main;
 }
 
 Package.prototype.getIsNative = function(locator)
@@ -4950,11 +4950,11 @@ Sandbox.prototype.init = function()
             moduleIdentifier = loader.require.id(moduleIdentifier);
 
             // Convert UID-based ID to path-based ID
-            var parts = moduleIdentifier.split("!/");
+            var parts = moduleIdentifier.split("@/");
             if (parts.length==2)
             {
                 idBasedModuleIdentifier = moduleIdentifier;
-                moduleIdentifier = self.packageForId(moduleIdentifier).path + "/!/" + parts[1];
+                moduleIdentifier = self.packageForId(moduleIdentifier).path + "/@/" + parts[1];
             }
         }
 
@@ -4963,7 +4963,7 @@ Sandbox.prototype.init = function()
         {
             if (self.packageForId(moduleIdentifier).getIsNative() === true)
             {
-                loader.requireMemo[moduleIdentifier] = require(moduleIdentifier.replace(/\/*!?\/+/g, "\/"));
+                loader.requireMemo[moduleIdentifier] = require(moduleIdentifier.replace(/\/*@?\/+/g, "\/"));
                 callback();
                 return;
             }
@@ -4972,7 +4972,7 @@ Sandbox.prototype.init = function()
         {
             // If this throws the moduleIdentifier was likely a non-packaged module ID
             // We only throw if we should have found a package
-            if (moduleIdentifier.indexOf("!/") != -1)
+            if (moduleIdentifier.indexOf("@/") != -1)
                 throw e;
         }
 
@@ -5039,7 +5039,7 @@ Sandbox.prototype.init = function()
                 // Check if the dependency is platform native
                 // Determining this is a bit of a hack for now
                 // TODO: Use a default ProvidePackage?
-                if (depId.indexOf("!/")==-1 && depId.substring(0, loader.mainModuleDir.length) == loader.mainModuleDir)
+                if (depId.indexOf("@/")==-1 && depId.substring(0, loader.mainModuleDir.length) == loader.mainModuleDir)
                 {
 //                    depId = depId.substring(loader.mainModuleDir.length);
                     // depId is a native module
@@ -5089,7 +5089,7 @@ Sandbox.prototype.init = function()
         }
 
         // If id contains a package delimiter we are not interested
-        if (id.indexOf("!/") !== -1)
+        if (id.indexOf("@/") !== -1)
             return;
 
         var path = id + ".js";
@@ -5130,7 +5130,7 @@ Sandbox.prototype.init = function()
         {
             // If this throws the ID was likely a non-packaged module ID
             // We only throw if we should have found a package
-            if (id.indexOf("!/") !== -1)
+            if (id.indexOf("@/") !== -1)
                 throw new Error("Unable to find package for ID: " + id);
         }
     }
@@ -5213,13 +5213,13 @@ Sandbox.prototype.packageForId = function(id, silent)
 {
     if (!id)
         throw new Error("Empty ID!");
-    var m = id.match(/^(\/?)(.*?)\/([^!\/]*)(!\/(.*))?$/),
+    var m = id.match(/^(\/?)(.*?)\/([^@\/]*)(@\/(.*))?$/),
         lookupIds;
     // m[1] - '/' prefix
     // m[2] - path
     // m[3] - version/revision
     // m[4] -
-    // m[5] - after !/
+    // m[5] - after @/
 
     if (!m[1] && m[2] && !m[3])         // <packageUID>/ no version/revision
         lookupIds = [ m[2] + "/", m[2] ];

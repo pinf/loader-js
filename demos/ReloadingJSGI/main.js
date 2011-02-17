@@ -15,7 +15,7 @@ module.declare(["jsgi/jsgi-node", "jsgi/promise", "pinf/loader"], function(requi
         {
             module.print("Starting jsgi app at: http://localhost:" + port + "/\n");
     
-            module.print("Try browsing to it, editing file '" + require.id("./jsgi/app.js").replace(/\/*!?\/+/g, "\/") + "' and reloading.'\n");
+            module.print("Try browsing to it, editing file '" + require.id("./jsgi/app.js").replace(/\/*@?\/+/g, "\/") + "' and reloading.'\n");
 
             JSGI.start(function(request)
             {
