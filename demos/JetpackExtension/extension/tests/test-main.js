@@ -18,7 +18,7 @@ exports.test_loader_booting_HelloWorld = function(test)
         }
     });
 
-    var expected = "Hello World!\n";
+    var expected = "Hello World!\nOK";
     
     test.assert(stdout == expected);
 };
