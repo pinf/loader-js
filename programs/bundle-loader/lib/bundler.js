@@ -3,9 +3,10 @@
 
 var FS = require("fs");
 
-var Bundler = exports.Bundler = function Bundler(files)
+var Bundler = exports.Bundler = function Bundler(files, options)
 {
     this.files = files;
+    this.options = options;
 }
 
 Bundler.prototype.writeTo = function(bundlePath)
@@ -27,15 +28,12 @@ Bundler.prototype.writeTo = function(bundlePath)
     code.push("    return __loader__.modules[id];");
     code.push("}");
     code.push("__loader__ = new __Loader__();");
-    
+    code.push("__loader__.__require__.platform = '" + this.options.platform + "';");
+
     for (var path in this.files)
     {
         var file = this.files[path];
 
-//console.log(path);
-//console.log(file.requires);
-
-//        code.push("__modules__.memoize('"+path.substring(1, path.length-3)+"', ["+((file.dependencies.length>0)?"'"+file.dependencies.join("','")+"'":"")+"], function(require, module, exports) {");
         var id = path.substring(1, path.length-3);
         code.push("__loader__.memoize('"+id+"', function(__require__, module, exports) {");
 

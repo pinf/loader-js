@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/ChromeURL-JSGI/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/ChromeURL-JSGI/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

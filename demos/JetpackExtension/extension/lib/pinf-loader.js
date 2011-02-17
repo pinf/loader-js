@@ -11,6 +11,7 @@ __Loader__.prototype.__require__ = function(id) {
     return __loader__.modules[id];
 }
 __loader__ = new __Loader__();
+__loader__.__require__.platform = 'jetpack';
 __loader__.memoize('adapter/jetpack', function(__require__, module, exports) {
 // ######################################################################
 // # /adapter/jetpack.js
@@ -21,11 +22,18 @@ __loader__.memoize('adapter/jetpack', function(__require__, module, exports) {
 // @see https://jetpack.mozillalabs.com/
 
 var FILE = require("file"),
-    URL = require("url");
+    URL = require("url"),
+    BYTE_STREAMS = require("byte-streams");
 //  JSON = provided by jetpack as a global
+
+var {Cc, Ci} = require("chrome");
+
+var API;
 
 exports.init = function(api)
 {
+    API = api;
+
     api.ENV.platform = "jetpack";
     api.ENV.platformRequire = require;
     
@@ -65,12 +73,18 @@ exports.init = function(api)
 
     api.FILE.exists = function(filename)
     {
-        return FILE.exists(normalizePath(filename));
+        filename = normalizePath(filename);
+        if (typeof filename == "string")
+            return FILE.exists(filename);
+        return filename[0].api.exists(filename[1])
     }
 
     api.FILE.isFile = function(filename)
     {
-        return FILE.isFile(normalizePath(filename));
+        filename = normalizePath(filename);
+        if (typeof filename == "string")
+            return FILE.isFile(filename);
+        return filename[0].api.isFile(filename[1])
     }
 
     api.FILE.mkdirs = function(filename)
@@ -83,7 +97,10 @@ console.log("FILE.mkdirs: " + filename);
     {
         if (typeof encoding != "undefined")
             throw new Error("NYI - encoding when reading file");
-        return FILE.read(normalizePath(filename));
+        filename = normalizePath(filename);
+        if (typeof filename == "string")
+            return FILE.read(filename);
+        return filename[0].api.read(filename[1])
     }
 
     api.FILE.write = function(filename, data, encoding)
@@ -100,14 +117,108 @@ console.log("NET.download("+url+"): " + path);
 
     api.JSON.parse = JSON.parse;
     api.JSON.stringify = JSON.stringify;
+
+
+    api.ARCHIVE.open = function(archive)
+    {
+        if (!/\.zip|\.jar/.test(archive.path))
+            throw new Error("Only 'zip' and 'jar' archives are supported at this time! Archive path: " + archive.path);
+
+        var file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
+        file.initWithPath(URL.toFilename(archive.path));
+
+        var zipReader = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(Ci.nsIZipReader);
+        zipReader.open(file);
+        zipReader.test(null);
+
+        archive.api = {
+            "isDirectory": function(path)
+            {
+                path = archive.prefixPath + path;
+                if(archive.entries[path] && archive.entries[path].dir) return true;
+                return false;
+            },
+            "isFile": function(path)
+            {
+                path = archive.prefixPath + path;
+                if(archive.entries[path] && !archive.entries[path].dir) return true;
+                return false;
+            },
+            "list": function(path)
+            {
+                path = archive.prefixPath + path;
+                var parts = path.split("/");
+                var entryNames = [];
+                for (var entry in archive.entries)
+                {
+                    var item = archive.entries[entry];
+                    if(path) {
+                        if(item[1].parts.length==parts.length+1 && 
+                           item[1].parts.slice(0,parts.length).join("/")==path) {
+                            entryNames.push(item[1].parts[item[1].parts.length-1]);
+                        }
+                    } else {
+                        if(item[1].parts.length==1) {
+                            entryNames.push(item[1].parts[0]);
+                        }
+                    }
+                }
+                return entryNames;       
+            },
+            "exists": function(path)
+            {
+                path = archive.prefixPath + path;
+                return (!!archive.entries[path]);
+            },
+            "read": function(path)
+            {
+                path = archive.prefixPath + path;
+                var reader = new BYTE_STREAMS.ByteReader(zipReader.getInputStream(path)),
+                    buffer = "",
+                    chunk;
+                while ( (chunk = reader.read(1024)) !== "" ) {
+                    buffer += chunk;
+                }
+                reader.close();
+                return buffer;
+            },
+            "mtime": function(path)
+            {
+                path = archive.prefixPath + path;
+                new Date(zipReader.getEntry(path).lastModifiedTime);
+            }
+        }
+
+        var entries = zipReader.findEntries(null),
+            topDirs = {};
+        while (entries.hasMore()) {
+            var entry = entries.getNext();
+            var dir = (entry.substr(entry.length-1,1)=="/");
+            if(dir) {
+                topDirs[entry.split("/")[0]] = true;
+            }
+            archive.entries[entry] = {
+                "parts": entry.split("/"),
+                "dir": dir
+            }
+        }
+        // delete some junk directories
+        delete topDirs["__MACOSX"];
+
+        archive.prefixPath = "";
+        if (Object.keys(topDirs).length == 1)
+            archive.prefixPath = Object.keys(topDirs)[0] + "/";
+    }
 }
 
 
 function normalizePath(filename)
 {
-    var m = filename.match(/^\/__PWD__\/resource:\/(.*)$/);
+    var m = filename.match(/^\/__PWD__\/resource:\/(.*?)(@\/(.*))?$/);
     if(m)
     {
+        if (m[2])
+            return [API.ARCHIVE.getForPath("resource://" + m[1]), m[3]];
         return URL.toFilename("resource://" + m[1]);
     }
     else
@@ -126,6 +237,7 @@ __loader__.memoize('api', function(__require__, module, exports) {
 var ENV = exports.ENV = {};
 var SYSTEM = exports.SYSTEM = {};
 var FILE = exports.FILE = {};
+var ARCHIVE = exports.ARCHIVE = {};
 var NET = exports.NET = {};
 var JSON = exports.JSON = {};
 var UTIL = exports.UTIL = {};
@@ -410,6 +522,31 @@ FILE.realpath = function(path)
     newPath.unshift('');
     return newPath.join('/');
 }
+
+
+// ######################################################################
+// # ARCHIVE
+// ######################################################################
+
+var archives = {};
+
+var Archive = function(path)
+{
+    this.path = path;
+    this.entries = {};
+    this.api = {};
+    ARCHIVE.open(this);
+}
+
+ARCHIVE.getForPath = function(path)
+{
+    if (typeof archives[path] == "undefined")
+    {
+        archives[path] = new Archive(path);
+    }
+    return archives[path];
+}
+
 
 });
 __loader__.memoize('assembler', function(__require__, module, exports) {
@@ -3132,6 +3269,11 @@ exports.boot = function(options)
         if (path.charAt(0) != "/")
             path = API.SYSTEM.pwd + "/" + path;
         path = path.split("/");
+
+        if (/\.zip$/.test(path[path.length-1]))
+        {
+            path[path.length-1] += "@/";
+        }
         if (!path[path.length-1] || path[path.length-1] != "program.json")
         {
             API.DEBUG.print("No descriptor URI argument. Assuming: './program.json'");
@@ -3311,6 +3453,201 @@ var Sandbox = exports.Sandbox = function Sandbox()
         
         cbt.done();
     }
+}
+
+});
+__loader__.memoize('modules/pinf/protocol-handler', function(__require__, module, exports) {
+// ######################################################################
+// # /modules/pinf/protocol-handler.js
+// ######################################################################
+
+var PROTOCOL;
+if (typeof __require__ != "undefined")
+    PROTOCOL = __require__("platform/" + __require__.platform + "/protocol");
+else
+    PROTOCOL = require("../../platform/" + require.platform + "/protocol");
+
+
+/**
+ * @see http://wiki.commonjs.org/wiki/JSGI/Level0/A/Draft2
+ * @see http://mail.python.org/pipermail/web-sig/2007-January/002475.html
+ * @see http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
+ */
+var JSGI = exports.JSGI = function(options)
+{
+    // TODO: Ensure only one protocol handler per scheme
+
+    var protocolHandler = PROTOCOL.Handler(
+    {
+        onRequest: function(upstreamRequest, upstreamResponse)
+        {
+            try {
+                // jedi://hostname:80/path/to/file.ext?query=string&another=one
+                var uriParts = upstreamRequest.uri.match(/^([^:]*):\/\/(([^\/:]*)(:([^\/]*))?)((\/[^\?]*)(\?(.*))?)?$/);
+                // uriParts[0] - jedi://hostname/path/to/file.ext?query=string&another=one
+                // uriParts[1] - jedi
+                // uriParts[2] - hostname:80
+                // uriParts[3] - hostname
+                // uriParts[4] - :80
+                // uriParts[5] - 80
+                // uriParts[6] - /path/to/file.ext?query=string&another=one
+                // uriParts[7] - /path/to/file.ext
+                // uriParts[8] - ?query=string&another=one
+                // uriParts[9] - query=string&another=one
+                if (!uriParts)
+                    throw new Error("Could not parse URI '" + upstreamRequest.uri + "'!");
+
+                var request = {
+                    method: "GET",
+                    scriptName: "",
+                    pathInfo: uriParts[7],
+                    queryString: uriParts[9] || "",
+                    host: uriParts[3],
+                    port: uriParts[5] || 80,
+                    scheme: uriParts[1],
+                    input: null,
+                    headers: {},
+                    jsgi: {
+                        version: [0,3],
+                        errors: void 0,
+                        multithread: true,  // ?
+                        multiprocess: true, // ?
+                        runOnce: false,
+                        cgi: false,
+                        ext: {}
+                    },
+                    env: {}
+                };
+
+                var response = options.app(request);
+
+                if (!response)
+                    throw new Error("Empty response object!");
+                if (typeof response != "object")
+                    throw new Error("Response is not an object!");
+                if (typeof response.status == "undefined")
+                    throw new Error("Response object does not contain a 'status' property!");
+                if (typeof response.headers == "undefined")
+                    throw new Error("Response object does not contain a 'headers' property!");
+                if (typeof response.headers != "object")
+                    throw new Error("'headers' property in response object is not an object!");
+                if (typeof response.body == "undefined")
+                    throw new Error("Response object does not contain a 'body' property!");
+
+                var contentType,
+                    contentLength;
+                
+                for (var name in response.headers)
+                {
+                    name = name.toLowerCase();
+                    if (name == "status")
+                        throw new Error("'status' response header not allowed! Use the 'status' response property.");
+                    if (name.charAt(name.length-1) == "-" || name.charAt(name.length-1) == "_")
+                        throw new Error("Response header names may not end in '-' or '_'!");
+                    // TODO: It MUST contain keys that consist of letters, digits, `_` or `-` and start with a letter.
+                    //       Header values MUST NOT contain characters below 037.
+                    if (name == "content-type")
+                        contentType = response.headers[name];
+                    if (name == "content-length")
+                        contentLength = response.headers[name];
+                }
+
+                // Informational 1xx
+                if (response.status >= 100 && response.status <= 199)
+                {
+                    if (typeof contentType != "undefined")
+                        throw new Error("'content-type' response header not allowed when status is: " + response.status);
+                    if (typeof contentType == "undefined")
+                        throw new Error("'content-type' response header not set!");
+                    if (typeof contentLength != "undefined")
+                        throw new Error("'content-length' response header not allowed when status is: " + response.status);
+//                    if (typeof contentLength == "undefined")
+//                        throw new Error("'content-length' response header not set!");
+                }
+                else
+                // Successful 2xx
+                if (response.status >= 200 && response.status <= 299)
+                {
+                    if (typeof contentType != "undefined" && response.status == 204)
+                        throw new Error("'content-type' response header not allowed when status is: " + response.status);
+                    if (typeof contentType == "undefined")
+                        throw new Error("'content-type' response header not set!");
+                    if (typeof contentLength != "undefined" && response.status == 204)
+                        throw new Error("'content-length' response header not allowed when status is: " + response.status);
+//                    if (typeof contentLength == "undefined")
+//                        throw new Error("'content-length' response header not set!");
+                    
+                }
+                else
+                // Redirection 3xx
+                if (response.status >= 300 && response.status <= 399)
+                {
+                    if (typeof contentType != "undefined" && response.status == 304)
+                        throw new Error("'content-type' response header not allowed when status is: " + response.status);
+                    if (typeof contentType == "undefined")
+                        throw new Error("'content-type' response header not set!");
+                    if (typeof contentLength != "undefined" && response.status == 304)
+                        throw new Error("'content-length' response header not allowed when status is: " + response.status);
+//                    if (typeof contentLength == "undefined")
+//                        throw new Error("'content-length' response header not set!");
+                    
+                }
+                else
+                // Client Error 4xx
+                if (response.status >= 400 && response.status <= 499)
+                {
+                    if (typeof contentType == "undefined")
+                        throw new Error("'content-type' response header not set!");
+//                    if (typeof contentLength == "undefined")
+//                        throw new Error("'content-length' response header not set!");
+                    
+                }
+                else
+                // Server Error 5xx
+                if (response.status >= 500 && response.status <= 599)
+                {
+                    if (typeof contentType == "undefined")
+                        throw new Error("'content-type' response header not set!");
+//                    if (typeof contentLength == "undefined")
+//                        throw new Error("'content-length' response header not set!");
+                    
+                }
+                else
+                    throw new Error("Status code '" + response.status + "' must be between 1xx and 5xx.");
+
+
+                upstreamResponse.contentType = contentType;
+                upstreamResponse.content = [];
+
+                if (typeof response.body == "object" && typeof response.body.forEach != "undefined")
+                {
+                    response.body.forEach(function(str)
+                    {
+                        upstreamResponse.content.push(str);
+                    });
+                }
+                else
+                if (Array.isArray(response.body))
+                {
+                    upstreamResponse.content = response.body;
+                }
+                else
+                    throw new Error("'body' property in response object not a forEach()able object nor array!");
+
+                upstreamResponse.content = upstreamResponse.content.join("");
+            }
+            catch(e)
+            {
+                upstreamResponse.content = "[Internal Error] " + e.message + "\n\n" + e.stack;
+                upstreamResponse.contentType = 'text/plain';
+                return;
+            }
+        }
+    });
+
+    protocolHandler.listen({
+        scheme: options.scheme
+    });
 }
 
 });
@@ -3765,6 +4102,562 @@ Package.prototype.getIsNative = function(locator)
 }
 
 });
+__loader__.memoize('platform/jetpack/light-traits', function(__require__, module, exports) {
+// ######################################################################
+// # /platform/jetpack/light-traits.js
+// ######################################################################
+/**
+ * @source https://github.com/Gozala/light-traits/blob/master/lib/light-traits.js
+ */
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Initial Developer of the Original Code is Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2010
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *   Irakli Gozalishvili <rfobic@gmail.com> (Original author)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
+'use strict'
+
+// shortcuts
+var _getOwnPropertyNames = Object.getOwnPropertyNames
+,   _getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor
+,   _defineProperty = Object.defineProperty
+,   _getPrototypeOf = Object.getPrototypeOf
+,   _keys = Object.keys
+,   _create = Object.create
+,   _freeze = Object.freeze
+,   _prototype = Object.prototype
+,   _hasOwn = Object.prototype.hasOwnProperty
+,   _toString = Object.prototype.toString
+,   _forEach = Array.prototype.forEach
+,   _slice = Array.prototype.slice
+// constants
+,   ERR_CONFLICT = 'Remaining conflicting property: '
+,   ERR_REQUIRED = 'Missing required property: '
+
+function _getPropertyDescriptor(object, name) {
+  var descriptor = _getOwnPropertyDescriptor(object, name)
+  ,   proto = _getPrototypeOf(object)
+  return !descriptor && proto ? _getPropertyDescriptor(proto, name) : descriptor
+}
+/**
+ * Compares two trait custom property descriptors if they are the same. If
+ * both are `conflict` or all the properties of descriptor are equal returned
+ * value will be `true`, otherwise it will be `false`.
+ * @param {Object} actual
+ * @param {Object} expected
+ */
+function areSame(actual, expected) {
+  return (actual.conflict && expected.conflict ) ||
+  (   actual.get === expected.get
+  &&  actual.set === expected.set
+  &&  actual.value === expected.value
+  &&  (true !== actual.enumerable) === (true !== expected.enumerable)
+  &&  (true !== actual.required) === (true !== expected.required)
+  &&  (true !== actual.conflict) === (true !== expected.conflict)
+  )
+}
+/**
+ * Converts array to an object whose own property names represent
+ * values of array.
+ * @param {String[]} names
+ * @returns {Object}
+ * @example
+ *  Map(['foo', ...]) => { foo: true, ...}
+ */
+function Map(names) {
+  var map = {}
+  names.forEach(function(name) { map[name] = true })
+  return map
+}
+/**
+ * Generates custom **required** property descriptor. Descriptor contains
+ * non-standard property `required` that is equal to `true`.
+ * @param {String} name
+ *    property name to generate descriptor for.
+ * @returns {Object}
+ *    custom property descriptor
+ */
+function Required(name) {
+  function required() { throw new Error(ERR_REQUIRED + '`' + name + '`') }
+  return (
+  { get: required
+  , set: required
+  , required: true
+  })
+}
+/**
+ * Generates custom **conflicting** property descriptor. Descriptor contains
+ * non-standard property `conflict` that is equal to `true`.
+ * @param {String} name
+ *    property name to generate descriptor for.
+ * @returns {Object}
+ *    custom property descriptor
+ */
+function Conflict(name) {
+  function conflict() { throw new Error(ERR_CONFLICT + '`' + name + '`') }
+  return (
+  { get: conflict
+  , set: conflict
+  , conflict: true
+  })
+}
+/**
+ * Composes new trait with the same own properties as the original trait,
+ * except that all property names appearing in the first argument are replaced
+ * by 'required' property descriptors.
+ * @param {String[]} keys
+ *    Array of strings property names.
+ * @param {Object} trait
+ *    A trait some properties of which should be excluded.
+ * @returns {Object}
+ * @example
+ *    var newTrait = exclude(['name', ...], trait)
+ */
+function exclude(keys, trait) {
+  var exclusions = Map(keys)
+  ,   result = {}
+  ,   keys = _keys(trait)
+  keys.forEach(function(key) {
+    if (!_hasOwn.call(exclusions, key) || trait[key].required)
+      result[key] = trait[key]
+    else
+      result[key] = Required(key)
+  })
+  return result
+}
+/**
+ * Composes a new trait with the same properties as the original trait, except
+ * that all properties whose name is an own property of map will be renamed to
+ * map[name], and a 'required' property for name will be added instead.
+ * @param {Object} map
+ *    An object whose own properties serve as a mapping from old names to new
+ *    names.
+ * @param {Object} trait
+ *    A trait object
+ * @returns {Object}
+ * @example
+ *    var newTrait = rename(map, trait)
+ */
+function rename(map, trait) {
+  var result = _create(Trait.prototype, {}),
+      keys = _keys(trait)
+  keys.forEach(function(key) {
+    // must be renamed & it's not requirement
+    if (_hasOwn.call(map, key) && !trait[key].required) {
+      var alias = map[key]
+      if (_hasOwn.call(result, alias) && !result[alias].required)
+        result[alias] = Conflict(alias)
+      else
+        result[alias] = trait[key]
+      if (!_hasOwn.call(result, key))
+        result[key] = Required(key)
+    } else { // must not be renamed or its a requirement
+      // property is not in result trait yet
+      if (!_hasOwn.call(result, key))
+        result[key] = trait[key]
+      // property is already in resulted trait & it's not requirement
+      else if (!trait[key].required)
+        result[key] = Conflict(key)
+    }
+  })
+  return result
+}
+/**
+ * Function generates custom properties descriptor of the `object`s own
+ * properties. All the inherited properties are going to be ignored.
+ * Properties with values matching `required` singleton will be marked as
+ * 'required' properties.
+ * @param {Object} object
+ *    Set of properties to generate trait from.
+ * @returns {Object}
+ *    Properties descriptor of all of the `object`'s own properties.
+ */
+function toTrait(properties) {
+  if (properties instanceof Trait) return properties
+  var trait = _create(Trait.prototype)
+  ,   keys = _getOwnPropertyNames(properties)
+  keys.forEach(function(key) {
+    var descriptor = _getOwnPropertyDescriptor(properties, key)
+    trait[key] = (required === descriptor.value) ? Required(key) : descriptor
+  })
+  return trait
+}
+
+function compose(trait1, trait2/*, ...*/) {
+  var result = _create(Trait.prototype)
+  _forEach.call(arguments, function(trait) {
+    if (!trait) return
+    trait = trait instanceof Trait ? trait : toTrait(Object.create({}, trait))
+    _keys(trait).forEach(function(key) {
+      var descriptor = trait[key]
+      // if property already exists and it's not a requirement
+      if (_hasOwn.call(result, key) && !result[key].required) {
+        if (descriptor.required) return
+        if (!areSame(descriptor, result[key])) result[key] = Conflict(key)
+      } else {
+        result[key] = descriptor
+      }
+    })
+  })
+  return result
+}
+/**
+ * Composes new trait. If two or more traits have own properties with the
+ * same name, the new trait will contain a 'conflict' property for that name.
+ * 'compose' is a commutative and associative operation, and the order of its
+ * arguments is not significant.
+ *
+ * @params {Object} trait
+ *    Takes traits as an arguments
+ * @returns {Object}
+ *    New trait containing the combined own properties of all the traits.
+ * @example
+ *    var newTrait = compose(trait_1, trait_2, ..., trait_N)
+ */
+function Trait(trait1, trait2) {
+  return undefined === trait2 ? toTrait(trait1) : compose.apply(null, arguments)
+}
+var TraitProto = Trait.prototype = _create(Trait.prototype,
+{ toString: { value: function toString() {
+    return '[object ' + this.constructor.name + ']'
+  }}
+  /**
+   * `create` is like `Object.create`, except that it ensures that:
+   *    - an exception is thrown if 'trait' still contains required properties
+   *    - an exception is thrown if 'trait' still contains conflicting
+   *      properties
+   * @param {Object}
+   *    prototype of the compared object
+   * @param {Object} trait
+   *    trait object to be turned into a compare object
+   * @returns {Object}
+   *    An object with all of the properties described by the trait.
+   */
+, create: { value: function create(proto) {
+    var properties = {}
+    ,   keys = _keys(this)
+    if (undefined === proto) proto = _prototype
+    if (proto) {
+      if ('' + proto.toString == '' + _toString) {
+        _defineProperty(proto, 'toString',  {
+          value: TraitProto.toString
+        })
+      }
+      if ('' + proto.constructor == '' + Object) {
+        _defineProperty(proto, 'constructor', {
+          value: Trait.prototype.constructor
+        })
+      }
+    }
+    keys.forEach(function(key) {
+      var descriptor = this[key]
+      if (descriptor.required) {
+        if (key in proto) {
+          return properties[key] = _getPropertyDescriptor(proto, key)
+        }
+        else throw new Error(ERR_REQUIRED + '`' + key + '`')
+      } else if (descriptor.conflict) {
+        throw new Error(ERR_CONFLICT + '`' + key + '`')
+      } else {
+        properties[key] = descriptor
+      }
+    }, this)
+    return _create(proto, properties)
+  }, enumerable: true }
+  /**
+   * Composes new resolved trait, with all the same properties as the original
+   * trait, except that all properties whose name is an own property of
+   * resolutions will be renamed to `resolutions[name]`. If it is
+   * `resolutions[name]` is `null` value is changed into a required property
+   * descriptor.
+   * function can be implemented as `rename(map,exclude(exclusions, trait))`
+   * where map is the subset of mappings from oldName to newName and exclusions
+   * is an array of all the keys that map to `null`.
+   * Note: it's important to **first** `exclude`, **then** `rename`, since
+   * `exclude` and rename are not associative.
+   * @param {Object} resolutions
+   *   An object whose own properties serve as a mapping from old names to new
+   *   names, or to `null` if the property should be excluded.
+   * @param {Object} trait
+   *   A trait object
+   * @returns {Object}
+   *   Resolved trait with the same own properties as the original trait.
+   */
+, resolve: { value: function resolve(resolutions) {
+    var renames = {},
+        exclusions = [],
+        keys = _getOwnPropertyNames(resolutions)
+    keys.forEach(function(key) {  // pre-process renamed and excluded properties
+      if (resolutions[key])       // old name -> new name
+        renames[key] = resolutions[key]
+      else                        // name -> undefined
+        exclusions.push(key)
+    })
+    return rename(renames, exclude(exclusions, this))
+  }, enumerable: true }
+})
+/**
+ * Constant singleton, representing placeholder for required properties.
+ * @type {Object}
+ */
+var required = Trait.required = { toString: function() { return '<Trait.required>' } }
+exports.Trait = Trait
+
+});
+__loader__.memoize('platform/jetpack/protocol', function(__require__, module, exports) {
+// ######################################################################
+// # /platform/jetpack/protocol.js
+// ######################################################################
+/**
+ * @source https://github.com/Gozala/jetpack-protocol/blob/master/lib/protocol.js
+ */
+
+'use strict'
+
+const { Cc, Ci, Cu, Cm } = require("chrome")
+  ,   { MatchPattern } = require('match-pattern')
+  ,   { Trait } = __require__('platform/jetpack/light-traits')
+  ,   xpcom = require("xpcom")
+
+  ,   { XPCOMUtils } = Cu.import("resource://gre/modules/XPCOMUtils.jsm")
+
+  ,   IOService = Cc["@mozilla.org/network/io-service;1"].
+                  getService(Ci.nsIIOService)
+  ,   uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].
+                      getService(Ci.nsIUUIDGenerator)
+  ,   streamChannel = Cc["@mozilla.org/network/input-stream-channel;1"]
+  ,   inputStream = Cc["@mozilla.org/io/string-input-stream;1"]
+  ,   SimpleURI = Cc["@mozilla.org/network/simple-uri;1"]
+  ,   securityManager = Cc["@mozilla.org/scriptsecuritymanager;1"].
+                        getService(Ci.nsIScriptSecurityManager)
+
+
+function identity(value) value
+
+const TXPCOM = Trait(
+  Trait({
+    interfaces: Trait.required,
+    contractID: Trait.required,
+  }),
+  {
+    QueryInterface: { get: function QueryInterface() {
+      Object.defineProperty(this, 'QueryInterface', {
+        value: XPCOMUtils.generateQI(this.interfaces),
+        configurable: false
+      })
+      return this.QueryInterface
+    }, configurable: true },
+    classID: { get: function classID() {
+      Object.defineProperty(this, 'classID', {
+        value: uuidGenerator.generateUUID(),
+        configurable: false
+      })
+      return this.classID
+    }, configurable: true },
+    classDescription: { get: function classDescription() {
+      Object.defineProperty(this, 'classDescription', {
+        value: this.description || "Jetpack generated class",
+        configurable: false
+      })
+      return this.classDescription
+    }, configurable: true }
+  }
+)
+
+/**
+ * Function takes `handler` object implementing a protocol, and `uri` from
+ * that protocol, performs request operation on handler and returns `response`
+ * object that contains `channel` of the requested `uri`.
+ * @param {Object} handler
+ *    Protocol handler
+ * @param {nsIURI|String} uri
+ *    Requested URI
+ * @param {nsIURI} [baseURI]
+ *    Base URI. Necessary when given `uri` is relative.
+ */
+function request(handler, uri, baseURI, charset) {
+  // Creating `request` and `response` objects that are passed to a `handler`'s
+  // `onRequest` method. Also note that `response` object inherits from
+  // `request`, this way `response`'s properties will fall back to the
+  // `request`'s same named properties.
+  let channel, request = {}, response = Object.create(request)
+  // If `baseURI` is provided then given `uri` is relative to it, there for
+  // we set `referer` property on request to allow protocol handler to resolve
+  // absolute URI.
+  if (baseURI) request.referer = baseURI.spec
+  // Stringifying `uri` to a string and setting it as property on `request`.
+  request.uri = request.originalURI = uri.spec || uri
+
+  handler.onRequest(request, response)
+
+  // If response contains `content` property it's not a simple redirect. In
+  // this case we create channel from the given content.
+  if (response.content) {
+    // Creating input stream out of the `response.content` and then creating
+    // `channel` with that content stream.
+    let stream = inputStream.createInstance(Ci.nsIStringInputStream)
+    let content = response.content
+    stream.setData(content, response.contentLength || content.length)
+    channel = streamChannel.createInstance(Ci.nsIInputStreamChannel)
+    channel.contentStream = stream
+    channel.QueryInterface(Ci.nsIChannel)
+    // If `uri.spec` is different form `response.uri` it means that either
+    // `request` was just redirected to a different uri from the existing
+    // protocol or given `uri` was string, in both cases we need to create
+    // `uri` that is `nsIURI` since it has to be set on the `channel`.
+    if (uri.spec !== response.uri) {
+      uri = SimpleURI.createInstance(Ci.nsIURI)
+      uri.spec = response.uri
+    }
+    // Setting response URI on the channel.
+    channel.setURI(uri)
+  }
+  // Otherwise it's a redirect to an URI from the existing protocol, in such
+  // case we just use `nsIIOService` to create `channel` straight out of
+  // `response.uri`
+  else {
+    if (response.uri !== request.uri)
+      uri = IOService.newURI(response.uri, null, null)
+    channel = IOService.newChannel(response.uri, null, null)
+  }
+
+
+  // Also setting `contentType` and `contentLength` if they were provided to the
+  // response.
+  if (response.contentType)
+    channel.contentType = response.contentType
+  if (response.contentLength)
+    channel.contentLength = response.contentLength
+
+  return Object.create(response, {
+    channel: { value: channel },
+    uri: { value: uri }
+  })
+}
+
+const THandler = Trait({
+  onRequest: Trait.required,
+  listen: function listen(options) {
+    let handler
+    if (options.about) {
+      handler = Object.create(this, { about: { value: options.about } })
+      handler = TAboutHandler.create(handler)
+    } else {
+      handler = Object.create(this, { scheme: { value: options.scheme } })
+      handler = TProtocolHandler.create(handler)
+    }
+
+    xpcom.register({
+      uuid: handler.classID,
+      name: handler.classDescription,
+      contractID: handler.contractID,
+      create: identity.bind(null, handler)
+    })
+  }
+})
+
+const TAboutHandler = Trait(
+  TXPCOM,
+  Trait({
+    about: Trait.required,
+    onRequest: Trait.required,
+    interfaces: [ Ci.nsIAboutModule ],
+    get description() {
+      return 'Protocol handler for "about:' + this.about + '"'
+    },
+    get contractID() {
+      return "@mozilla.org/network/protocol/about;1?what=" + this.about
+    },
+    getURIFlags: function(uri) {
+      return Ci.nsIAboutModule.URI_SAFE_FOR_UNTRUSTED_CONTENT
+    },
+    newChannel: function(uri) {
+      return request(this, uri).channel
+    }
+  })
+)
+
+const TProtocolHandler = Trait(
+  TXPCOM,
+  Trait({
+    scheme: Trait.required,
+    onRequest: Trait.required,
+    interfaces: [ Ci.nsIProtocolHandler ],
+    // For more information on what these flags mean,
+    // see caps/src/nsScriptSecurityManager.cpp.
+    protocolFlags:  Ci.nsIProtocolHandler.URI_IS_UI_RESOURCE |
+                    Ci.nsIProtocolHandler.URI_STD |
+                    Ci.nsIProtocolHandler.URI_DANGEROUS_TO_LOAD,
+    defaultPort: -1,
+    allowPort: function allowPort(port, scheme) false,
+    newURI: function newURI(relativeURI, charset, baseURI) {
+      let response = request(this, relativeURI, baseURI, charset)
+      // If handler have not redirected to another protocol we know that
+      // `newChannel` method will be called later so we save response so that
+      // it will be able to use it and then delete it.
+      if (response.uri.scheme == this.scheme)
+        (this.responses || (this.responses = {}))[response.uri.spec] = response
+
+      return response.uri
+    },
+    newChannel: function newChannel(uri) {
+      // Taking response for this request (`newURI` saved it) from the responses
+      // map and removing it after, since we don't need memory leaks.
+      let response = this.responses[uri.spec]
+      let channel = response.channel
+      delete this.responses[uri.spec]
+      // If `originalURI` of the response is different from the `uri` either
+      // it means that handler just maps `originalURI`. In such case we set
+      // owner of the channel to the same principal as `originalURI` has in
+      // order to allow access to the other mapped resources.
+      if (response.originalURI !== response.uri) {
+        let originalURI = IOService.newURI(response.originalURI, null, null)
+        channel.originalURI = originalURI
+        channel.owner = securityManager.getCodebasePrincipal(originalURI)
+      }
+      return channel
+    },
+    get contractID() {
+      return "@mozilla.org/network/protocol;1?name=" + this.scheme
+    },
+    get description() {
+      return 'Protocol handler for "' + this.scheme + ':*"'
+    }
+  })
+)
+
+exports.Handler = function Handler(options) {
+  return THandler.create(options)
+}
+
+});
 __loader__.memoize('program', function(__require__, module, exports) {
 // ######################################################################
 // # /program.js
@@ -4136,7 +5029,8 @@ Sandbox.prototype.init = function()
                 dep = API.FILE.realpath(API.FILE.dirname(id) + "/" + dependency);
             }
             else
-            if (dependency == "pinf/loader")
+            // TODO: Do this via a provider package
+            if (dependency == "pinf/loader" || dependency == "pinf/protocol-handler")
                 return;
             else
             {
@@ -4208,6 +5102,11 @@ Sandbox.prototype.init = function()
             if (id == "pinf/loader")
             {
                 return API.PINF_LOADER;
+            }
+            else
+            if (id == "pinf/protocol-handler")
+            {
+                return __require__('modules/pinf/protocol-handler');
             }
             path = API.ENV.loaderRoot + "/modules/" + id + ".js";
             if (!API.FILE.exists(path))

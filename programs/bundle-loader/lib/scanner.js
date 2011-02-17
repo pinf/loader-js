@@ -43,6 +43,9 @@ function walk(options, files, path, subpath)
             if (subpath == "/adapter/" && basename != options.platform + ".js")
                 return;
 
+            if (subpath.substring(0, 10) == "/platform/" && subpath.substring(9, 9 + options.platform.length + 2) != "/"+options.platform+"/")
+                return;
+
             files[subpath + basename] = new File(path + subpath + basename, subpath + basename);
         }
     });
@@ -65,7 +68,12 @@ var File = function File(path, subpath)
         var dep = origDep.substring(1, origDep.length-1);
         if (dep.substring(0, 2) == "./")
         {
-            dep = dep.substring(2);
+            var pathParts = self.subpath.split("/");
+            pathParts = pathParts.splice(1, pathParts.length-2);
+            if (pathParts.length>0)
+                pathParts.push("");
+
+            dep = pathParts.join("/") + dep.substring(2);
         }
         else
         {

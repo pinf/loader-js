@@ -9,6 +9,7 @@ Demo
 
   1. Download and drag [./extension/extension.xpi](https://github.com/pinf/loader-js/raw/master/demos/JetpackExtension/extension/extension.xpi) into a __Firefox 4__ browser.
   2. Click on _mozilla icon_ at bottom right of status bar.
+  3. Browse to: `jedi://hostname:80/path/to/file.ext?var1=val1&another=one`
 
 NOTE: If running Firefox from a console you can also look for `browser.startup.homepage: ...` in the output.
 
@@ -75,3 +76,8 @@ More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/mas
     cd extension
     cfx xpi
     cd ../
+
+### Useful Commands:
+
+    ./bin/bundle-test.sh
+    ./bin/bundle-run.sh

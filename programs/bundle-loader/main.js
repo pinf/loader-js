@@ -28,7 +28,9 @@ exports.main = function()
         platform: platform
     });
 
-    var bundler = new BUNDLER.Bundler(files);
+    var bundler = new BUNDLER.Bundler(files, {
+        platform: platform
+    });
 
     bundler.writeTo(outputPath);
 
