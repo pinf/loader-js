@@ -1,7 +1,7 @@
 {
-    "boot": "github.com/pinf/loader-js/demos/HelloWorld/",
+    "boot": "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/HelloWorld/",
     "packages": {
-        "github.com/pinf/loader-js/demos/HelloWorld/": {
+        "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/HelloWorld/": {
             "locator": {
                 "location": "./"
             }
