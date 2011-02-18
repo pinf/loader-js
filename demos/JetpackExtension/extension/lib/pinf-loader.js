@@ -2652,14 +2652,19 @@ var Descriptor = exports.Descriptor = function() {}
 Descriptor.prototype.clone = function()
 {
     // TODO: Make this more generic by using narwhals complete UTIL module?
+
     var self = this,
-        descriptor = new Descriptor();
+        descriptor = new self.cloneConstructor();
     UTIL.keys(self).forEach(function (key) {
-        if (key == "json")
-            descriptor[key] = UTIL.deepCopy(self[key]);
-        else
-            descriptor[key] = self[key];
+        if (self.hasOwnProperty(key))
+        {
+            if (key == "json")
+                descriptor[key] = UTIL.deepCopy(self[key]);
+            else
+                descriptor[key] = self[key];
+        }
     });
+
     return descriptor;
 }
 
@@ -2716,6 +2721,9 @@ Descriptor.prototype.toJSONObject = function()
 
 var Program = exports.Program = function(path)
 {
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Program;
     this.filename = "program.json";
     this.load(path);
     if (typeof this.json.uid != "undefined")
@@ -2849,6 +2857,9 @@ Program.prototype.augmentLocator = function(locator)
 
 var Package = exports.Package = function(path)
 {
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Package;
     this.filename = "package.json";
     this.load(path);
     if (typeof this.json.uid != "undefined")
@@ -2876,6 +2887,14 @@ Package.prototype.walkMappings = function(callback)
         callback(alias, this._normalizeLocator(this.json.mappings[alias]));
 }
 
+Package.prototype.moduleIdToLibPath = function(moduleId)
+{
+    var libDir = this.json.directories && this.json.directories.lib;
+    if (typeof libDir != "string")
+        libDir = "lib";
+    return ((libDir)?libDir+"/":"") + moduleId;
+}
+
 
 // ######################################################################
 // # Catalog Descriptor
@@ -2883,6 +2902,9 @@ Package.prototype.walkMappings = function(callback)
 
 var Catalog = exports.Catalog = function(path)
 {
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Catalog;
     this.filename = FILE.basename(path);
     this.load(path);
 }
@@ -4029,6 +4051,7 @@ var Package = exports.Package = function(descriptor)
     {
         this.uid = this.normalizedDescriptor.json.uid.match(/^https?:\/\/(.*)\/$/)[1] + "/";
     }
+    this.preloaders = null;
 }
 
 Package.prototype.discoverMappings = function(fetcher, callback)
@@ -4099,6 +4122,97 @@ Package.prototype.getIsNative = function(locator)
     if (typeof this.normalizedDescriptor.json["native"] != "undefined")
         return this.normalizedDescriptor.json["native"];
     return false;
+}
+
+
+/**
+ * Get the source code of a module calling all preloaders if applicable.
+ */
+Package.prototype.getModuleSource = function(sandbox, resourceURI, callback)
+{
+    var modulePath = resourceURI,
+        parts = resourceURI.split("@/");
+    if (parts.length == 2)
+    {
+        if (parts[0].replace(/\/$/, "") != this.path)
+            throw new Error("Cannot require module '" + id + "' from package '" + this.path + "'");
+        modulePath = parts[1];
+    }
+
+    var context = {
+        pkgPath: this.path,
+        resourcePath: this.path + "/" + modulePath + ((/\.js$/.test(modulePath))?"":".js"),
+        api: {
+            file: {
+                read: API.FILE.read,
+                exists: API.FILE.exists
+            }
+        }
+    };
+
+    var self = this;
+
+    var cbt = new UTIL.CallbackTracker(function()
+    {
+        if (self.preloaders)
+        {
+            var ret;
+            for (var i=0,ic=self.preloaders.length ; i<ic ; i++ )
+            {
+                if (typeof self.preloaders[i].getModuleSource != "undefined")
+                {
+                    ret = self.preloaders[i].getModuleSource(context, modulePath);
+                    if (typeof ret != "undefined")
+                    {
+                        callback(ret);
+                        return;
+                    }
+                }
+            }
+        }
+        callback(API.FILE.read(context.resourcePath));
+    });
+
+    if (!self.preloaders && typeof self.normalizedDescriptor.json.preload != "undefined")
+    {
+        self.preloaders = [];
+        self.normalizedDescriptor.json.preload.forEach(function(moduleId)
+        {
+            // NOTE: This calls the preload module in the context of the same sandbox
+            //       as the program.
+            // TODO: Do this in an isolated context?
+            self.loadRequireModule(sandbox, moduleId, cbt.add(function(module)
+            {
+                self.preloaders.push(module.main(context));
+            }));
+        });
+    }
+
+    cbt.done();
+}
+
+/**
+ * Load the given module (resolving all dependencies) and require() it
+ */
+Package.prototype.loadRequireModule = function(sandbox, moduleId, callback)
+{
+    // TODO: Match mappings if applicable
+
+    if (moduleId.charAt(0) == ".")
+    {
+        if (moduleId.charAt(1) != "/")
+            throw new Error("ModuleId must begin with './' if relative to package root.");
+        moduleId = moduleId.substring(2);
+    }
+    else
+        moduleId = this.normalizedDescriptor.moduleIdToLibPath(moduleId);
+
+    var self = this;
+
+    sandbox.loader.module.load(self.path + "/@/" + moduleId, function(id)
+    {
+        callback(sandbox.loader.require(id));       
+    });
 }
 
 });
@@ -4839,6 +4953,7 @@ var API = __require__('api'),
 var Sandbox = exports.Sandbox = function Sandbox(options)
 {
     this.options = options;
+    this.loader = null;
     this.packages = {};
 }
 
@@ -4891,7 +5006,7 @@ Sandbox.prototype.init = function()
         }
     }
 
-    var loader = {
+    var loader = self.loader = {
         mainModuleDir: self.options.mainModuleDir,
         platform: API.ENV.platform,
         api: {
@@ -4976,29 +5091,41 @@ Sandbox.prototype.init = function()
                 throw e;
         }
 
-        var URL = loader.require.canonicalize(moduleIdentifier),
-            m = URL.match(/^memory:\/(.*)$/),
-            path = m[1];
+        function load(data)
+        {
+            if (typeof idBasedModuleIdentifier != "undefined")
+                moduleIdentifier = idBasedModuleIdentifier;
 
-        if (typeof idBasedModuleIdentifier != "undefined")
-            moduleIdentifier = idBasedModuleIdentifier;
+            loading = {
+                id: moduleIdentifier,
+                callback: function()
+                {
+                    callback(moduleIdentifier);
+                }
+            };
 
-        var data = API.FILE.read(path);
+            if ((typeof loader.module.constructor.prototype.load != "undefined" &&
+                 typeof loader.module.constructor.prototype.load.modules11 != "undefined" &&
+                 loader.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
+                eval("loader." + data.replace(/^\s\s*/g, ""));
+            else
+                eval("loader.module.declare([" + API.UTIL.scrapeDeps(data).join(',') + "], function(require, exports, module) {\n" + data + "\n})"); // Modules/1.1
+        }
 
-        loading = {
-            id: moduleIdentifier,
-            callback: function()
-            {
-                callback(moduleIdentifier);
-            }
-        };
-
-        if ((typeof loader.module.constructor.prototype.load != "undefined" &&
-             typeof loader.module.constructor.prototype.load.modules11 != "undefined" &&
-             loader.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
-            eval("loader." + data.replace(/^\s\s*/g, ""));
+        var pkg = self.packageForId(moduleIdentifier, true);
+        if (pkg)
+        {
+            // This is the new and proper way
+            pkg.getModuleSource(self, moduleIdentifier, load);
+        }
         else
-            eval("loader.module.declare([" + API.UTIL.scrapeDeps(data).join(',') + "], function(require, exports, module) {\n" + data + "\n})"); // Modules/1.1
+        {
+            var URL = loader.require.canonicalize(moduleIdentifier),
+                m = URL.match(/^memory:\/(.*)$/),
+                path = m[1];
+    
+            load(API.FILE.read(path));
+        }
     }
 
     loader.module.constructor.prototype.declare = function pinf_loader_declare(dependencies, moduleFactory)
@@ -5016,7 +5143,7 @@ Sandbox.prototype.init = function()
         }
 
         loader.require.memoize(id, dependencies, moduleFactory);
-    
+
         /* Build a list of dependencies suitable for module.provide; this
          * means no labeled dependencies. 
          */

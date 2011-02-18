@@ -2,9 +2,7 @@
 module.declare(["paperboy/paperboy", "pinf/loader"], function(require, exports, module)
 {
     if (require.platform != "nodejs")
-    {
         throw new Error("This program only runs on http://nodejs.org/");
-    }
     
     var PAPERBOY = require("paperboy/paperboy"),
         PATH = require('path'),

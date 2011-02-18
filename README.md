@@ -96,18 +96,24 @@ To run via a specific supported CommonJS platform binary see below.
 
 The following demos are available:
 
+    # NodeJS + others
     ./pinf-loader -v ./demos/HelloWorld
     ./pinf-loader -v ./demos/Mappings
     ./pinf-loader -v ./demos/CommonJSModules1
     ./pinf-loader -v ./demos/CommonJSModules2
     ./pinf-loader -v ./demos/LoadExtraCode
-    ./pinf-loader -v ./demos/GithubArchiveDependency
-    ./pinf-loader -v ./demos/ReloadingJSGI
     ./pinf-loader -v ./demos/BravoJS
-    ./pinf-loader -v ./demos/NodeUnit
     ./pinf-loader -v ./demos/PINFCatalog
+
+    # NodeJS
+    ./pinf-loader -v ./demos/NodeUnit
+    ./pinf-loader -v ./demos/ReloadingJSGI
+    ./pinf-loader -v ./demos/PreloadCoffeeScript/
+    ./pinf-loader -v ./demos/GithubArchiveDependency
     ./pinf-loader -v https://gist.github.com/823078
     ./pinf-loader -v https://gist.github.com/823315
+    
+    # Jetpack
     cd ./demos/JetpackExtension
 
 The following tests are available:

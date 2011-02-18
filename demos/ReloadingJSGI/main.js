@@ -1,6 +1,9 @@
 
 module.declare(["jsgi/jsgi-node", "jsgi/promise", "pinf/loader"], function(require, exports, module)
 {
+    if (require.platform != "nodejs")
+        throw new Error("This program only runs on http://nodejs.org/");
+
     var JSGI = require("jsgi/jsgi-node"),
         PROMISE = require("jsgi/promise"),
         PINF_LOADER = require("pinf/loader");

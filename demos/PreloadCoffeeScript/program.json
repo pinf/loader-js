@@ -1,0 +1,11 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/PreloadCoffeeScript/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/PreloadCoffeeScript/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/jashkenas/coffee-script/zipball/1.0.1": {}
+    }
+}

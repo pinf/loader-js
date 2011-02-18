@@ -100,6 +100,12 @@ Additions:
     for the host platform where require() provided by intermediate loaders should be bypassed at all times
     and modules should not be wrapper or altered in any way.)
 
+  * `preload` array to hold list of moduleIDs for modules to call when initializing package.
+    If moduleId starts with `./` the ID is relative to the package root. If not it is relative to `directories.lib`
+    The `main()` function of each module is called passing a `context` object.
+    The `main()` function may return an object with keys mapping functions to specific hooks.
+      * [https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/package.json](https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/package.json)
+      * [https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/compiler.js](https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/compiler.js)
 
 
   
