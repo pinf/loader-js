@@ -197,6 +197,8 @@ This project uses code from:
   * [http://code.google.com/p/bravojs/](http://code.google.com/p/bravojs/)
   * [http://narwhaljs.org/](http://narwhaljs.org/)
   * [https://github.com/jfd/optparse-js](https://github.com/jfd/optparse-js)
+  * [https://github.com/Gozala/light-traits/](https://github.com/Gozala/light-traits/)
+  * [https://github.com/Gozala/jetpack-protocol/](https://github.com/Gozala/jetpack-protocol/)
 
 
 Documentation License
