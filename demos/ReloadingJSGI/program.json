@@ -13,10 +13,13 @@
                 }
             }
         },
-        "github.com/pinf/loader-js/demos/ReloadingJSGI/jsgi/": {
+        "github.com/pinf/loader-js/demos/ReloadingJSGI/jsgi": {
             "locator": {
                 "location": "./jsgi/"
             }
+        },
+        "pinf.org/loader": {
+            "provider": "pinf.org/loader"
         }
     }
 }

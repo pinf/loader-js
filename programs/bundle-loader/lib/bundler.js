@@ -1,7 +1,7 @@
 
 // NOTE: This code is not very generic and intended for bundeling the loader only.
 
-var FS = require("fs");
+var FS = require("nodejs/fs");
 
 var Bundler = exports.Bundler = function Bundler(files, options)
 {

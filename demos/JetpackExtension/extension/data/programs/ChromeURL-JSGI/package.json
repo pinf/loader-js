@@ -1,4 +1,9 @@
 {
     "uid": "http://github.com/pinf/loader-js/demos/JetpackExtension/extension/data/programs/ChromeURL-JSGI/",
-    "main": "main.js"
+    "main": "main.js",
+    "mappings": {
+        "pinf": {
+            "id": "pinf.org/loader"
+        }
+    }
 }

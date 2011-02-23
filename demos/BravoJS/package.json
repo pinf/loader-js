@@ -2,6 +2,12 @@
     "uid": "http://github.com/pinf/loader-js/demos/BravoJS/",
     "main": "main.js",
     "mappings": {
+        "nodejs": {
+            "id": "nodejs.org"
+        },
+        "pinf": {
+            "id": "pinf.org/loader"
+        },
         "paperboy": {
             "archive": "https://github.com/felixge/node-paperboy/zipball/master"
         }

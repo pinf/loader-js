@@ -17,8 +17,8 @@ module.declare(["jsgi/jsgi-node", "jsgi/promise", "pinf/loader"], function(requi
         if (!PINF_LOADER.mustTerminate())
         {
             module.print("Starting jsgi app at: http://localhost:" + port + "/\n");
-    
-            module.print("Try browsing to it, editing file '" + require.id("./jsgi/app.js").replace(/\/*@?\/+/g, "\/") + "' and reloading.'\n");
+
+            module.print("Try browsing to it, editing file '" + require.id("./jsgi/app.js").replace(/@\//g, "\/") + "' and reloading.'\n");
 
             JSGI.start(function(request)
             {
@@ -31,7 +31,7 @@ module.declare(["jsgi/jsgi-node", "jsgi/promise", "pinf/loader"], function(requi
                 sandbox.declare([
                     {
                         "app": {
-                            "id": "github.com/pinf/loader-js/demos/ReloadingJSGI/jsgi/",
+                            "id": "github.com/pinf/loader-js/demos/ReloadingJSGI/jsgi",
                             "descriptor": {
                                 "main": "app.js"
                             }

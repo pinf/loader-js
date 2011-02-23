@@ -1,12 +1,14 @@
 
 // NOTE: This code is not very generic and intended for bundeling the loader only.
 
-var FS = require("fs");
+var FS = require("nodejs/fs");
 
 var exclude = [
     "/.pinf-packages/",
     "/bravojs/demos/",
-    "/bravojs/plugins/",
+    "/bravojs/plugins/fastload/",
+    "/bravojs/plugins/jquery-loader/",
+    "/bravojs/plugins/wonkoll/",
     "/bravojs/README",
     "/bravojs/NOTES"
 ];

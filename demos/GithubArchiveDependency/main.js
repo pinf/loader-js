@@ -1,16 +1,16 @@
 
-module.declare(["paperboy/paperboy", "pinf/loader"], function(require, exports, module)
+module.declare(["paperboy/paperboy", "nodejs/path", "nodejs/http", "pinf/loader"], function(require, exports, module)
 {
     if (require.platform != "nodejs")
         throw new Error("This program only runs on http://nodejs.org/");
     
     var PAPERBOY = require("paperboy/paperboy"),
-        PATH = require('path'),
-        HTTP = require('http'),
+        PATH = require("nodejs/path"),
+        HTTP = require("nodejs/http"),
         PINF_LOADER = require("pinf/loader");
 
     // Config options
-    
+
     var port = 8003,
         docroot = PATH.dirname(PATH.dirname(module.id));
 

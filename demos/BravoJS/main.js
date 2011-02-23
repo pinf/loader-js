@@ -1,5 +1,5 @@
 
-module.declare(["paperboy/paperboy", "pinf/loader"], function(require, exports, module)
+module.declare(["paperboy/paperboy", "nodejs/path", "nodejs/http", "pinf/loader"], function(require, exports, module)
 {
     if (require.platform != "nodejs")
     {
@@ -7,14 +7,14 @@ module.declare(["paperboy/paperboy", "pinf/loader"], function(require, exports, 
     }
     
     var PAPERBOY = require("paperboy/paperboy"),
-        PATH = require('path'),
-        HTTP = require('http'),
+        PATH = require("nodejs/path"),
+        HTTP = require("nodejs/http"),
         PINF_LOADER = require("pinf/loader");
 
     // Config options
-    
+
     var port = 8003,
-        docroot = PATH.dirname(PATH.dirname(PATH.dirname(PATH.dirname(module.id)))) + "/lib/bravojs";
+        docroot = PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib/bravojs";
 
     exports.main = function()
     {

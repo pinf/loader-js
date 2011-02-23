@@ -5,6 +5,9 @@
             "locator": {
                 "location": "./"
             }
+        },
+        "nodejs.org": {
+            "provider": "nodejs.org"
         }
     }
 }

@@ -19,6 +19,7 @@
 <html>
   <head>
     <script src="../../bravo.js"></script>
+    <script src="../../plugins/packages/packages.js"></script>
   </head>
   <body>
     <p><b>NOTE:</b> This file must be loaded via HTTP:// to work properly.</p>
@@ -29,12 +30,12 @@
 // Memoize a package descriptor to avoid lazy fetching as an example
 // This descriptor is taken as-is from ./package2-dir/@/package.json from where it would
 // normally be loaded via SYNC AJAX.
-require.memoize(bravojs.mainModuleDir + "/package2-dir/@/package.json", [], function() {
+require.memoize(bravojs.mainModuleDir + "/package2-dir@/package.json", [], function() {
     return {
         "name": "package2",
         "mappings": {
             "packageA": {
-                "location": "../package1-dir/"
+                "location": "../package1-dir"
             },
             "packageB": {
                 // This mapping is resolved via the plugin below
@@ -47,10 +48,10 @@ require.memoize(bravojs.mainModuleDir + "/package2-dir/@/package.json", [], func
 
 // Register a bravojs core plugin to resolve package mappings to top-level package IDs
 var Plugin = function() {}
-Plugin.prototype.resolvePackageMapping = function(packageMapping)
+Plugin.prototype.resolveLocator = function(packageMapping)
 {
     if(packageMapping.catalog=="http://registry/hostname/path/catalog.json" && packageMapping.name=="package3")
-        return bravojs.mainModuleDir + "/package3-dir/";
+        return bravojs.mainModuleDir + "/package3-dir";
 }
 bravojs.registerPlugin(new Plugin());
 
@@ -58,7 +59,7 @@ bravojs.registerPlugin(new Plugin());
 var packages = [
     {
         package1: {
-            "location": "./package1-dir/",
+            "location": "./package1-dir",
             // The package descriptor for this package does not specify
             // a main module so we set our own here
             "descriptor": {
@@ -68,7 +69,7 @@ var packages = [
     },
     {
         package2: {
-            "location": "./package4-dir/"
+            "location": "./package4-dir"
             // The package descriptor for this package does specify
             // a main module
         }

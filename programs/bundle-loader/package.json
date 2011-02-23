@@ -3,5 +3,10 @@
     "main": "main.js",
     "directories": {
         "lib": ""
+    },
+    "mappings": {
+        "nodejs": {
+            "id": "nodejs.org"
+        }
     }
 }

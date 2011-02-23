@@ -52,7 +52,8 @@ exports.test_WidgetTest = function(test)
     require("pinf-loader").boot({
         program: programResourceURI,
         env: env,
-        print: function() {}
+        print: function(msg) {
+        }
     });
 
     // This function is added by ../data/programs/WidgetTest/lib/main.js as an example

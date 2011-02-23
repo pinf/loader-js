@@ -1,13 +1,13 @@
 
-module.declare([], function(require, exports, module)
+module.declare(["nodejs/path", "nodejs/fs", "pinf/loader"], function(require, exports, module)
 {
-    var PATH = require("path"),
-        FS = require("fs"),
+    var PATH = require("nodejs/path"),
+        FS = require("nodejs/fs"),
         PINF_LOADER = require("pinf/loader");
 
     exports.main = function()
     {
-        var basePath = PATH.dirname(PATH.dirname(PATH.dirname(PATH.dirname(module.id)))) + "/demos";
+        var basePath = PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/demos";
 
         FS.readdir(basePath, function(err, files)
         {
@@ -45,8 +45,8 @@ module.declare([], function(require, exports, module)
                     if (stdout)
                     {
                         var parts = stdout.split("\n"),
-                            ending = parts.slice(parts.length-2, parts.length);
-                        if (!/(^OK|OK$|OK:)/.test(ending))
+                            ending = new String(parts.slice(parts.length-2, parts.length).join("").replace(/\033.*?m/g, ""));
+                        if (!/OK$/.test(ending))
                             throw new Error("Demo '"+basePath + "/" + filename+"' failed: " + stdout);
                     }
                     else

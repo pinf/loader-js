@@ -1,7 +1,6 @@
 Welcome to BravoJS
 
-Copyright (c) 2010, PageMail, Inc.
-Copyright (c) 2011, Christoph Dorn <christoph@christophdorn.com>
+Copyright (c) 2010 PageMail, Inc.
 Released under the terms of the MIT License.
 
 BravoJS is an implementation of an unratified proposed draft for CommonJS 
@@ -24,7 +23,7 @@ Manifest
 bravo.js            The CommonJS Modules/2.0 environment with default loader
 plugins/wonkoll     A module loader plug-in implemented with LazyLoad.js
 plugins/fastload    A module loader plug-in which implements a multi-module
-			        transport. Includes server-side component for GPSEE.
+                    transport. Includes server-side component for GPSEE.
 demos/area          A web page which calculates the area of a rectangle
 demos/iojs_tests    An environment to exercise the Modules/1.0 test suite
 demos/mappings      An example of how to compose programs out of packages

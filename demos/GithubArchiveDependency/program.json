@@ -12,6 +12,12 @@
                     "native": true
                 }
             }
+        },
+        "nodejs.org": {
+            "provider": "nodejs.org"
+        },
+        "pinf.org/loader": {
+            "provider": "pinf.org/loader"
         }
     }
 }

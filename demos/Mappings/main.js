@@ -12,10 +12,9 @@ module.declare(["package1/main", "package4/main"], function(require, exports, mo
         //       modules into a package.
         var mainModuleDir = module.mappings["package1"].split("/");
         mainModuleDir.pop();
-        mainModuleDir.pop();
 
         var options = {
-            mainModuleDir: mainModuleDir.join("/") + "/"
+            mainModuleDir: mainModuleDir.join("/")
         };
 
         // Require a package's main module simply by using the label provided to the dependency array
@@ -26,15 +25,15 @@ module.declare(["package1/main", "package4/main"], function(require, exports, mo
         var package2 = require("package4/main");
         package2.main(options);
         module.print(package2.getMessages() + "\n");
-        
+
         var count = 2;
-        
+
         function checkFinished()
         {
             if (count==0)
                 module.print("OK");
         }
-        
+
         // The function we are calling lazy-loads extra code into the running program - hence the callback
         package2.loadSubModule(function(subModule) {
             subModule.main(options);
@@ -42,7 +41,7 @@ module.declare(["package1/main", "package4/main"], function(require, exports, mo
             count--;
             checkFinished();
         });
-    
+
         // The function we are calling lazy-loads extra code into the running program - hence the callback
         package2.loadSubPackage(function(package3) {
             package3.main(options);

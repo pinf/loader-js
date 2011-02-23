@@ -41,21 +41,16 @@ exports.init = function(api)
     parts.pop();
     api.ENV.loaderRoot = "/" + parts.join("/");
 
-    if (typeof api.SYSTEM.print == "undefined")
-    {
-        api.SYSTEM.print = function(msg)
+    api.ENV.packageProviders["mozilla.org/labs/jetpack"] = {
+        requireModule: function(id)
         {
-            dump(msg);
-        }
-    }
-
-    api.ENV.packageProviders = {
-        "mozilla.org/labs/jetpack/":
+            return api.ENV.platformRequire(id);
+        },
+        getModuleSource: function(sandbox, resourceURI, callback)
         {
-            requireModule: function(id)
-            {
-                return api.ENV.platformRequire(id);
-            }
+            // There is no module source. We use api.ENV.platformRequire to
+            // make the module available.
+            return false;
         }
     }
 
@@ -64,6 +59,14 @@ exports.init = function(api)
     api.SYSTEM.env = {
         TERM: ""
     };
+
+    if (typeof api.SYSTEM.print == "undefined")
+    {
+        api.SYSTEM.print = api.SYSTEM.plainPrint(function(msg)
+        {
+            dump(msg);
+        });
+    }
 
     api.SYSTEM.preArgs = [];
     api.SYSTEM.args = [];
@@ -282,6 +285,63 @@ if (!Array.prototype.map) {
 ENV.platformRequire = require;
 ENV.mustTerminate = false;
 ENV.mustClean = false;
+ENV.packageProviders = {};
+
+ENV.packageProviders = {
+    "pinf.org/loader":
+    {
+        requireModule: function(id)
+        {
+//            if (id == "loader")
+//                return PINF_LOADER;
+            if (typeof __require__ != "undefined")
+                return __require__("modules/pinf/" + id);
+            else
+                return require("./modules/pinf/" + id);
+        },
+        getModuleSource: function(sandbox, resourceURI, callback)
+        {
+            // There is no module source. We make it available directly above.
+            return false;
+        }
+    }
+}
+
+
+// ######################################################################
+// # SYSTEM
+// ######################################################################
+
+SYSTEM.colorizedPrint = function(print)
+{
+    var TERM = __require__('term'),
+        writer = {
+            write: function()
+            {
+                print.apply(null, arguments);
+                return writer;
+            },
+            flush: function() {}
+        };
+    var termStream = new TERM.Stream({
+        stdout: writer,
+        stderr: writer
+    });
+    return function(msg)
+    {
+        termStream.write(msg);
+    }
+}
+
+SYSTEM.plainPrint = function(print)
+{
+    return function(msg)
+    {
+        // TODO: Strip color markup
+        print(msg);
+    }
+}
+
 
 
 // ######################################################################
@@ -294,11 +354,7 @@ DEBUG.print = function() {
     if (DEBUG.enabled)
     {
         var padding = ""; for(var i=0 ; i<debugIndent ; i++) padding += "  ";
-        var str = padding + arguments[0] + "\n";
-        if (typeof DEBUG.termStream != "undefined")
-            DEBUG.termStream.write(str);
-        else
-            SYSTEM.print(str);
+        SYSTEM.print(padding + arguments[0] + "\n");
     }
     return DEBUG;
 };
@@ -388,8 +444,7 @@ UTIL.keys = function (object) {
 
 UTIL.locatorToString = function(locator)
 {
-    locator = UTIL.copy(locator);
-    delete locator.descriptor;
+//    locator = UTIL.copy(locator);
     return JSON.stringify(locator);
 /*    
     if (typeof locator.id != "undefined")
@@ -774,9 +829,9 @@ __loader__.memoize('bravojs/bravo', function(__require__, module, exports) {
 function bravojs_init(bravojs,    /**< Namespace object for this implementation */
                       window)
 {
-try { 
+try {
 
-var require, module;
+bravojs.window = window;
 
 if (!bravojs.hasOwnProperty("errorReporter"))
 {
@@ -788,7 +843,7 @@ if (!bravojs.hasOwnProperty("errorReporter"))
 }
 
 /** Reset the environment so that a new main module can be loaded */
-bravojs.reset = function bravojs_reset(mainModuleDir)
+bravojs.reset = function bravojs_reset(mainModuleDir, plugins)
 {
   if (!mainModuleDir)
   {
@@ -801,7 +856,7 @@ bravojs.reset = function bravojs_reset(mainModuleDir)
   bravojs.requireMemo 			= {};	/**< Module exports, indexed by canonical name */
   bravojs.pendingModuleDeclarations	= {};	/**< Module.declare arguments, indexed by canonical name */
   bravojs.mainModuleDir 		= mainModuleDir;
-  bravojs.plugins = [];
+  bravojs.plugins = plugins || [];
   bravojs.contexts = {};
   bravojs.activeContexts = [];
 
@@ -813,8 +868,24 @@ bravojs.reset = function bravojs_reset(mainModuleDir)
   bravojs.makeContext("_");
 
   /** Extra-module environment */
-  require = window.require = bravojs.requireFactory(bravojs.mainModuleDir);
-  module = window.module  = new bravojs.Module('', []);
+  bravojs.module = window.module = new bravojs.Module('', []);
+  bravojs.require = window.require = bravojs.requireFactory(bravojs.mainModuleDir, [], bravojs.module);
+
+  /* Module.declare function which handles main modules inline SCRIPT tags.
+   * This function gets deleted as soon as it runs, allowing the module.declare
+   * from the prototype take over. Modules created from this function have
+   * the empty string as module.id.
+   */
+  bravojs.module.declare = function main_module_declare(dependencies, moduleFactory)
+  {
+    if (typeof dependencies === "function")
+    {
+      moduleFactory = dependencies;
+      dependencies = [];
+    }
+
+    bravojs.initializeMainModule(dependencies, moduleFactory, '');
+  }
 }
 
 /** Print to text to stdout */
@@ -867,7 +938,10 @@ if (typeof bravojs.print === "undefined")
 
 bravojs.registerPlugin = function(plugin)
 {
+    plugin.bravojs = bravojs;
     bravojs.plugins.push(plugin);
+    if (typeof plugin.init == "function")
+      plugin.init();
 }
 
 bravojs.callPlugins = function(method, args)
@@ -886,8 +960,10 @@ bravojs.callPlugins = function(method, args)
  *  Treats paths with trailing slashes as though they end with INDEX instead.
  *  Not rigorous.
  */
-bravojs.realpath = function bravojs_realpath(path)
+bravojs.realpath = function bravojs_realpath(path, index)
 {
+  if (typeof index === "undefined")
+    index = "INDEX";
   if (typeof path !== "string")
     path = path.toString();
 
@@ -895,8 +971,8 @@ bravojs.realpath = function bravojs_realpath(path)
   var newPath = [];
   var i;
 
-  if (path.charAt(path.length - 1) === '/')
-    oldPath.push("INDEX");
+  if (path.charAt(path.length - 1) === '/' && index)
+    oldPath.push(index);
 
   for (i = 0; i < oldPath.length; i++)
   {
@@ -941,10 +1017,6 @@ bravojs.dirname = function bravojs_dirname(path)
   if (!s)
     return ".";
 
-  /* If path ends in "/@/xxx.js" then s will end in /@ which needs to be fixed */
-  if (s.charAt(s.length-1)=="@")
-    s += "/";
-
   return s;
 }
 
@@ -953,124 +1025,7 @@ bravojs.dirname = function bravojs_dirname(path)
  */
 bravojs.makeModuleId = function makeModuleId(relativeModuleDir, moduleIdentifier)
 {
-  var id;
-
-  if (moduleIdentifier === '')	/* Special case for main module */
-    return '';
-
-  if (typeof moduleIdentifier === "object")
-  {
-    id = bravojs.makeModuleIdFromMapping(relativeModuleDir, moduleIdentifier);
-  }
-  else
-  {
-    /* <packageID>@/<moduleID> */
-    var parts = moduleIdentifier.split("@/");
-    if (parts.length==1)
-    {
-      if (moduleIdentifier.charAt(0) === '/')
-      {
-        /* Absolute path. Not required by CommonJS but it makes dependency list optimization easier */
-        id = moduleIdentifier;
-      }
-      else
-      if ((moduleIdentifier.indexOf("./") == 0) || (moduleIdentifier.indexOf("../") == 0))
-      {
-        id = relativeModuleDir + "/" + moduleIdentifier;
-      }
-      else
-      {
-        id = bravojs.contextForId(relativeModuleDir).resolveAbsoluteId(relativeModuleDir, moduleIdentifier);
-      }
-    }
-    else
-    if (parts.length==2)
-    {
-        /* Reference a module irrespective of relativeModuleDir as moduleIdentifier includes a packageID.
-         * If packageID is a known UID we convert it to it's path-based ID by checking the registered contexts.
-         * This means a UID-based moduleId conversion will only be successful if the context is already loaded
-         * and should thus only be used within a running program.
-         */
-        if (bravojs.hasContextForId(parts[0]))
-        {
-            id = bravojs.contextForId(parts[0]).id + "@/" + parts[1];
-        }
-        else
-        {
-          /* Do not change anything as the packageID is already unique and path-based */
-          id = moduleIdentifier;
-        }
-    }
-    else
-      throw new Error("Invalid module identifier: " + moduleIdentifier);
-  }
-  return bravojs.realpath(id);
-}
-
-/** Turn a package mapping and module directory into a canonical
- *  module.id.
- *  If (moduleIdentifier === false) will return a package ID instead.
- */
-bravojs.makeModuleIdFromMapping = function makeModuleIdFromMapping(relativeModuleDir, mapping, moduleIdentifier)
-{
-  var id;
-  if (typeof mapping == "string")
-  {
-      mapping = {
-          location: mapping
-      };
-  }
-  if (typeof mapping.id != "undefined")
-  {
-      id = mapping.id;
-  }
-  else
-  if (typeof mapping.catalog != "undefined" || typeof mapping.archive != "undefined")
-  {
-    if (typeof mapping.catalog != "undefined" && typeof mapping.name == "undefined")
-      throw new Error("Catalog-basd mapping does not specify 'name' property: " + mapping);
-    id = bravojs.callPlugins("resolvePackageMapping", [mapping]);
-    if (typeof id == "undefined")
-      throw new Error("Mapping could not be resolved by plugins: " + ((mapping.toSource)?mapping.toSource():mapping));
-  }
-  else
-  if (typeof mapping.location != "undefined")
-  {
-    if ((mapping.location.indexOf("./") == 0) || (mapping.location.indexOf("../") == 0))
-    {
-      /* Relative package path -- relative to relativeModuleDir */
-      id = relativeModuleDir + "/" + mapping.location;
-    }
-    else
-    if (mapping.location.indexOf("/") == 0)
-    {
-      id = mapping.location;
-    }
-    else
-    {
-      id = mapping.location;
-    }
-  }
-  else
-    throw new Error("Invalid mapping: " + ((mapping.toSource)?mapping.toSource():mapping));
-
-  /* Separate the package ID from the module ID so we know where to look for the package root */
-  id += "@/";
-
-  if (typeof moduleIdentifier == "undefined")
-  {
-    if (typeof mapping.descriptor =="undefined" || typeof mapping.descriptor.main == "undefined")
-      return bravojs.contextForId(bravojs.realpath(id)).resolveRelativeId(relativeModuleDir, null);
-    else
-      return id + mapping.descriptor.main;
-  }
-  else
-  if (moduleIdentifier === false)
-  {
-    return bravojs.contextForId(bravojs.realpath(id)).id;  /* This is a package ID */
-  }
-  else
-    return bravojs.contextForId(bravojs.realpath(id + moduleIdentifier)).resolveRelativeId(relativeModuleDir, moduleIdentifier);
+  return bravojs.contextForId(relativeModuleDir, true).resolveId(moduleIdentifier, relativeModuleDir);
 }
 
 /** Turn a script URL into a canonical module.id */
@@ -1112,11 +1067,11 @@ bravojs.normalizeDependencyArray = function bravojs_normalizeDependencyArray(dep
 
   function addNormal(moduleIdentifier)
   {
-    /* Needed to resolve relative dependencies when using module.declare() */
-    if (typeof relativeModuleDir != "undefined" && typeof moduleIdentifier == "string" && moduleIdentifier.charAt(0) == ".")
-      moduleIdentifier = bravojs.realpath(bravojs.dirname(relativeModuleDir) + "/" + moduleIdentifier);
+    var id = moduleIdentifier;
 
-    var id = require.id(moduleIdentifier);
+    if (typeof id != "string" || id.charAt(0) != "/")
+      id = bravojs.contextForId(relativeModuleDir, true).resolveId(id, relativeModuleDir);
+
     if (bravojs.requireMemo[id] || bravojs.pendingModuleDeclarations[id])
       return;
 
@@ -1128,203 +1083,76 @@ bravojs.normalizeDependencyArray = function bravojs_normalizeDependencyArray(dep
     switch(typeof dependencies[i])
     {
       case "object":
-	for (label in dependencies[i])
-	{
-	  if (dependencies[i].hasOwnProperty(label))
-	    addNormal(dependencies[i][label]);
-	}
-	break;
+        for (label in dependencies[i])
+        {
+          if (dependencies[i].hasOwnProperty(label))
+            addNormal(dependencies[i][label]);
+        }
+        break;
 
       case "string":
-	addNormal(dependencies[i]);
-	break;
+        addNormal(dependencies[i]);
+        break;
 
       default:
-	throw new Error("Invalid dependency array value at position " + (i+1));
+        throw new Error("Invalid dependency array value at position " + (i+1));
     }
   }
 
   return normalizedDependencies;
 }
 
-bravojs.loadPackageDescriptor = function bravojs_loadPackageDescriptor(id)
-{
-  var ret = bravojs.callPlugins("loadPackageDescriptor", [id]);
-  if (typeof ret != "undefined")
-    return ret;
-
-  /* NOTE: The following request is SYNC and will block. Package descriptors
-   * should be memoized before booting the program for better loading performance.
-   */
-  var URL = require.canonicalize(id);
-  // TODO: Get this working in other browsers
-  var req = new (bravojs.XMLHttpRequest || XMLHttpRequest)();
-  req.open("GET", URL, false);
-  req.send(null);
-  if(req.status == 200)
-  {
-    try
-    {
-      return JSON.parse(req.responseText);
-    }
-    catch(e)
-    {
-      throw new Error("Error parsing package descriptor from URL '" + URL + "': " + e);
-    }
-  }
-  else
-    throw new Error("Error loading package descriptor from URL: " + URL);
-}
-
-bravojs.normalizePackageDescriptor = function bravojs_normalizePackageDescriptor(descriptor)
-{
-  var ret = bravojs.callPlugins("normalizePackageDescriptor", [descriptor]);
-  if (typeof ret != "undefined")
-    descriptor = ret;
-  return descriptor;
-}
-
-/** Get a context for a given module ID used to resolve the ID. If a package
- *  prefix is found a context specific to the package is returned, otherwise
- *  the default context is returned.
+/** Get a context for a given module ID used to resolve the ID.
+ * Plugins should override this function to provide additional contexts.
  */
-bravojs.contextForId = function bravojs_contextForId(id)
+bravojs.contextForId = function bravojs_contextForId(id, onlyCreateIfDelimited)
 {
-  var parts = id.split("@/"),
-      id = parts[0];
-
-  var ret = bravojs.callPlugins("contextForId", [id]);
-  if (typeof ret != "undefined")
-    id = ret;
-
-  /* Return the default context if no package delimiter found */
-  if (parts.length == 1)
-  {
-    if(typeof bravojs.contexts[id] != "undefined")
-      return bravojs.contexts[id];
-    else
-      return bravojs.contexts["_"];
-  }
-  if (typeof bravojs.contexts[id] == "undefined")
-    bravojs.makeContext(id);
-  return bravojs.contexts[id];
+  return bravojs.contexts["_"];
 }
 
-bravojs.hasContextForId = function bravojs_hasContext(id)
-{
-  var parts = id.split("@/");
-  if (parts.length == 2)
-    id = parts[0];
-  return (typeof bravojs.contexts[id] != "undefined");
-}
-
-/** Make a new context used to resolve module IDs
- */
+/** Make a new context used to resolve module IDs. */
 bravojs.makeContext = function bravojs_makeContext(id)
 {
-  bravojs.contexts[id] = new bravojs.Context(id);
-  /* The id so far is path-based. If the context/package descriptor specifies a UID we map
-   * the same context to the UID as well.
-   */
-  if (typeof bravojs.contexts[id].uid != "undefined")
-    bravojs.contexts[bravojs.contexts[id].uid] = bravojs.contexts[id];
-  return bravojs.contexts[id];
+  return bravojs.contexts[id] = new bravojs.Context(id);
 }
 
-/**
- * A Context object represents the root of a package and is used to resolve
- * IDs for packages.
- */
+/** A Context object used to resolve IDs. */
 bravojs.Context = function bravojs_Context(id)
 {
   this.id = id;
-  if (this.id=="_")
-    return;
+}
 
-  id = this.id + "@/package.json";
+bravojs.Context.prototype.resolveId = function bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir)
+{
+  var id;
 
-  if (require.isMemoized(id))
+  if (moduleIdentifier === '')  /* Special case for main module */
+    return '';
+
+  if (typeof moduleIdentifier !== "string")
+    throw new Error("Invalid module identifier: " + moduleIdentifier);
+
+  if (moduleIdentifier.charAt(0) === '/')
   {
-    this.descriptor = require.getMemoized(id).moduleFactory();
+    /* Absolute path. Not required by CommonJS but it makes dependency list optimization easier */
+    id = moduleIdentifier;
+  }
+  else
+  if ((moduleIdentifier.indexOf("./") == 0) || (moduleIdentifier.indexOf("../") == 0))
+  {
+    /* Relative module path -- relative to relativeModuleDir */
+    id = relativeModuleDir + "/" + moduleIdentifier;
   }
   else
   {
-    this.descriptor = bravojs.normalizePackageDescriptor(bravojs.loadPackageDescriptor(id), id);
-    var self = this;
-    require.memoize(id, [], function() { return self.descriptor; });
-  }
-
-  this.libDir = this.descriptor.directories && this.descriptor.directories.lib;
-  if (typeof this.libDir != "string")
-  this.libDir = "lib";
-
-  this.uid = this.descriptor.uid || void 0;
-  if (typeof this.uid != "undefined")
-  {
-    var m = this.uid.match(/^https?:\/\/(.*)$/);
-    if (!m)
-      throw new Error("uid property '" + this.uid + "' must be a non-resolving or resolving URL with http or https protocol in: " + id);
-    this.uid = m[1];  // strip the protocol prefix
-  }
-}
-
-/** Get a map where labels point to package IDs for all declared mappings */
-bravojs.Context.prototype.getNormalizedMappings = function bravojs_Context_getNormalizedMappings() {
-  if (this.id == "_")
-    throw new Error("Cannot get mappings for default context");
-
-  if (typeof this.normalizedMappings != "undefined")
-    return this.normalizedMappings;
-
-  this.normalizedMappings = {};
-  if (typeof this.descriptor.mappings != "undefined")
-  {
-    for (var label in this.descriptor.mappings)
-    {
-      this.normalizedMappings[label] = bravojs.makeModuleIdFromMapping(this.id, this.descriptor.mappings[label], false);
-    }
-  }
-  return this.normalizedMappings;
-}
-
-bravojs.Context.prototype.resolveRelativeId = function bravojs_Context_resolveRelativeId(relativeModuleDir, moduleIdentifier) {
-  /* Relative module path -- relative to relativeModuleDir */
-  if (this.id == "_")
-    return relativeModuleDir + "/" + moduleIdentifier;
-  if (moduleIdentifier === null)
-  {
-    if (typeof this.descriptor == "undefined" ||
-        typeof this.descriptor.main == "undefined")
-      throw new Error("'main' property not set in package descriptor for: " + this.id);
-    return this.id + "@/" + this.descriptor.main;
-  }
-  else
-    return this.id + "@/" + this.libDir + "/" + moduleIdentifier;
-}
-
-bravojs.Context.prototype.resolveAbsoluteId = function bravojs_Context_resolveAbsoluteId(relativeModuleDir, moduleIdentifier) {
-  var parts;
-  if (
     /* Top-level module. Since we don't implement require.paths,
-     * make it relative to the main module.
+     *  make it relative to the main module.
      */
-    this.id == "_" ||
+    id = bravojs.mainModuleDir + "/" + moduleIdentifier;
+  }
 
-    /* If no descriptor nor mappings we are not interested */
-    typeof this.descriptor == "undefined" ||
-    typeof this.descriptor.mappings == "undefined" ||
-
-    /* If id does not have at least two terms we are not interested */
-    (parts = moduleIdentifier.split("/")).length == 1 ||
-
-    /* If no mapping for first term we are not interested */
-    typeof this.descriptor.mappings[parts[0]] == "undefined"
-  )
-    return bravojs.mainModuleDir + "/" + moduleIdentifier;
-
-  return bravojs.makeModuleIdFromMapping(this.id, this.descriptor.mappings[parts[0]], "./" + parts.slice(1).join("/"));
+  return bravojs.realpath(id);
 }
-
 
 /** Provide a module to the environment 
  *  @param	dependencies		A dependency array
@@ -1341,11 +1169,11 @@ bravojs.provideModule = function bravojs_provideModule(dependencies, moduleFacto
 {
   /* Memoize the the factory, satistfy the dependencies, and invoke the callback */
   if (moduleFactory)
-    require.memoize(id, dependencies, moduleFactory);
+    bravojs.require.memoize(id, dependencies, moduleFactory);
 
   if (dependencies)
   {
-    module.provide(bravojs.normalizeDependencyArray(dependencies, id?id:bravojs.mainModuleDir+"/"), callback);
+    bravojs.module.provide(bravojs.normalizeDependencyArray(dependencies, id?bravojs.dirname(id):bravojs.mainModuleDir), callback);
   }
   else
   {
@@ -1363,15 +1191,17 @@ bravojs.initializeModule = function bravojs_initializeModule(id)
   var moduleDir     = id ? bravojs.dirname(id) : bravojs.mainModuleDir;
   var moduleFactory = bravojs.pendingModuleDeclarations[id].moduleFactory;
   var dependencies  = bravojs.pendingModuleDeclarations[id].dependencies;
-  var require, module;
+  var require, exports, module;
 
   delete bravojs.pendingModuleDeclarations[id];
 
-  require = bravojs.requireFactory(moduleDir, dependencies);
   exports = bravojs.requireMemo[id] = {};
   module  = new bravojs.Module(id, dependencies);
 
-  module.augment();
+  if (typeof module.augment == "function")
+    module.augment();
+
+  require = bravojs.requireFactory(moduleDir, dependencies, module);
 
   moduleFactory(require, exports, module);
 }
@@ -1389,7 +1219,7 @@ bravojs.requireModule = function bravojs_requireModule(parentModuleDir, moduleId
   var exports = bravojs.callPlugins("requireModule", [id]);
   if (typeof exports != "undefined")
   {
-    if (exports===true)
+    if (exports === true)
       return bravojs.requireMemo[id];
     return bravojs.requireMemo[id] = exports;
   }
@@ -1406,9 +1236,22 @@ bravojs.requireModule = function bravojs_requireModule(parentModuleDir, moduleId
 /** Create a new require function, closing over it's path so that relative
  *  modules work as expected.
  */
-bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies)
+bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies, module)
 {
   var deps, i, label;
+
+  function getContextSensitiveModuleDir()
+  {
+    var contextId;
+    if (bravojs.activeContexts.length > 0)
+      contextId = bravojs.activeContexts[bravojs.activeContexts.length-1].id;
+    if (typeof contextId == "undefined" || !contextId)
+      contextId = moduleDir;
+    else
+    if (contextId == "_")
+      contextId = bravojs.mainModuleDir;
+    return contextId;
+  }
 
   function addLabeledDep(moduleIdentifier)
   {
@@ -1437,15 +1280,6 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
     }
   }
 
-  function getContextSensitiveModuleDir() {
-    var dir;
-    if (bravojs.activeContexts.length>0)
-      dir = bravojs.activeContexts[bravojs.activeContexts.length-1].id;
-    if(typeof dir == "undefined" || dir == "_")
-      dir = moduleDir;
-    return dir;
-  }
-
   var newRequire = function require(moduleIdentifier) 
   {
     if (deps && deps[moduleIdentifier])
@@ -1456,13 +1290,16 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
   newRequire.paths = [bravojs.mainModuleDir];
 
   if (typeof bravojs.platform != "undefined")
-  {
       newRequire.platform = bravojs.platform;
-  }
 
-  newRequire.id = function require_id(moduleIdentifier)
+  newRequire.id = function require_id(moduleIdentifier, unsanitized)
   {
-    return bravojs.makeModuleId(getContextSensitiveModuleDir(), moduleIdentifier);
+    var contextId = getContextSensitiveModuleDir(),
+        context = bravojs.contextForId(contextId, true);
+        id = context.resolveId(moduleIdentifier, contextId);
+    if (unsanitized)
+      return id;
+    return bravojs.callPlugins("sanitizeId", [id]) || id;
   }
 
   newRequire.uri = function require_uri(moduleIdentifierPath)
@@ -1477,14 +1314,7 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
     if (id === '')
       throw new Error("Cannot canonically name the resource bearing this main module");
 
-    /* Remove package/module ID delimiter */
-    id = id.replace(/\/*@?\/+/g, "\/");
-
-    /* Some IDs may refer to non-js files */
-    if (bravojs.basename(id).indexOf(".") == -1)
-      id += ".js";
-
-    return window.location.protocol + "/" + id;
+    return window.location.protocol + "/" + id + ".js";
   }
 
   newRequire.memoize = function require_memoize(id, dependencies, moduleFactory)
@@ -1502,6 +1332,11 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
     return bravojs.pendingModuleDeclarations[id] || bravojs.requireMemo[id];
   }
 
+  bravojs.callPlugins("augmentNewRequire", [newRequire, {
+      module: module,
+      getContextSensitiveModuleDir: getContextSensitiveModuleDir
+  }]);
+
   return newRequire;
 }
 
@@ -1512,7 +1347,8 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
  */
 bravojs.Module = function bravojs_Module(id, dependencies)
 {
-  this.id   	 = id;
+  this._id       = id;
+  this.id        = bravojs.callPlugins("sanitizeId", [id]) || id;
   this.protected = void 0;
   this.dependencies = dependencies;
   this.print = bravojs.print;
@@ -1535,28 +1371,13 @@ bravojs.Module = function bravojs_Module(id, dependencies)
     {
       if (dependencies[i].hasOwnProperty(label))
       {
-	this.deps[label] = function bravojs_lambda_module_deps() 
-	{ 
-	  bravojs.requireModule(bravojs.dirname(this.id), dependencies[i][label]);
+        this.deps[label] = function bravojs_lambda_module_deps() 
+        {
+          bravojs.requireModule(bravojs.dirname(id), dependencies[i][label]);
         };
       }
     }
   }
-}
-
-/** Run just before providing Module to moduleFactory function in bravojs.initializeModule() */
-bravojs.Module.prototype.augment = function bravojs_Module_augment()
-{
-  var context = bravojs.contextForId(this.id);
-  /* Only add extra module properties if context represents a package (i.e. not default '_' context) */
-  if (context.id == "_")
-    return;
-
-  /* If context supplies a UID use it over the path-based ID for the package ID */
-  this.pkgId = context.uid || context.id;
-
-  /* Normalized mappings are simply a map where labels point to package IDs */
-  this.mappings = context.getNormalizedMappings();
 }
 
 /** A module.declare suitable for use during DOM SCRIPT-tag insertion.
@@ -1652,7 +1473,7 @@ bravojs.Module.prototype.provide = function bravojs_Module_provide(dependencies,
   if ((typeof dependencies !== "object") || (dependencies.length !== 0 && !dependencies.length))
     throw new Error("Invalid dependency array: " + dependencies.toString());
 
-  dependencies = bravojs.normalizeDependencyArray(dependencies);
+  dependencies = bravojs.normalizeDependencyArray(dependencies, (this._id)?this._id:bravojs.mainModuleDir);
 
   if (dependencies.length === 0)
   {
@@ -1661,9 +1482,9 @@ bravojs.Module.prototype.provide = function bravojs_Module_provide(dependencies,
     return;
   }
 
-  bravojs.activeContexts.push(bravojs.contextForId(dependencies[0]));
+  bravojs.activeContexts.push(bravojs.contextForId(dependencies[0], true));
 
-  module.load(dependencies[0], function bravojs_lambda_provideNextDep() { self(dependencies.slice(1), callback) });
+  bravojs.module.load(dependencies[0], function bravojs_lambda_provideNextDep() { self(dependencies.slice(1), callback) });
 
   bravojs.activeContexts.pop();
 }
@@ -1683,7 +1504,7 @@ bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, c
 
   var script = document.createElement('SCRIPT');
   script.setAttribute("type","text/javascript");
-  script.setAttribute("src", require.canonicalize(moduleIdentifier) + "?1");
+  script.setAttribute("src", bravojs.require.canonicalize(moduleIdentifier) + "?1");
 
   if (document.addEventListener)	/* Non-IE; see bravojs_Module_declare */
   {
@@ -1698,14 +1519,15 @@ bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, c
 
       if (typeof moduleIdentifier == "object")
       {
-        /* The id is a mapping that needs to be resolved against bravojs.mainModuleDir if applicable. */
-        moduleIdentifier = bravojs.makeModuleIdFromMapping(bravojs.mainModuleDir, moduleIdentifier);
+        /* The id is a mapping locator and needs to be resolved. */
+        moduleIdentifier = bravojs.makeModuleId(bravojs.mainModuleDir, moduleIdentifier);
       }
 
-      bravojs.activeContexts.push(bravojs.contextForId(moduleIdentifier));
+      bravojs.activeContexts.push(bravojs.contextForId(moduleIdentifier, true));
 
-      bravojs.provideModule(stm.dependencies, stm.moduleFactory, require.id(moduleIdentifier), function() {
-          callback(moduleIdentifier);
+      bravojs.provideModule(stm.dependencies, stm.moduleFactory, bravojs.require.id(moduleIdentifier, true), function()
+      {
+        callback(moduleIdentifier);
       });
 
       bravojs.activeContexts.pop();
@@ -1713,7 +1535,7 @@ bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, c
 
     script.onerror = function bravojs_lambda_script_onerror() 
     { 
-      var id = require.id(moduleIdentifier);
+      var id = bravojs.require.id(moduleIdentifier, true);
       bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */
       callback();
     }
@@ -1725,15 +1547,15 @@ bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, c
     script.onreadystatechange = function bravojs_lambda_script_onreadystatechange()
     {
       if (this.readyState != "loaded")
-	return;
+        return;
 
       /* failed load below */
-      var id = require.id(moduleIdentifier);
+      var id = bravojs.require.id(moduleIdentifier, true);
 
       if (!bravojs.pendingModuleDeclarations[id] && !bravojs.requireMemo[id] && id === bravojs.scriptTagMemoIE.moduleIdentifier)
       {
-	bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */
-	callback();
+        bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */
+        callback();
       }
     }
   }
@@ -1783,23 +1605,23 @@ bravojs.reloadModule = function(id, callback)
 {
   delete bravojs.pendingModuleDeclarations[id];
   delete bravojs.requireMemo[id];
-  module.provide([id], callback);
+  bravojs.module.provide([id], callback);
 }
 
 /** Main module bootstrap */
 bravojs.initializeMainModule = function bravojs_initializeMainModule(dependencies, moduleFactory, moduleIdentifier)
 {
-  if (module.hasOwnProperty("declare"))		/* special extra-module environment bootstrap declare needs to go */
-    delete module.declare;
+  if (bravojs.module.hasOwnProperty("declare"))		/* special extra-module environment bootstrap declare needs to go */
+    delete bravojs.module.declare;
 
-  if (module.constructor.prototype.main)
+  if (bravojs.module.constructor.prototype.main)
     throw new Error("Main module has already been initialized!");
 
   bravojs.es5_shim_then
   (
     (function() 
      {
-       bravojs.provideModule(dependencies, moduleFactory, moduleIdentifier, function bravojs_lambda_requireMain() { module.constructor.prototype.main = require(moduleIdentifier); })
+       bravojs.provideModule(dependencies, moduleFactory, moduleIdentifier, function bravojs_lambda_requireMain() { bravojs.module.constructor.prototype.main = bravojs.require(moduleIdentifier); })
      })
   ); 
 }
@@ -1820,7 +1642,7 @@ bravojs.runExternalMainModule = function bravojs_runExternalProgram(dependencies
     dependencies = [];
   }
 
-  delete module.declare;
+  delete bravojs.module.declare;
 
   if (moduleIdentifier.charAt(0) === '/')
     bravojs.mainModuleDir = bravojs.dirname(moduleIdentifier);
@@ -1831,7 +1653,7 @@ bravojs.runExternalMainModule = function bravojs_runExternalProgram(dependencies
 
   bravojs.es5_shim_then(
       function() {
-	module.provide(dependencies.concat([moduleIdentifier]), 
+	bravojs.module.provide(dependencies.concat([moduleIdentifier]), 
 		       function bravojs_runMainModule() {
 			 bravojs.initializeMainModule(dependencies, '', moduleIdentifier);
 			 if (callback)
@@ -1885,22 +1707,6 @@ if (!window.onerror)
   }
 }
 
-/* Module.declare function which handles main modules inline SCRIPT tags.
- * This function gets deleted as soon as it runs, allowing the module.declare
- * from the prototype take over. Modules created from this function have
- * the empty string as module.id.
- */
-module.declare = function main_module_declare(dependencies, moduleFactory)
-{
-  if (typeof dependencies === "function")
-  {
-    moduleFactory = dependencies;
-    dependencies = [];
-  }
-
-  bravojs.initializeMainModule(dependencies, moduleFactory, '');
-}
-
 } catch(e) { bravojs.errorReporter(e); }
 
 }
@@ -1924,21 +1730,13 @@ if (typeof exports !== "undefined")
             url: window.location.href,
             print: (context.api && context.api.system && context.api.system.print) || void 0,
             errorReporter: (context.api && context.api.errorReporter) || void 0,
-            XMLHttpRequest: (context.api && context.api.XMLHttpRequest) || void 0
+            XMLHttpRequest: (context.api && context.api.XMLHttpRequest) || void 0,
+            DEBUG: context.DEBUG || void 0
         };
 
         bravojs_init(bravojs, window);
 
-        context.require = window.require;
-        context.module = window.module;
-        context.requireMemo = bravojs.requireMemo;
-        context.initializeModule = bravojs.initializeModule;
-        context.registerPlugin = bravojs.registerPlugin;
-        context.makeModuleId = bravojs.makeModuleId;
-        context.makeModuleIdFromMapping = bravojs.makeModuleIdFromMapping;
-        context.normalizeDependencyArray = bravojs.normalizeDependencyArray;
-        context.activeContexts = bravojs.activeContexts;
-        context.contextForId = bravojs.contextForId;
+        context.bravojs = bravojs;
     }
 }
 else
@@ -2630,6 +2428,404 @@ if (!String.prototype.trim) {
 
 
 });
+__loader__.memoize('bravojs/plugins/packages/packages', function(__require__, module, exports) {
+// ######################################################################
+// # /bravojs/plugins/packages/packages.js
+// ######################################################################
+/**
+ *  This file implements a bravojs core plugin to add
+ *  package and package mappings support.
+ *
+ *  Copyright (c) 2011, Christoph Dorn
+ *  Christoph Dorn, christoph@christophdorn.com
+ *  MIT License
+ *
+ *  To use: Load BravoJS, then layer this plugin in
+ *  by loading it into the extra-module environment.
+ */
+
+(function packages() {
+
+var Plugin = function()
+{
+}
+
+Plugin.prototype.init = function()
+{
+    var bravojs = this.bravojs;
+
+    /** Get a context for a given module ID used to resolve the ID. If a package
+     *  prefix is found a context specific to the package is returned, otherwise
+     *  the default context is returned.
+     */
+    bravojs.contextForId = function packages_bravojs_contextForId(id, onlyCreateIfDelimited)
+    {
+        if (typeof id == "undefined")
+            return bravojs.contexts["_"];
+
+        var parts = id.split("@/"),
+            id = parts[0];
+
+        if (/@$/.test(id))
+            id = id.substring(0, id.length-1);
+
+        var ret = bravojs.callPlugins("contextForId", [id]);
+        if (typeof ret != "undefined")
+            id = ret;
+
+        if (parts.length == 1 && typeof bravojs.contexts[id] != "undefined")
+            return bravojs.contexts[id];
+
+        if (typeof bravojs.contexts[id] == "undefined")
+        {
+            if (onlyCreateIfDelimited === true && parts.length == 1)
+                return bravojs.contexts["_"];
+
+            bravojs.makeContext(id);
+        }
+
+        return bravojs.contexts[id];
+    };
+
+    bravojs.hasContextForId = function packages_bravojs_hasContext(id)
+    {
+        var parts = id.split("@/");
+        if (parts.length == 2)
+            id = parts[0];
+        if (/@$/.test(id))
+            id = id.substring(0, id.length-1);
+        return (typeof bravojs.contexts[id] != "undefined");
+    }
+
+    bravojs.makeContext = function packages_bravojs_makeContext(id)
+    {
+        bravojs.contexts[id] = new bravojs.Context(id);
+        /* The id so far is path-based. If the context/package descriptor specifies a UID we map
+         * the same context to the UID as well.
+         */
+        if (typeof bravojs.contexts[id].uid != "undefined")
+           bravojs.contexts[bravojs.contexts[id].uid] = bravojs.contexts[id];
+        return bravojs.contexts[id];
+    }
+
+    bravojs.Context = function packages_bravojs_Context(id)
+    {
+        this.id = id;
+
+        // We do not need to do anything for the default context
+        if (this.id == "_")
+            return;
+
+        id = this.id + "@/package.json";
+
+        if (bravojs.require.isMemoized(id))
+        {
+            this.descriptor = bravojs.require.getMemoized(id).moduleFactory();
+        }
+        else
+        {
+            this.descriptor = bravojs.callPlugins("loadPackageDescriptor", [id]);
+            var self = this;
+            bravojs.require.memoize(id, [], function()
+            {
+                return self.descriptor;
+            });
+        }
+
+        this.libDir = this.descriptor.directories && this.descriptor.directories.lib;
+        if (typeof this.libDir != "string")
+            this.libDir = "lib";
+    
+        this.uid = this.descriptor.uid || void 0;
+        if (typeof this.uid != "undefined")
+        {
+            var m = this.uid.match(/^https?:\/\/(.*)$/);
+            if (!m)
+                throw new Error("uid property '" + this.uid + "' must be a non-resolving or resolving URL with http or https protocol in: " + id);
+            this.uid = m[1];  // strip the protocol prefix
+        }
+    }
+
+    /** Get a map where labels point to package IDs for all declared mappings */
+    bravojs.Context.prototype.getNormalizedMappings = function packages_bravojs_Context_getNormalizedMappings()
+    {
+        if (this.id == "_")
+            throw new Error("Cannot get mappings for default context");
+    
+        if (typeof this.normalizedMappings != "undefined")
+            return this.normalizedMappings;
+    
+        this.normalizedMappings = {};
+      
+        if (typeof this.descriptor.mappings != "undefined")
+        {
+            for (var label in this.descriptor.mappings)
+            {
+                this.normalizedMappings[label] = bravojs.callPlugins("normalizeLocator", [this.descriptor.mappings[label], this]).location;
+            }
+        }
+        return this.normalizedMappings;
+    }
+
+    bravojs.Context.prototype.resolveId = function packages_bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir)
+    {
+        var ret = bravojs.callPlugins("normalizeModuleIdentifier", [moduleIdentifier, relativeModuleDir, this]);
+        if (typeof ret != "undefined")
+            moduleIdentifier = ret;
+
+        if (moduleIdentifier === "" | moduleIdentifier.charAt(0) == "/")
+            return moduleIdentifier;
+        
+        if (moduleIdentifier.charAt(0) == ".")
+            return bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier);
+      
+        if (this.id == "_")
+            return bravojs.realpath(bravojs.mainModuleDir + "/" + moduleIdentifier);
+    
+        return bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier);
+    }
+
+
+    /** Run just before providing Module to moduleFactory function in bravojs.initializeModule() */
+    bravojs.Module.prototype.augment = function bravojs_Module_augment()
+    {
+        if (this._id === "")
+            return;
+    
+        var context = bravojs.contextForId(this._id, true);
+        /* Only add extra module properties if context represents a package (i.e. not default '_' context) */
+        if (context.id == "_")
+            return;
+    
+        /* If context supplies a UID use it over the path-based ID for the package ID */
+        this.pkgId = context.id;
+    
+        /* Normalized mappings are simply a map where labels point to package IDs */
+        this.mappings = context.getNormalizedMappings();
+    }
+
+    // We need to reset bravojs to use the Context object from above (but keep registered plugins)
+    bravojs.reset(null, bravojs.plugins);
+}
+
+Plugin.prototype.augmentNewRequire = function(newRequire, helpers)
+{
+    var bravojs = this.bravojs;
+
+    newRequire.pkg = function packages_require_pkg(packageIdentifierPath)
+    {
+        if (typeof helpers.module != "undefined" && typeof helpers.module.mappings != "undefined")
+        {
+            if (typeof helpers.module.mappings[packageIdentifierPath] != "undefined")
+                packageIdentifierPath = helpers.module.mappings[packageIdentifierPath];
+        }
+        var context = bravojs.contextForId(packageIdentifierPath);
+        return {
+            id: function(moduleIdentifier, unsanitized)
+            {
+                if (typeof moduleIdentifier == "undefined")
+                    return context.id;
+                else
+                {
+                    var id = context.resolveId(moduleIdentifier, helpers.getContextSensitiveModuleDir());
+                    if (unsanitized)
+                        return id;
+                    return bravojs.callPlugins("sanitizeId", [id]) || id;
+                }
+            }
+        }
+    }
+
+    newRequire.canonicalize = function packages_require_canonicalize(moduleIdentifier)
+    {
+        var id = bravojs.makeModuleId(helpers.getContextSensitiveModuleDir(), moduleIdentifier);
+
+        if (id === '')
+            throw new Error("Cannot canonically name the resource bearing this main module");
+
+        /* Remove package/module ID delimiter */
+        id = bravojs.callPlugins("sanitizeId", [id]) || id;
+
+        /* Some IDs may refer to non-js files */
+        if (bravojs.basename(id).indexOf(".") == -1)
+            id += ".js";
+
+        return bravojs.window.location.protocol + "/" + id;
+    }
+}
+
+Plugin.prototype.sanitizeId = function(id)
+{
+    return id.replace(/@\//, "/").replace(/@$/, "");
+}
+
+/**
+ * Load a package descriptor from the server.
+ * 
+ * NOTE: This function will block until the server returns the response!
+ *       Package descriptors should be memoized before booting the program
+ *       for better loading performance.
+ */
+Plugin.prototype.loadPackageDescriptor = function(id)
+{
+    // NOTE: Do NOT use require.canonicalize(id) here as it will cause an infinite loop!
+    var URL = window.location.protocol + "/" + bravojs.realpath(id.replace(/@\/+/g, "\/"));
+
+    // TODO: Get this working in other browsers
+    var req = new (this.bravojs.XMLHttpRequest || XMLHttpRequest)();
+    req.open("GET", URL, false);
+    req.send(null);
+    if(req.status == 200)
+    {
+        try
+        {
+            return JSON.parse(req.responseText);
+        }
+        catch(e)
+        {
+            throw new Error("Error parsing package descriptor from URL '" + URL + "': " + e);
+        }
+    }
+    else
+        throw new Error("Error loading package descriptor from URL: " + URL);
+}
+
+/**
+ * Given a mappings locator normalize it according to it's context by
+ * setting an absolute path-based location property.
+ */
+Plugin.prototype.normalizeLocator = function(locator, context)
+{
+    if (typeof locator.catalog != "undefined" || typeof locator.archive != "undefined")
+    {
+        if (typeof locator.catalog != "undefined" && typeof locator.name == "undefined")
+            throw new Error("Catalog-based mappings locator does not specify 'name' property: " + locator);
+
+        var ret = this.bravojs.callPlugins("resolveLocator", [locator]);
+        if (typeof ret == "undefined")
+            throw new Error("Unable to resolve package locator: " + locator);
+
+        locator.location = ret;
+
+        if (typeof id == "undefined")
+            throw new Error("Mappings locator could not be resolved by plugins: " + locator);
+    }
+    else
+    if (typeof locator.location != "undefined")
+    {
+        if ((locator.location.indexOf("./") == 0) || (locator.location.indexOf("../") == 0))
+        {
+            locator.location = this.bravojs.realpath(((context.id!="_")?context.id:this.bravojs.mainModuleDir) + "/" + locator.location, false) + "/";
+        }
+    }
+    else
+    if (typeof locator.id != "undefined")
+    {
+        throw new Error("NYI - need to get location for ID");
+    }
+    
+    if (typeof locator.location != "undefined" && locator.location.charAt(locator.location.length-1) == "/")
+        locator.location = locator.location.substring(0, locator.location.length -1);
+
+    return locator;
+}
+
+/**
+ * Given a moduleIdentifier convert it to a top-level ID
+ */
+Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relativeModuleDir, context)
+{
+    if (moduleIdentifier === '')  /* Special case for main module */
+    {
+        return '';
+    }
+    if (moduleIdentifier === null)
+    {
+        if (typeof context.descriptor == "undefined" || typeof context.descriptor.main == "undefined")
+            throw new Error("'main' property not set in package descriptor for: " + this.id);
+        return context.id + "@/" + context.descriptor.main;
+    }
+    else
+    if (typeof moduleIdentifier === "object")
+    {
+        // We have a mappings locator object
+        moduleIdentifier = this.normalizeLocator(moduleIdentifier, context);
+
+        var id;
+        if (typeof moduleIdentifier.location != "undefined")
+        {
+            id = moduleIdentifier.location;
+        }
+        else
+        if (typeof moduleIdentifier.id != "undefined")
+        {
+            id = moduleIdentifier.id;
+        }
+        else
+            throw new Error("Invalid mapping: " + moduleIdentifier);
+
+        if (typeof moduleIdentifier.descriptor != "undefined" && typeof moduleIdentifier.descriptor.main != "undefined")
+            return this.bravojs.realpath(id + "@/" + moduleIdentifier.descriptor.main, false);
+
+        var context = this.bravojs.contextForId(id);
+        if (typeof context.descriptor == "undefined" || typeof context.descriptor.main == "undefined")
+            throw new Error("'main' property not set in package descriptor for: " + context.id);
+
+        return this.bravojs.realpath(context.id + "@/" + context.descriptor.main, false);
+    }
+
+    var moduleIdentifierParts = moduleIdentifier.split("@/");
+    
+    // If module ID is absolute we get appropriate context
+    if (moduleIdentifierParts.length == 2)
+        context = this.bravojs.contextForId(moduleIdentifierParts[0]);
+
+    // NOTE: relativeModuleDir is checked here so we can skip this if we want a module from the package
+    if (typeof context.descriptor != "undefined" &&
+        typeof context.descriptor["native"] != "undefined" &&
+        context.descriptor["native"] === true &&
+        relativeModuleDir)
+    {
+        return moduleIdentifierParts.pop();
+    }
+    else
+    if (moduleIdentifier.charAt(0) == "/")
+        return moduleIdentifier;
+
+    // From now on we only deal with the relative (relative to context) ID
+    moduleIdentifier = moduleIdentifierParts.pop();
+
+    if (moduleIdentifier.charAt(0) == "." && relativeModuleDir)
+        return this.bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier, false);
+    else
+    if (context && context.id == "_")
+        return this.bravojs.realpath(this.bravojs.mainModuleDir + "/" + moduleIdentifier, false);
+
+    var parts;
+    if (typeof context.descriptor != "undefined" &&
+        typeof context.descriptor.mappings != "undefined" &&
+        (parts = moduleIdentifier.split("/")).length > 1 &&
+        typeof context.descriptor.mappings[parts[0]] != "undefined")
+    {
+        var mappedContextId = this.normalizeLocator(context.descriptor.mappings[parts[0]], context).location,
+            mappedContext = this.bravojs.contextForId(mappedContextId);
+
+        // Make ID relative and do not pass relativeModuleDir so ID is resolved against root of package without checking mappings
+        parts[0] = ".";
+        return mappedContext.resolveId(parts.join("/"), null);
+    }
+
+    return this.bravojs.realpath(context.id + "@/" + ((context.libDir)?context.libDir+"/":"") + moduleIdentifier, false);
+}
+
+if (typeof bravojs != "undefined")
+    bravojs.registerPlugin(new Plugin());
+else
+if (typeof exports != "undefined")
+    exports.Plugin = Plugin;
+
+})();
+});
 __loader__.memoize('descriptors', function(__require__, module, exports) {
 // ######################################################################
 // # /descriptors.js
@@ -2780,6 +2976,9 @@ Program.prototype.locatorForId = function(id)
     return this._normalizeLocator(this.json.packages[id].locator);
 }
 
+/**
+ * Given a package locator we add or override any info we find for it.
+ */
 Program.prototype.augmentLocator = function(locator)
 {
     if (typeof this.json.packages == "undefined")
@@ -2845,7 +3044,7 @@ Program.prototype.augmentLocator = function(locator)
     {
         if (typeof found.locator == "undefined")
             return locator;
-    
+
         return this._normalizeLocator(UTIL.deepMerge(locator, found.locator));
     }
 }
@@ -3180,7 +3379,11 @@ exports.boot = function(options)
     if (!adapter)
         throw new Error("Cannot select platform adapter. Unable to identify host JavaSvript platform.");
 
+    // Normalize JS environment to ES5
+    __require__('bravojs/global-es5');
+
     var API = __require__('api');
+    API.SANDBOX = __require__('sandbox');
 
     API.ENV.timers = timers;
     API.DEBUG.enabled = options.debug || void 0;
@@ -3188,34 +3391,14 @@ exports.boot = function(options)
 
     // NOTE: If you modify this line you need to update: ../programs/bundle-loader/lib/bundler.js
     __require__("adapter/" + adapter).init(API);
-    
-    __require__('bravojs/global-es5');
 
-    API.PINF_LOADER = __require__('modules/pinf/loader');
-    API.SANDBOX = __require__('sandbox');
+    // Now that we have a basic file and system API available we can proceed
 
 
     // ######################################################################
     // # CLI
     // ######################################################################
 
-    // Setup colored printing
-
-    var TERM = __require__('term'),
-        writer = {
-            write: function()
-            {
-                API.SYSTEM.print.apply(null, arguments);
-                return writer;
-            },
-            flush: function() {}
-        };
-    var termStream = API.DEBUG.termStream = new TERM.Stream({
-        stdout: writer,
-        stderr: writer
-    });
-
-    // Now that we have a basic file and system API available we can proceed
     
     // Setup command line options
 
@@ -3264,7 +3447,7 @@ exports.boot = function(options)
 
     if (optPrintUsage)
     {
-        termStream.print(optParser.toString() + "\n");
+        API.SYSTEM.print(optParser.toString() + "\n");
         return;
     }
 
@@ -3377,14 +3560,14 @@ exports.boot = function(options)
                         var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
                         hl = h.length;
                         API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
-                        termStream.write("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
+                        API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
                     }
         
                     pkg.main(env);
         
                     if (API.DEBUG.enabled)
                     {
-                        termStream.write("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
+                        API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
                         var f = "";
                         for (var i=0 ; i<hl-8 ; i++) f += "-";
                         API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
@@ -3394,11 +3577,11 @@ exports.boot = function(options)
                 API.ENV.booting = false;
     
                 timers.end = new Date().getTime()
-    
+
                 API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
                 var f = "";
                 for (var i=0 ; i<hl ; i++) f += "|";
-                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)");
+                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
             });
         });
     } // init()
@@ -3447,6 +3630,12 @@ exports.getPlatformRequire = function()
 exports.mustTerminate = function()
 {
     return API.ENV.mustTerminate;
+}
+
+exports.canExit = function()
+{
+    // TODO: Use own flag here
+    return !API.ENV.mustTerminate;
 }
 
 exports.runProgram = function(options, callback)
@@ -4006,7 +4195,7 @@ var API = __require__('api'),
 /**
  * A special kind of package that calls handlers for various module tasks vs using native handlers
  */
-var Package = exports.ProviderPackage = function(id, info)
+var ProviderPackage = exports.ProviderPackage = function(id, info)
 {
     this.descriptor = null;
     this.path = id;
@@ -4023,20 +4212,32 @@ var Package = exports.ProviderPackage = function(id, info)
     };
     this.uid = id;
     this.isProviderPackage = true;
+    this.providerId = info.provider;
 }
-Package.prototype.getIsNative = function()
+ProviderPackage.prototype.getIsNative = function()
 {
     return false;
 }
-Package.prototype.requireModule = function(id)
+ProviderPackage.prototype.requireModule = function(id)
 {
     id = id.split("@/").pop();
     if (typeof API.ENV.packageProviders == "undefined")
-        throw new Error("API.ENV.packageProviders not set. Needed by provider package '"+this.uid+"' for module '"+id+"'.");
-    if (typeof API.ENV.packageProviders[this.uid] == "undefined")
-        throw new Error("API.ENV.packageProviders not set for package '"+this.uid+"' needed for module '"+id+"'.");
+        throw new Error("API.ENV.packageProviders not set. Needed by provider package '"+this.uid+"' for provider '"+this.providerId+"' for module '"+id+"'.");
+    if (typeof API.ENV.packageProviders[this.providerId] == "undefined")
+        throw new Error("API.ENV.packageProviders not set for id '"+this.providerId+"' needed for module '"+id+"'.");
 
-    return API.ENV.packageProviders[this.uid].requireModule(id);
+    return API.ENV.packageProviders[this.providerId].requireModule(id);
+}
+
+ProviderPackage.prototype.getModuleSource = function(sandbox, resourceURI, callback)
+{
+    var id = resourceURI.split("@/").pop();
+    if (typeof API.ENV.packageProviders == "undefined")
+        throw new Error("API.ENV.packageProviders not set. Needed by provider package '"+this.uid+"' for provider '"+this.providerId+"' for module '"+id+"'.");
+    if (typeof API.ENV.packageProviders[this.providerId] == "undefined")
+        throw new Error("API.ENV.packageProviders not set for id '"+this.providerId+"' needed for module '"+id+"'.");
+
+    return API.ENV.packageProviders[this.providerId].getModuleSource(sandbox, resourceURI, callback);
 }
 
 
@@ -4086,7 +4287,7 @@ Package.prototype.discoverMappings = function(fetcher, callback)
 
             // Update the mapping locator to be absolute path location-based
             self.normalizedDescriptor.json.mappings[alias] = {
-                "location": pkg.path + "/"
+                "location": pkg.path // + "/"
             };
 
             if (pkg.discovering)
@@ -4135,7 +4336,7 @@ Package.prototype.getModuleSource = function(sandbox, resourceURI, callback)
     if (parts.length == 2)
     {
         if (parts[0].replace(/\/$/, "") != this.path)
-            throw new Error("Cannot require module '" + id + "' from package '" + this.path + "'");
+            throw new Error("Cannot require module '" + resourceURI + "' from package '" + this.path + "'");
         modulePath = parts[1];
     }
 
@@ -4209,9 +4410,9 @@ Package.prototype.loadRequireModule = function(sandbox, moduleId, callback)
 
     var self = this;
 
-    sandbox.loader.module.load(self.path + "/@/" + moduleId, function(id)
+    sandbox.loader.bravojs.module.load(self.path + "/@/" + moduleId, function(id)
     {
-        callback(sandbox.loader.require(id));       
+        callback(sandbox.loader.bravojs.require(id));       
     });
 }
 
@@ -4856,6 +5057,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback)
 {
     var self = this;
     var descriptor = locator.descriptor;
+
     function finalize(locator)
     {
         if (typeof locator.provider == "undefined")
@@ -4869,7 +5071,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback)
             if (typeof locator.path != "undefined")
                 locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
     
-            // Pass through the descriptor unchanged
+            // Pass through the original descriptor unchanged
             if (typeof descriptor != "undefined")
                 locator.descriptor = descriptor;
         }
@@ -4970,7 +5172,6 @@ Sandbox.prototype.setProgram = function(program)
     this.program = program;
     
     // Add provider packages
-    
     var packages = this.program.getProviderPackages();
     for (var id in packages)
     {
@@ -4983,28 +5184,10 @@ Sandbox.prototype.init = function()
 {
     var self = this;
 
+
     // ######################################################################
     // # BravoJS
     // ######################################################################
-
-    var request = function() {};
-    request.prototype.open = function(method, url)
-    {
-        this.url = url;
-    }
-    request.prototype.send = function()
-    {
-        var m = this.url.match(/^memory:\/(.*)$/);
-        try
-        {
-            this.responseText = API.FILE.read(m[1]);
-            this.status = 200;
-        }
-        catch(e)
-        {
-            this.status = 404;
-        }
-    }
 
     var loader = self.loader = {
         mainModuleDir: self.options.mainModuleDir,
@@ -5016,22 +5199,79 @@ Sandbox.prototype.init = function()
                 API.SYSTEM.print("[BravoJS] " + e + "\n" + e.stack);
             }
         }
+//        DEBUG: API.DEBUG
     };
 
     __require__('bravojs/bravo').BravoJS(loader);
 
+
+    // ######################################################################
+    // # BravoJS - Plugins
+    // ######################################################################
+
+    var Plugin = function() {}
+
+    Plugin.prototype.requireModule = function(id)
+    {
+        if (!id)
+            return;
+
+        // Determine if we are dealing with a provider package
+        var pkg = self.packageForId(id, true);
+        if (pkg && typeof pkg.isProviderPackage != "undefined" && pkg.isProviderPackage === true)
+        {
+            return pkg.requireModule(id);
+        }
+
+        // If it is a native package we let the platform's require handle it
+        if (pkg && pkg.getIsNative() === true)
+            return API.ENV.platformRequire(id.replace(/@\//g, "\/"));
+    }
+    Plugin.prototype.contextForId = function(id)
+    {
+        if (!id) return;
+        try
+        {
+            var id = self.packageForId(id).path;
+
+            if (typeof this.bravojs.contexts[id] == "undefined")
+            {
+                this.bravojs.makeContext(id);
+            }
+            return id;
+        }
+        catch(e)
+        {
+            // If this throws the ID was likely a non-packaged module ID
+            // We only throw if we should have found a package
+            if (id.indexOf("@/") !== -1)
+                throw new Error("Unable to find package for ID: " + id);
+        }
+    }
+    Plugin.prototype.loadPackageDescriptor = function(id)
+    {
+        return self.packageForId(id).normalizedDescriptor.toJSONObject();          
+    }
+
+    loader.bravojs.registerPlugin(new Plugin());
+    loader.bravojs.registerPlugin(new (__require__('bravojs/plugins/packages/packages').Plugin)());
+
+
+    // ######################################################################
+    // # BravoJS - Module constructor prototypes
+    // ######################################################################
+
     var loading;
 
-    loader.module.constructor.prototype.load = function pinf_loader_load(moduleIdentifier, callback)
+    loader.bravojs.module.constructor.prototype.load = function pinf_loader_load(moduleIdentifier, callback)
     {
-        var idBasedModuleIdentifier;
         if (typeof moduleIdentifier == "object")
         {
             if (API.DEBUG.enabled)
                 if (API.ENV.booting)
-                    API.DEBUG.termStream.write("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
+                    API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
                 else
-                    API.DEBUG.termStream.write("\0magenta(\n");
+                    API.SYSTEM.print("\0magenta(\n");
 
             var t = new Date().getTime();
 
@@ -5039,13 +5279,13 @@ Sandbox.prototype.init = function()
             // and start with the main module
             self.program.assembler.addPackageToProgram(self, self.program, moduleIdentifier, function(pkg)
             {
-                loader.module.constructor.prototype.load(pkg.getMainId(moduleIdentifier), function(moduleIdentifier)
+                loader.bravojs.module.constructor.prototype.load(pkg.getMainId(moduleIdentifier), function(moduleIdentifier)
                 {
                     if (API.DEBUG.enabled)
                         if (API.ENV.booting)
-                            API.DEBUG.termStream.write("\0magenta(\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
+                            API.SYSTEM.print("\0magenta(\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
                         else
-                            API.DEBUG.termStream.write("\0)");
+                            API.SYSTEM.print("\0)");
 
                     API.ENV.timers.loadAdditional += new Date().getTime() - t;
 
@@ -5059,43 +5299,12 @@ Sandbox.prototype.init = function()
         {
             throw new Error("Relative IDs '" + moduleIdentifier + "' to module.load() not supported at this time.");
         }
-        else
-        {
-            // Load an extra module into the program
-            moduleIdentifier = loader.require.id(moduleIdentifier);
 
-            // Convert UID-based ID to path-based ID
-            var parts = moduleIdentifier.split("@/");
-            if (parts.length==2)
-            {
-                idBasedModuleIdentifier = moduleIdentifier;
-                moduleIdentifier = self.packageForId(moduleIdentifier).path + "/@/" + parts[1];
-            }
-        }
-
-        // See if package requests for its modules to be treated as native
-        try
-        {
-            if (self.packageForId(moduleIdentifier).getIsNative() === true)
-            {
-                loader.requireMemo[moduleIdentifier] = require(moduleIdentifier.replace(/\/*@?\/+/g, "\/"));
-                callback();
-                return;
-            }
-        }
-        catch(e)
-        {
-            // If this throws the moduleIdentifier was likely a non-packaged module ID
-            // We only throw if we should have found a package
-            if (moduleIdentifier.indexOf("@/") != -1)
-                throw e;
-        }
+        var context = loader.bravojs.contextForId(moduleIdentifier, true);
+        moduleIdentifier = context.resolveId(moduleIdentifier);
 
         function load(data)
         {
-            if (typeof idBasedModuleIdentifier != "undefined")
-                moduleIdentifier = idBasedModuleIdentifier;
-
             loading = {
                 id: moduleIdentifier,
                 callback: function()
@@ -5104,35 +5313,55 @@ Sandbox.prototype.init = function()
                 }
             };
 
-            if ((typeof loader.module.constructor.prototype.load != "undefined" &&
-                 typeof loader.module.constructor.prototype.load.modules11 != "undefined" &&
-                 loader.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
-                eval("loader." + data.replace(/^\s\s*/g, ""));
-            else
-                eval("loader.module.declare([" + API.UTIL.scrapeDeps(data).join(',') + "], function(require, exports, module) {\n" + data + "\n})"); // Modules/1.1
+            try
+            {
+                if ((typeof loader.bravojs.module.constructor.prototype.load != "undefined" &&
+                     typeof loader.bravojs.module.constructor.prototype.load.modules11 != "undefined" &&
+                     loader.bravojs.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
+                {
+                    eval("loader.bravojs." + data.replace(/^\s\s*/g, ""));
+                }
+                else
+                {
+                    // Modules/1.1
+                    eval("loader.bravojs.module.declare([" + API.UTIL.scrapeDeps(data).join(',') + "], function(require, exports, module) {\n" + data + "\n})");
+                }
+            }
+            catch(e)
+            {
+                e.message += " in module " + moduleIdentifier;
+                throw e;
+            }
         }
 
         var pkg = self.packageForId(moduleIdentifier, true);
         if (pkg)
         {
-            // This is the new and proper way
-            pkg.getModuleSource(self, moduleIdentifier, load);
+            // We do not need to load native modules. See Plugin.prototype.requireModule above.
+            if (pkg.getIsNative())
+            {
+                callback(moduleIdentifier);
+            }
+            else
+            if (pkg.getModuleSource(self, moduleIdentifier, load) === false)
+            {
+                callback(moduleIdentifier);
+            }
         }
         else
         {
-            var URL = loader.require.canonicalize(moduleIdentifier),
+            var URL = loader.bravojs.require.canonicalize(moduleIdentifier),
                 m = URL.match(/^memory:\/(.*)$/),
                 path = m[1];
-    
+
             load(API.FILE.read(path));
         }
     }
 
-    loader.module.constructor.prototype.declare = function pinf_loader_declare(dependencies, moduleFactory)
+    loader.bravojs.module.constructor.prototype.declare = function pinf_loader_declare(dependencies, moduleFactory)
     {
         var id    = loading.id;
         var callback  = loading.callback;
-        var deps  = [], i, label;
 
         loading = void 0;
 
@@ -5142,153 +5371,15 @@ Sandbox.prototype.init = function()
           dependencies = [];
         }
 
-        loader.require.memoize(id, dependencies, moduleFactory);
-
-        /* Build a list of dependencies suitable for module.provide; this
-         * means no labeled dependencies. 
-         */
-        function addDep(dependency)
-        {
-            // If it is a relative ID resolve it differently
-            var dep;
-            if (dependency.charAt(0)==".")
-            {
-                dep = API.FILE.realpath(API.FILE.dirname(id) + "/" + dependency);
-            }
-            else
-            // TODO: Do this via a provider package
-            if (dependency == "pinf/loader" || dependency == "pinf/protocol-handler")
-                return;
-            else
-            {
-                var depId = loader.makeModuleId(id, dependency);
-
-                // Check if the dependency is platform native
-                // Determining this is a bit of a hack for now
-                // TODO: Use a default ProvidePackage?
-                if (depId.indexOf("@/")==-1 && depId.substring(0, loader.mainModuleDir.length) == loader.mainModuleDir)
-                {
-//                    depId = depId.substring(loader.mainModuleDir.length);
-                    // depId is a native module
-                    // TODO: Check against list of native modules?
-                    return;
-                }
-
-                // Determine if we are dealing with a provider package
-                var pkg = self.packageForId(depId, true);
-                if (pkg && typeof pkg.isProviderPackage != "undefined" && pkg.isProviderPackage === true)
-                    return;
-
-                dep = loader.require.id(dependency);
-            }
-            if (loader.require.isMemoized(dep) || deps.indexOf(dep) !== -1)
-                return;
-            deps.push(dep);
-        }
-
-        for (i=0; i < dependencies.length; i++)
-        {
-            if (typeof dependencies[i] === "string")
-                addDep(dependencies[i]);
-            else
-            {
-                for (label in dependencies[i])
-                  addDep(dependencies[i][label])
-            }
-        }
-
-        loader.module.provide(deps, callback);
+        loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
     }
-
-    // Register a bravojs core plugin to resolve package mappings to top-level package IDs
-
-    var Plugin = function() {}
-    Plugin.prototype.requireModule = function(id)
-    {
-        if (!id)
-            return;
-
-        // Determine if we are dealing with a provider package
-        var pkg = self.packageForId(id, true);
-        if (pkg && typeof pkg.isProviderPackage != "undefined" && pkg.isProviderPackage === true)
-        {
-            return pkg.requireModule(id);
-        }
-
-        // If id contains a package delimiter we are not interested
-        if (id.indexOf("@/") !== -1)
-            return;
-
-        var path = id + ".js";
-
-        // If file does not exist on disk where the loader expects it we look to find the
-        // module in our ./modules directory and lastly let the platform's require handle it 
-        if (!API.FILE.exists(path))
-        {
-            var id = id.substring(loader.mainModuleDir.length);
-            if (id == "pinf/loader")
-            {
-                return API.PINF_LOADER;
-            }
-            else
-            if (id == "pinf/protocol-handler")
-            {
-                return __require__('modules/pinf/protocol-handler');
-            }
-            path = API.ENV.loaderRoot + "/modules/" + id + ".js";
-            if (!API.FILE.exists(path))
-            {
-                // Use platform require
-                return API.ENV.platformRequire(id);
-            }
-            // Use module from ./modules
-            bravojs.initializeModule(id);
-            return true;
-        }
-    }
-    Plugin.prototype.contextForId = function(id)
-    {
-        if (!id) return;
-        try
-        {
-            return self.packageForId(id).path + "/";
-        }
-        catch(e)
-        {
-            // If this throws the ID was likely a non-packaged module ID
-            // We only throw if we should have found a package
-            if (id.indexOf("@/") !== -1)
-                throw new Error("Unable to find package for ID: " + id);
-        }
-    }
-    Plugin.prototype.resolvePackageMapping = function(packageMapping)
-    {
-/*            
-        if (typeof packageMapping.catalog != "undefined")
-        {
-            var m = packageMapping.catalog.match(/^https?:\/\/(.*)$/),
-                id = m[1] + "/" + packageMapping.name + "/";
-            return id;
-        }
-        else
-        if (typeof packageMapping.archive != "undefined")
-        {
-            throw new Error("Archive-based mappings should no longer be present. They should have been normalized already!");
-        }
-*/            
-    }
-    Plugin.prototype.loadPackageDescriptor = function(id)
-    {
-        return self.packageForId(id).normalizedDescriptor.toJSONObject();          
-    }
-    loader.registerPlugin(new Plugin());
 
 
     // ######################################################################
     // # Sandbox API
     // ######################################################################
     
-    self.declare = loader.module.declare;
+    self.declare = loader.bravojs.module.declare;
 }
 
 /**
@@ -5323,8 +5414,9 @@ Sandbox.prototype.ensurePackageForLocator = function(locator)
             this.packages[locator.id] = this.packages[path];
 
         // Merge descriptor information from the locator onto the package descriptor if applicable
-        // We first ask the program descriptor to augment to locator with any additional info
+        // We first ask the program descriptor to augment the locator with any additional info
         locator = this.program.descriptor.augmentLocator(locator);
+
         if (typeof locator.descriptor != "undefined")
         {
             API.UTIL.deepMerge(this.packages[path].normalizedDescriptor.json, locator.descriptor);
@@ -5340,19 +5432,19 @@ Sandbox.prototype.packageForId = function(id, silent)
 {
     if (!id)
         throw new Error("Empty ID!");
-    var m = id.match(/^(\/?)(.*?)\/([^@\/]*)(@\/(.*))?$/),
+    var m = id.match(/^(\/?)(.*?)(@\/(.*))?$/),
         lookupIds;
+
     // m[1] - '/' prefix
     // m[2] - path
-    // m[3] - version/revision
-    // m[4] -
-    // m[5] - after @/
+    // m[3] -
+    // m[4] - after @/
 
-    if (!m[1] && m[2] && !m[3])         // <packageUID>/ no version/revision
+    if (!m[1] && m[2])
         lookupIds = [ m[2] + "/", m[2] ];
     else
-    if (m[1] == "/" && m[2] && !m[3])   // /<packagePath>/ no version/revision
-        lookupIds = [ "/" + m[2] + "/", m[2] + "/"];
+    if (m[1] == "/" && m[2])
+        lookupIds = [ "/" + m[2] + "/", m[2] + "/", "/" + m[2], m[2]];
 
     var lookupId;
     if (!lookupIds || lookupIds.length==0 || (lookupId = Object.keys(this.packages).filter(function(id) { return (lookupIds.indexOf(id)>-1); })).length == 0)

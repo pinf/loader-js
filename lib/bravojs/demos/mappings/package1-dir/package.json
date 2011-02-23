@@ -3,7 +3,7 @@
     "name": "package1",
     "mappings": {
         "package2": {
-            "location": "../package2-dir/"
+            "location": "../package2-dir"
         }
     }
 }

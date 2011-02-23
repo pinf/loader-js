@@ -4,7 +4,7 @@ if (require.platform != "nodejs")
 
 var SCANNER = require("./lib/scanner"),
     BUNDLER = require("./lib/bundler"),
-    PATH = require("path");
+    PATH = require("nodejs/path");
 
 exports.main = function()
 {
@@ -24,7 +24,7 @@ exports.main = function()
     if (outputPath.charAt(0) != "/")
         outputPath = process.cwd() + "/" + outputPath;
 
-    var files = SCANNER.scan(PATH.dirname(PATH.dirname(PATH.dirname(PATH.dirname(module.id)))) + "/lib", {
+    var files = SCANNER.scan(PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib", {
         platform: platform
     });
 

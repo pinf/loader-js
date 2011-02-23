@@ -1,5 +1,5 @@
 
-module.declare([], function(require, exports, module)
+module.declare(["pinf/protocol-handler"], function(require, exports, module)
 {
     var PROTOCOL_HANDLER = require("pinf/protocol-handler");
 

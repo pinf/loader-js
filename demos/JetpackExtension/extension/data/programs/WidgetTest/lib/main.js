@@ -14,7 +14,6 @@ exports.main = function(env)
       }
     });
 
-
     // Just as an example. Used in ../../../../tests/test-main.js
     env.jetpackRequire = function(id)
     {

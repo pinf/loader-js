@@ -6,6 +6,12 @@
                 "location": "./"
             }
         },
-        "github.com/jashkenas/coffee-script/zipball/1.0.1": {}
+        "github.com/jashkenas/coffee-script/zipball/1.0.1": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        }
     }
 }

@@ -34,15 +34,12 @@ General
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
 
-  * Review, refine & move here: ./lib/bravojs/NOTES
-
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
 
-  * Refactor `pinf/` modules to be served by ProviderPackage
-  * Refactor native module code to use default ProviderPackage?
-
   * Build and publish commands to provide versioned releases
+
+  * Loader plugins? See: http://wiki.commonjs.org/wiki/Modules/LoaderPlugin
 
 Jetpack
 -------
@@ -55,6 +52,26 @@ Jetpack
   * Downloading program archives based on mappings
   * Resource path resolving for packages
   * Hook package testing into `cfx test`
+
+
+BravoJS Comments
+================
+
+  * All internal top-level module paths for packaged modules follow <packageID>@/<modulePath> where '@/' is used to signify the package root.
+  * Expanded scope of module.load(s, f) to allow a mappings object for 's'.
+  * Expanded scope of module.declare([], f) to allow labelled mapping objects for '[]'.
+  * Changed module.load(id/mapping, function(id) { ... }) to return the canonical ID of the loaded module that can be used with require(id).
+  * Added chained plugin system to service resolvePackageMapping(packageMapping) which must return a top-level package ID if it can resolve.
+  * Added module.pkgId which is set to the ID of the containing package for a module if the module is part of a package.
+  * Added module.mappings which is set to a resolved map where values are top-level package IDs for a module if the module is part of a package with mappings.
+  * Map package UID as valid package ID (in addition to path-basd package ID) if package descriptor has uid property set.   
+  * Ability to resolve modules by <packageUID>@/<modulePath> if the package descriptor has the "uid" property set.
+    e.g. require("http://registry/hostname/path/package1/@/lib/main")
+    This is not ideal as one must know the *<modulePath>* in this case 'lib/main'. A better solution may be:
+      require("http://registry/hostname/path/package1/@/").resolve("main");
+    Where '@/' is used to signify that we want to load a special object that can resolve IDs for the specified package ID.
+  * Relative dependency IDs for module.declare() were resolved based on bravojs.mainModuleDir whereas they should be resolved based on the path of the module.
+  * The spec could use more wording as to whether functions accept relative and/or absolute module identifiers only
 
 
 Specification Comments
@@ -74,14 +91,20 @@ Additions:
     should not be over-written.
     Proposed: module.print
 
-  * Section 5.2: Paths in `require.paths` may separate a packageID from a resourceID with `@/`. 
-
   * New `module.pkgId` property
+
+  * New `require.pkg(<packageID>).id(<moduleId>)`. If no argument for `id()` the package ID is returned.
+    If `true` as second argument to `.id()` the ID is returned unsanitized (context delimiters stay in tact)
+
+  * There may not be any delimiters in the pathIDs given by `module.id`, `module.pkgId`
+
 
 Changes:
 
   * Section 5.2.1: Environments that do not support searchable module paths must set `require.paths[0]`
     to the mainModuleDir.
+  
+  * If `true` as second argument to `require.id()` the ID is returned unsanitized (context delimiters stay in tact)
   
   
   
@@ -165,9 +188,9 @@ CommonJS Programs/A
 Top-level ID formats
 --------------------
 
-    /<packagePath>/@/<resourcePath>
-    <packageUID>/@/<resouecePath>
-    <catalogURL>/<packageName>/@/<resouecePath>
+    /<packagePath>@/<resourcePath>
+    <packageUID>@/<resouecePath>
+    <catalogURL>/<packageName>@/<resouecePath>
 
 Where:
 
@@ -194,6 +217,12 @@ Jetpack Wishlist
 
 Links
 =====
+
+  * http://code.google.com/p/bravojs/
+  * http://www.page.ca/~wes/CommonJS/modules-2.0-draft8/
+  * http://code.tolsma.net/blog/commonjs/
+  * http://wiki.commonjs.org/wiki/Packages/1.1
+  * http://wiki.commonjs.org/wiki/Packages/Mappings/C
 
   * CommonJS post: [New CommonJS Modules/2 (draft) loader (BravoJS) with package & mappings support](http://groups.google.com/group/commonjs/browse_thread/thread/94a63889a6ef712f)
   * Design doc: [PINF Fundamental Design: Namespace and Dependency System](https://github.com/cadorn/pinf/blob/master/docs/Design/Foundation.md)

@@ -5,6 +5,9 @@
             "locator": {
                 "location": "./"
             }
+        },
+        "pinf.org/loader": {
+            "provider": "pinf.org/loader"
         }
     }
 }
