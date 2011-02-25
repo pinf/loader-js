@@ -20,8 +20,8 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it to build low-level system commands (__Not Yet Implemented__)
   * __[CouchApp](http://couchapp.org/page/index)__ - Use it to serve applications right from your CouchDB database (__Not Yet Implemented__)
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any existing Titanium application (__Not Yet Implemented__)
-  * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
-    * __Standalone__ - Just include one small file in your page (**< 8 KB zipped maybe < ~4 KB**) (__Not Yet Implemented__)
+  * __Browser__ - For development and optimized production purposes
+    * __Standalone__ - Just include one small file in your page (**< 8 KB zipped maybe < ~4 KB**)
     * __[jQuery](http://jquery.org/)__ - Use it in any existing jQuery installation (__Not Yet Implemented__)
     * __[RequireJS](http://requirejs.org/)__ - Use it in any existing requirejs installation (__Not Yet Implemented__)
     * __[Dojo](http://dojotoolkit.org/)__ - Use it in any existing Dojo installation (__Not Yet Implemented__)
