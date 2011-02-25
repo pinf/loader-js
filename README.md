@@ -151,17 +151,20 @@ Homepage: [http://nodejs.org/](http://nodejs.org/)
 
     node ./pinf-loader [.../[program.json]]
 
+Browser
+-------
+
+Requires [NodeJS](http://nodejs.org/) on server. This will be platform independent in future.
+
+    node ./pinf-loader -v ./demos/ProgramServer
+    open http://localhost:8003/ 
+
 Jetpack
 -------
 
 Homepage: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/)
 
     cd ./demos/JetpackExtension
-
-Browser
--------
-
-__Not Yet Implemented__
 
 
 Support & Feedback
