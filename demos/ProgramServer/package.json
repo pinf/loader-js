@@ -1,0 +1,18 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/ProgramServer/",
+    "main": "main.js",
+    "mappings": {
+        "nodejs": {
+            "id": "nodejs.org"
+        },
+        "pinf": {
+            "id": "pinf.org/loader"
+        },
+        "jsgi": {
+            "archive": "https://github.com/kriszyp/jsgi-node/zipball/v0.2.3"
+        },
+        "paperboy": {
+            "archive": "https://github.com/felixge/node-paperboy/zipball/master"
+        }
+    }
+}

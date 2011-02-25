@@ -907,19 +907,19 @@ function bravojs_print()
     {
       stdout.value += output;
       if (stdout.focus)
-	stdout.focus();
+        stdout.focus();
 
       if (stdout.tagName === "TEXTAREA")
-	stdout.scrollTop = stdout.scrollHeight;
+        stdout.scrollTop = stdout.scrollHeight;
     }
     else
     {
       if (typeof stdout.innerText !== "undefined")
       {
-	stdout.innerText = stdout.innerText.slice(0,-1) + output + " "; 	/* IE normalizes trailing newlines away */
+        stdout.innerText = stdout.innerText.slice(0,-1) + output + " "; 	/* IE normalizes trailing newlines away */
       }
       else
-	stdout.textContent += output;
+        stdout.textContent += output;
     }
   }
   else if (typeof console === "object" && console.print)
@@ -1674,11 +1674,15 @@ if (typeof bravojs.url === "undefined")
 (function bravojs_setURL()
 {
   var i;
+  var checkBasename = false;
   var script;
 
   script = document.getElementById("BravoJS");
   if (!script)
+  {
+    checkBasename = true;
     script = document.getElementsByTagName("SCRIPT")[0];
+  }
 
   bravojs.url = script.src;
   i = bravojs.url.indexOf("?");
@@ -1688,7 +1692,7 @@ if (typeof bravojs.url === "undefined")
   if (i !== -1)
     bravojs.url = bravojs.url.slice(0,i);
 
-  if (bravojs.basename(bravojs.url) !== "bravo.js")
+  if (checkBasename && bravojs.basename(bravojs.url) !== "bravo.js")
     throw new Error("Could not determine BravoJS URL. BravoJS must be the first script, or have id='BravoJS'");
 })();
 }
@@ -2428,6 +2432,104 @@ if (!String.prototype.trim) {
 
 
 });
+__loader__.memoize('bravojs/plugins/packages/loader', function(__require__, module, exports) {
+// ######################################################################
+// # /bravojs/plugins/packages/loader.js
+// ######################################################################
+/**
+ *  This file implements a bravojs core plugin to add
+ *  dynamic module and package loading support where the server
+ *  given a module or package ID will return the requested
+ *  module (main module for package) and all dependencies
+ *  in a single file.
+ *
+ *  Copyright (c) 2011, Christoph Dorn
+ *  Christoph Dorn, christoph@christophdorn.com
+ *  MIT License
+ *
+ *  To use: Load BravoJS, then layer this plugin in
+ *  by loading it into the extra-module environment.
+ */
+
+(function packages_loader() {
+
+bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)
+{
+    var uri;
+
+    if (typeof moduleIdentifier == "object")
+    {
+        if (typeof moduleIdentifier.location != "undefined")
+        {
+            uri = bravojs.mainModuleDir + "/package" + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);
+        }
+        else
+            throw new Error("NYI");
+    }
+    else
+    if (moduleIdentifier.charAt(0) != "/")
+    {
+        throw new Error("Cannot load module by relative ID: " + moduleIdentifier);
+    }
+    else
+    {
+        uri = bravojs.mainModuleDir + "/module" + moduleIdentifier.substring(bravojs.mainModuleDir.length);
+    }
+    
+    // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)
+    uri = uri.replace(/\.{2}\//g, "__/");
+    
+    var URL = window.location.protocol + "/" + uri;
+    
+    // We expect a bunch of modules wrapped with:
+    //  require.memoize('ID', [], function (require, exports, module) { ... });
+
+    var script = document.createElement('SCRIPT');
+    script.setAttribute("type","text/javascript");
+    script.setAttribute("src", URL);
+
+    /* Fake script.onload for IE6-8 */
+    script.onreadystatechange = function()
+    {
+        var cb;        
+        if (this.readyState === "loaded")
+        {
+            cb = this.onload;
+            this.onload = null;
+            setTimeout(cb,0);
+        }
+    }
+
+    script.onload = function fastload_script_onload()
+    {
+        this.onreadystatechange = null;
+        
+        if (typeof window.__bravojs_loaded_moduleIdentifier == "undefined")
+            throw new Error("__bravojs_loaded_moduleIdentifier not set by server!");
+        
+        var id = window.__bravojs_loaded_moduleIdentifier;
+        
+        delete window.__bravojs_loaded_moduleIdentifierl
+
+        // all modules are memoized now so we can continue
+        callback(id);
+    }
+    
+    /* Supply errors on browsers that can */
+    script.onerror = function fastload_script_error()
+    {
+        if (typeof console != "undefined")
+            console.error("Error contacting server URL = " + script.src);
+        else
+            alert("Error contacting server\nURL=" + script.src);
+    }
+
+    document.getElementsByTagName("HEAD")[0].appendChild(script);
+};
+
+})();
+
+});
 __loader__.memoize('bravojs/plugins/packages/packages', function(__require__, module, exports) {
 // ######################################################################
 // # /bravojs/plugins/packages/packages.js
@@ -2721,9 +2823,10 @@ Plugin.prototype.normalizeLocator = function(locator, context)
     else
     if (typeof locator.id != "undefined")
     {
-        throw new Error("NYI - need to get location for ID");
+        if (locator.id.charAt(0) != "/")
+            locator.id = this.bravojs.mainModuleDir + "/" + locator.id;
     }
-    
+
     if (typeof locator.location != "undefined" && locator.location.charAt(locator.location.length-1) == "/")
         locator.location = locator.location.substring(0, locator.location.length -1);
 
@@ -2819,12 +2922,19 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
 }
 
 if (typeof bravojs != "undefined")
+{
+    // In Browser
     bravojs.registerPlugin(new Plugin());
+}
 else
 if (typeof exports != "undefined")
+{
+    // On Server
     exports.Plugin = Plugin;
+}
 
 })();
+
 });
 __loader__.memoize('descriptors', function(__require__, module, exports) {
 // ######################################################################
@@ -3499,22 +3609,23 @@ exports.boot = function(options)
         // ######################################################################
         // # Sandbox
         // ######################################################################
-    
+
         var sandbox = new API.SANDBOX.Sandbox({
             mainModuleDir: API.FILE.dirname(path) + "/"
         });
-    
-    
+
+
         // ######################################################################
         // # Assembly
         // ######################################################################
-    
+
         // Assemble the program (making all code available on disk) by downloading all it's dependencies
-    
+
         assembler.assembleProgram(sandbox, path, function(program)
         {
             API.ENV.booting = false;
-    
+
+            // TODO: Keep these references elsewhere so we can have nested sandboxes
             API.ENV.program = program;
             API.ENV.sandbox = sandbox;
     
@@ -3649,21 +3760,429 @@ exports.runProgram = function(options, callback)
         throw new Error("NYI");
 }
 
-var Sandbox = exports.Sandbox = function Sandbox()
+var Sandbox = exports.Sandbox = function Sandbox(options, callback)
 {
-    var sandbox = API.ENV.sandbox.clone();
+    options = options || {};
     
-    this.declare = function(dependencies, moduleFactory)
+    if (typeof options.programPath != "undefined")
     {
-        var cbt = new API.UTIL.CallbackTracker(function()
-        {
-            sandbox.declare(dependencies, moduleFactory);
-        });
-        for (var i=0,ic=dependencies.length ; i<ic ; i++)
-            API.ENV.assembler.addPackageToProgram(sandbox, sandbox.program, dependencies[i][Object.keys(dependencies[i])[0]], cbt.add());
+        // Create a fresh sandbox for the program
         
-        cbt.done();
+        if (typeof callback == "undefined")
+            throw new Error("Callback must be supplied when creating sandbox for program!");
+
+        if (/\/program.json$/.test())
+            throw new Error("Program path '" + options.programPath + "' must end in '/program.json'");
+
+        if (!API.FILE.exists(options.programPath))
+            throw new Error("Program path '" + options.programPath + "' does not exist!");
+
+        var sandbox = new API.SANDBOX.Sandbox({
+            mainModuleDir: API.FILE.dirname(options.programPath) + "/"
+        });
+
+        var self = this;
+
+        self.getMainModuleDir = function()
+        {
+            return sandbox.loader.bravojs.mainModuleDir;
+        }
+
+        self.packageForId = function(packageId)
+        {
+            if (packageId.charAt(packageId.length-1) != "/")
+                packageId += "/";
+
+            return sandbox.packages[packageId];
+        }
+
+        self.forEachPackage = function(callback)
+        {
+            for (var packageId in sandbox.packages)
+            {
+                callback(packageId, sandbox.packages[packageId]);
+            }
+        }
+
+        self.forEachModule = function(callback)
+        {
+            for (var moduleIdentifier in sandbox.loader.bravojs.pendingModuleDeclarations)
+            {
+                callback(
+                    moduleIdentifier,
+                    sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].dependencies,
+                    sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].moduleFactory
+                );
+            }
+        }
+
+        self.load = function(moduleIdentifier, callback)
+        {
+            return sandbox.loader.bravojs.module.load(moduleIdentifier, callback);
+        }
+
+        API.ENV.assembler.assembleProgram(sandbox, options.programPath, function(program)
+        {
+            self.program = program;
+
+            var dependencies = program.getBootPackages();
+            
+            // Declare program boot packages but do not call main() on them
+            sandbox.declare(dependencies, function(require, exports, module)
+            {            
+                callback(self);
+            });
+        });
     }
+    else
+    {
+        // Create a child sandbox by cloning our existing sandbox.
+        // The child sandbox will hold all existing modules initially and allow
+        // for loading of extra modules that are memoized only to the child sandbox.
+        
+        // TODO: Do not get our sandbox from API.ENV.sandbox as it will have the wrong
+        //       one if we are running in a sandboxed program (see above).
+        var sandbox = API.ENV.sandbox.clone();
+
+        this.declare = function(dependencies, moduleFactory)
+        {
+            var cbt = new API.UTIL.CallbackTracker(function()
+            {
+                sandbox.declare(dependencies, moduleFactory);
+            });
+            for (var i=0,ic=dependencies.length ; i<ic ; i++)
+                API.ENV.assembler.addPackageToProgram(sandbox, sandbox.program, dependencies[i][Object.keys(dependencies[i])[0]], cbt.add());
+            
+            cbt.done();
+        }
+    }
+}
+
+});
+__loader__.memoize('modules/pinf/program-server', function(__require__, module, exports) {
+// ######################################################################
+// # /modules/pinf/program-server.js
+// ######################################################################
+
+var API = __require__('api'),
+    PINF_LOADER = __require__('modules/pinf/loader');
+
+var JSGI = exports.JSGI = function(options)
+{
+    this.API = options.api;
+
+    this.routes = {};
+    for (var path in options.map)
+    {
+        if (path.charAt(0) != "/")
+            throw new Error("Path must begin with '/'");
+
+        if (!/\.js$/.test(path))
+            throw new Error("Path must end in '.js'");
+
+        // Add the main program route
+        this.routes[path] = {
+            expr: new RegExp("^" + path.replace(/(\/|\\)/g, "\\$1") + "$"),
+            path: path,
+            options: options.map[path]
+        }
+        
+        // Add a route to load extra modules
+        this.routes[path + "/module/"] = {
+            expr: new RegExp("^" + path.replace(/(\/|\\)/g, "\\$1") + "\/module\/(.*)$"),
+            path: path,
+            options: options.map[path],
+            load: "module"
+        }
+        
+        // Add a route to load extra packages
+        this.routes[path + "/package/"] = {
+            expr: new RegExp("^" + path.replace(/(\/|\\)/g, "\\$1") + "\/package\/(.*)$"),
+            path: path,
+            options: options.map[path],
+            load: "package"
+        }
+    }
+    
+    this.reload = options.reload || false;
+}
+
+JSGI.prototype.responder = function(app)
+{
+    var self = this;
+    
+    return function(request)
+    {
+        var deferred = self.API.PROMISE.defer();
+
+        var responding;
+
+        try
+        {
+            responding = self.respond(request, function(response)
+            {
+                deferred.resolve(response);
+            });
+        }
+        catch(e)
+        {
+            // TODO: Use error reporter here instead of print
+            API.SYSTEM.print("\0red(" + e + "\n\n" + e.stack + "\0)\n");
+            throw e;
+        }
+
+        if (!responding)
+        {
+            if (typeof app != "undefined")
+                deferred.resolve(app(request));
+            else
+                deferred.resolve({
+                    status: 404,
+                    headers: {
+                        "content-type": "text/plain"
+                    },
+                    body: [
+                        "File not found!"
+                    ]
+                });
+        }
+
+        return deferred.promise;
+    }
+}
+
+JSGI.prototype.respond = function(request, callback)
+{
+    var route;
+    for (route in this.routes)
+    {
+        if (this.routes[route].expr.test(request.pathInfo))
+        {
+            route = this.routes[route];
+            break;
+        }
+        else
+            route = void 0;
+    }
+    if (typeof route == "undefined")
+        return false;
+
+    function sendResponse(body)
+    {
+        callback({
+            status: 200,
+            headers: {
+                "content-type": "text/javascript",
+                "content-length": (body = body.join("\n")).length
+            },
+            body: [
+                body
+            ]
+        });
+    }
+
+    if (typeof route.options.programPath != "undefined")
+    {
+        function send(sandbox)
+        {
+            var body = [],
+                path,
+                deps,
+                parts,
+                descriptor,
+                pkg,
+                modules,
+                id;
+
+            var config = {
+                mainModuleDir: "/" + request.host + ":" + ((request.port)?request.port:80) + route.path
+            }
+            
+            function rewritePath(path)
+            {
+                var parts = path.split("@/");
+                if (parts.length == 2)
+                {
+                    var pkg = sandbox.packageForId(parts[0]);
+                    if (pkg)
+                        return pkg.getHashId() + "@/" + parts[1];
+                }
+                
+                if (path.substring(0, sandbox.getMainModuleDir().length) == sandbox.getMainModuleDir())
+                    return path.substring(sandbox.getMainModuleDir().length);
+                
+                var pkg = sandbox.packageForId(path);
+                if (pkg)
+                    return rewritePath(pkg.getMainId());
+
+                if (typeof route.options.rewritePaths == "undefined")
+                    throw new Error("Path '" + path + "' must be rewritten via 'rewritePaths' map property. Property is not set!");
+
+                var paths = route.options.rewritePaths.filter(function(filterPath)
+                {
+                    return (path.substring(0, filterPath[0].length) == filterPath[0]);
+                });
+
+                if (paths.length == 0)
+                    throw new Error("No matching path in 'rewritePaths' map property found for path '" + path + "'.");
+
+                return paths[0][1] + path.substring(paths[0][0].length);
+            }
+
+            function memoizeModule(moduleIdentifier, dependencies, moduleFactory)
+            {
+                parts = moduleIdentifier.split("@/");
+
+                deps = "";
+                if (dependencies.length > 0)
+                    deps = "'" + dependencies.join("','") + "'";
+
+                // Rewrite package mappings
+                if (parts[1] == "package.json")
+                {
+                    descriptor = moduleFactory();
+                    if (typeof descriptor.mappings != "undefined")
+                    {
+                        throw new Error("NYI");
+                    }
+                    moduleFactory = "function() { return " + API.JSON.stringify(descriptor) + "; }";
+                }
+
+                pkg = sandbox.packageForId(parts[0]);
+                if (pkg)
+                {
+                    id = config.mainModuleDir + "/" + pkg.getHashId() + "@/" + parts[1];
+                }
+                else
+                if (parts.length == 1)
+                {
+                    id = config.mainModuleDir + rewritePath(API.FILE.realpath(parts[0]));
+                }
+                else
+                    throw new Error("NYI");
+
+                body.push("require.memoize(bravojs.realpath('" + id + "'), [" + deps + "], " + moduleFactory + ");");
+            }
+
+            if (typeof route.load != "undefined")
+            {
+                // Prepare extra load payload
+
+                // The client converted ../ to __/ to keep the directory up path segments in tact
+                path = sandbox.getMainModuleDir() + route.expr.exec(request.pathInfo)[1].replace(/_{2}\//g, "../");
+
+                // Collect all existing modules so we can determine new ones
+                modules = {};
+                sandbox.forEachModule(function(moduleIdentifier)
+                {
+                    modules[moduleIdentifier] = true;
+                });
+
+                function sendModules(loadedId)
+                {
+                    // Memoize new modules
+
+                    sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
+                    {
+                        if(!modules[moduleIdentifier])
+                            memoizeModule(moduleIdentifier, dependencies, moduleFactory);
+                    });
+
+                    // Set loaded ID if applicable
+                    
+                    if (typeof loadedId != "undefined")
+                        body.push("__bravojs_loaded_moduleIdentifier = bravojs.realpath('" + config.mainModuleDir + "/" + rewritePath(loadedId) + "');");
+
+                    // Send response
+
+                    sendResponse(body);
+                }
+
+                if (route.load === "module")
+                {
+                    sandbox.load(path, sendModules);
+                }
+                else
+                if (route.load === "package")
+                {
+                    sandbox.load({
+                        location: path
+                    }, sendModules);
+                }
+                else
+                    throw new Error("NYI");
+            }
+            else
+            {
+                // Prepare initial program payload
+
+                // Configure BravoJS
+    
+                body.push("bravojs = " + API.JSON.stringify(config) + ";");
+    
+                // Pull in BravoJS and plugins
+    
+                path = API.ENV.loaderRoot + "/bravojs/bravo.js";
+                body.push(API.FILE.read(path));
+    
+                path = API.ENV.loaderRoot + "/bravojs/plugins/packages/packages.js";
+                body.push(API.FILE.read(path));
+    
+                path = API.ENV.loaderRoot + "/bravojs/plugins/packages/loader.js";
+                body.push(API.FILE.read(path));
+
+                // Memoize modules
+
+                sandbox.forEachModule(memoizeModule);
+    
+                // Boot the program
+    
+                var dependencies = sandbox.program.getBootPackages();
+                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+                {
+                    if (typeof dependencies[i]["_package-" + i].location != "undefined")
+                    {
+                        pkg = sandbox.packageForId(dependencies[i]["_package-" + i].location);
+                        dependencies[i]["_package-" + i] = {
+                            id: pkg.getHashId()
+                        }
+                    }
+                    else
+                        throw new Error("NYI");
+                }
+    
+                body.push("(function() {");
+                    body.push("var env = {};");
+                    body.push("module.declare(" + API.JSON.stringify(dependencies) + ", function(require, exports, module) {");
+                        for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+                            body.push("require('_package-" + i + "').main(env);");
+                    body.push("});");
+                body.push("})();");
+
+                // Send response
+
+                sendResponse(body);
+            }
+        }
+
+        if (!route.sandbox || this.reload === "force")
+        {
+            route.sandbox = new PINF_LOADER.Sandbox(
+            {
+                programPath: route.options.programPath
+            },
+            function done(sandbox)
+            {
+                send(sandbox);
+            });
+        }
+        else
+            send(route.sandbox);
+    }
+    else
+        throw new Error("Unrecognized route target options '" + Object.keys(route.options) + "'");
+
+    return true;
 }
 
 });
@@ -4255,6 +4774,13 @@ var Package = exports.Package = function(descriptor)
     this.preloaders = null;
 }
 
+Package.prototype.getHashId = function()
+{
+    if (!this.hashId)
+        this.hashId = __require__('sha1').hex_sha1(this.path);
+    return this.hashId;
+}
+
 Package.prototype.discoverMappings = function(fetcher, callback)
 {
     this.discovering = true;
@@ -4305,7 +4831,7 @@ Package.prototype.discoverMappings = function(fetcher, callback)
 
 Package.prototype.getMainId = function(locator)
 {
-    if (typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
+    if (typeof locator != "undefined" && typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
     {
         return this.path + "/@/" + locator.descriptor.main;
     }
@@ -5199,7 +5725,6 @@ Sandbox.prototype.init = function()
                 API.SYSTEM.print("[BravoJS] " + e + "\n" + e.stack);
             }
         }
-//        DEBUG: API.DEBUG
     };
 
     __require__('bravojs/bravo').BravoJS(loader);
@@ -5454,6 +5979,342 @@ Sandbox.prototype.packageForId = function(id, silent)
         throw new Error("Package for id '" + id + "' not found via lookup IDs '" + lookupIds + "' in packages: " + Object.keys(this.packages));
     }
     return this.packages[lookupId[0]];
+}
+
+});
+__loader__.memoize('sha1', function(__require__, module, exports) {
+// ######################################################################
+// # /sha1.js
+// ######################################################################
+/*
+ * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
+ * in FIPS 180-1
+ * Version 2.2 Copyright Paul Johnston 2000 - 2009.
+ * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
+ * Distributed under the BSD License
+ * See http://pajhome.org.uk/crypt/md5 for details.
+ */
+
+/*
+ * Configurable variables. You may need to tweak these to be compatible with
+ * the server-side, but the defaults work in most cases.
+ */
+var hexcase = 0;  /* hex output format. 0 - lowercase; 1 - uppercase        */
+var b64pad  = ""; /* base-64 pad character. "=" for strict RFC compliance   */
+
+/*
+ * These are the functions you'll usually want to call
+ * They take string arguments and return either hex or base-64 encoded strings
+ */
+exports.hex_sha1 = function hex_sha1(s)    { return rstr2hex(rstr_sha1(str2rstr_utf8(s))); }
+function b64_sha1(s)    { return rstr2b64(rstr_sha1(str2rstr_utf8(s))); }
+function any_sha1(s, e) { return rstr2any(rstr_sha1(str2rstr_utf8(s)), e); }
+function hex_hmac_sha1(k, d)
+  { return rstr2hex(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d))); }
+function b64_hmac_sha1(k, d)
+  { return rstr2b64(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d))); }
+function any_hmac_sha1(k, d, e)
+  { return rstr2any(rstr_hmac_sha1(str2rstr_utf8(k), str2rstr_utf8(d)), e); }
+
+/*
+ * Perform a simple self-test to see if the VM is working
+ */
+function sha1_vm_test()
+{
+  return hex_sha1("abc").toLowerCase() == "a9993e364706816aba3e25717850c26c9cd0d89d";
+}
+
+/*
+ * Calculate the SHA1 of a raw string
+ */
+function rstr_sha1(s)
+{
+  return binb2rstr(binb_sha1(rstr2binb(s), s.length * 8));
+}
+
+/*
+ * Calculate the HMAC-SHA1 of a key and some data (raw strings)
+ */
+function rstr_hmac_sha1(key, data)
+{
+  var bkey = rstr2binb(key);
+  if(bkey.length > 16) bkey = binb_sha1(bkey, key.length * 8);
+
+  var ipad = Array(16), opad = Array(16);
+  for(var i = 0; i < 16; i++)
+  {
+    ipad[i] = bkey[i] ^ 0x36363636;
+    opad[i] = bkey[i] ^ 0x5C5C5C5C;
+  }
+
+  var hash = binb_sha1(ipad.concat(rstr2binb(data)), 512 + data.length * 8);
+  return binb2rstr(binb_sha1(opad.concat(hash), 512 + 160));
+}
+
+/*
+ * Convert a raw string to a hex string
+ */
+function rstr2hex(input)
+{
+  try { hexcase } catch(e) { hexcase=0; }
+  var hex_tab = hexcase ? "0123456789ABCDEF" : "0123456789abcdef";
+  var output = "";
+  var x;
+  for(var i = 0; i < input.length; i++)
+  {
+    x = input.charCodeAt(i);
+    output += hex_tab.charAt((x >>> 4) & 0x0F)
+           +  hex_tab.charAt( x        & 0x0F);
+  }
+  return output;
+}
+
+/*
+ * Convert a raw string to a base-64 string
+ */
+function rstr2b64(input)
+{
+  try { b64pad } catch(e) { b64pad=''; }
+  var tab = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var output = "";
+  var len = input.length;
+  for(var i = 0; i < len; i += 3)
+  {
+    var triplet = (input.charCodeAt(i) << 16)
+                | (i + 1 < len ? input.charCodeAt(i+1) << 8 : 0)
+                | (i + 2 < len ? input.charCodeAt(i+2)      : 0);
+    for(var j = 0; j < 4; j++)
+    {
+      if(i * 8 + j * 6 > input.length * 8) output += b64pad;
+      else output += tab.charAt((triplet >>> 6*(3-j)) & 0x3F);
+    }
+  }
+  return output;
+}
+
+/*
+ * Convert a raw string to an arbitrary string encoding
+ */
+function rstr2any(input, encoding)
+{
+  var divisor = encoding.length;
+  var remainders = Array();
+  var i, q, x, quotient;
+
+  /* Convert to an array of 16-bit big-endian values, forming the dividend */
+  var dividend = Array(Math.ceil(input.length / 2));
+  for(i = 0; i < dividend.length; i++)
+  {
+    dividend[i] = (input.charCodeAt(i * 2) << 8) | input.charCodeAt(i * 2 + 1);
+  }
+
+  /*
+   * Repeatedly perform a long division. The binary array forms the dividend,
+   * the length of the encoding is the divisor. Once computed, the quotient
+   * forms the dividend for the next step. We stop when the dividend is zero.
+   * All remainders are stored for later use.
+   */
+  while(dividend.length > 0)
+  {
+    quotient = Array();
+    x = 0;
+    for(i = 0; i < dividend.length; i++)
+    {
+      x = (x << 16) + dividend[i];
+      q = Math.floor(x / divisor);
+      x -= q * divisor;
+      if(quotient.length > 0 || q > 0)
+        quotient[quotient.length] = q;
+    }
+    remainders[remainders.length] = x;
+    dividend = quotient;
+  }
+
+  /* Convert the remainders to the output string */
+  var output = "";
+  for(i = remainders.length - 1; i >= 0; i--)
+    output += encoding.charAt(remainders[i]);
+
+  /* Append leading zero equivalents */
+  var full_length = Math.ceil(input.length * 8 /
+                                    (Math.log(encoding.length) / Math.log(2)))
+  for(i = output.length; i < full_length; i++)
+    output = encoding[0] + output;
+
+  return output;
+}
+
+/*
+ * Encode a string as utf-8.
+ * For efficiency, this assumes the input is valid utf-16.
+ */
+function str2rstr_utf8(input)
+{
+  var output = "";
+  var i = -1;
+  var x, y;
+
+  while(++i < input.length)
+  {
+    /* Decode utf-16 surrogate pairs */
+    x = input.charCodeAt(i);
+    y = i + 1 < input.length ? input.charCodeAt(i + 1) : 0;
+    if(0xD800 <= x && x <= 0xDBFF && 0xDC00 <= y && y <= 0xDFFF)
+    {
+      x = 0x10000 + ((x & 0x03FF) << 10) + (y & 0x03FF);
+      i++;
+    }
+
+    /* Encode output as utf-8 */
+    if(x <= 0x7F)
+      output += String.fromCharCode(x);
+    else if(x <= 0x7FF)
+      output += String.fromCharCode(0xC0 | ((x >>> 6 ) & 0x1F),
+                                    0x80 | ( x         & 0x3F));
+    else if(x <= 0xFFFF)
+      output += String.fromCharCode(0xE0 | ((x >>> 12) & 0x0F),
+                                    0x80 | ((x >>> 6 ) & 0x3F),
+                                    0x80 | ( x         & 0x3F));
+    else if(x <= 0x1FFFFF)
+      output += String.fromCharCode(0xF0 | ((x >>> 18) & 0x07),
+                                    0x80 | ((x >>> 12) & 0x3F),
+                                    0x80 | ((x >>> 6 ) & 0x3F),
+                                    0x80 | ( x         & 0x3F));
+  }
+  return output;
+}
+
+/*
+ * Encode a string as utf-16
+ */
+function str2rstr_utf16le(input)
+{
+  var output = "";
+  for(var i = 0; i < input.length; i++)
+    output += String.fromCharCode( input.charCodeAt(i)        & 0xFF,
+                                  (input.charCodeAt(i) >>> 8) & 0xFF);
+  return output;
+}
+
+function str2rstr_utf16be(input)
+{
+  var output = "";
+  for(var i = 0; i < input.length; i++)
+    output += String.fromCharCode((input.charCodeAt(i) >>> 8) & 0xFF,
+                                   input.charCodeAt(i)        & 0xFF);
+  return output;
+}
+
+/*
+ * Convert a raw string to an array of big-endian words
+ * Characters >255 have their high-byte silently ignored.
+ */
+function rstr2binb(input)
+{
+  var output = Array(input.length >> 2);
+  for(var i = 0; i < output.length; i++)
+    output[i] = 0;
+  for(var i = 0; i < input.length * 8; i += 8)
+    output[i>>5] |= (input.charCodeAt(i / 8) & 0xFF) << (24 - i % 32);
+  return output;
+}
+
+/*
+ * Convert an array of big-endian words to a string
+ */
+function binb2rstr(input)
+{
+  var output = "";
+  for(var i = 0; i < input.length * 32; i += 8)
+    output += String.fromCharCode((input[i>>5] >>> (24 - i % 32)) & 0xFF);
+  return output;
+}
+
+/*
+ * Calculate the SHA-1 of an array of big-endian words, and a bit length
+ */
+function binb_sha1(x, len)
+{
+  /* append padding */
+  x[len >> 5] |= 0x80 << (24 - len % 32);
+  x[((len + 64 >> 9) << 4) + 15] = len;
+
+  var w = Array(80);
+  var a =  1732584193;
+  var b = -271733879;
+  var c = -1732584194;
+  var d =  271733878;
+  var e = -1009589776;
+
+  for(var i = 0; i < x.length; i += 16)
+  {
+    var olda = a;
+    var oldb = b;
+    var oldc = c;
+    var oldd = d;
+    var olde = e;
+
+    for(var j = 0; j < 80; j++)
+    {
+      if(j < 16) w[j] = x[i + j];
+      else w[j] = bit_rol(w[j-3] ^ w[j-8] ^ w[j-14] ^ w[j-16], 1);
+      var t = safe_add(safe_add(bit_rol(a, 5), sha1_ft(j, b, c, d)),
+                       safe_add(safe_add(e, w[j]), sha1_kt(j)));
+      e = d;
+      d = c;
+      c = bit_rol(b, 30);
+      b = a;
+      a = t;
+    }
+
+    a = safe_add(a, olda);
+    b = safe_add(b, oldb);
+    c = safe_add(c, oldc);
+    d = safe_add(d, oldd);
+    e = safe_add(e, olde);
+  }
+  return Array(a, b, c, d, e);
+
+}
+
+/*
+ * Perform the appropriate triplet combination function for the current
+ * iteration
+ */
+function sha1_ft(t, b, c, d)
+{
+  if(t < 20) return (b & c) | ((~b) & d);
+  if(t < 40) return b ^ c ^ d;
+  if(t < 60) return (b & c) | (b & d) | (c & d);
+  return b ^ c ^ d;
+}
+
+/*
+ * Determine the appropriate additive constant for the current iteration
+ */
+function sha1_kt(t)
+{
+  return (t < 20) ?  1518500249 : (t < 40) ?  1859775393 :
+         (t < 60) ? -1894007588 : -899497514;
+}
+
+/*
+ * Add integers, wrapping at 2^32. This uses 16-bit operations internally
+ * to work around bugs in some JS interpreters.
+ */
+function safe_add(x, y)
+{
+  var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+  return (msw << 16) | (lsw & 0xFFFF);
+}
+
+/*
+ * Bitwise rotate a 32-bit number to the left.
+ */
+function bit_rol(num, cnt)
+{
+  return (num << cnt) | (num >>> (32 - cnt));
 }
 
 });

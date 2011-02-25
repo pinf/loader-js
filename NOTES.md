@@ -41,6 +41,11 @@ General
 
   * Loader plugins? See: http://wiki.commonjs.org/wiki/Modules/LoaderPlugin
 
+NodeJS
+-------
+
+  * Get `./lib/modules/pinf/protocol-handler.js` working
+
 Jetpack
 -------
 

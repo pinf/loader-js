@@ -1,4 +1,6 @@
 
+*PINF: __Good software just works__*
+
 Versatile & Complete Module Loader for CommonJS JavaScript
 ==========================================================
 
@@ -11,16 +13,22 @@ Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
-  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `./pinf-loader program.json`
+  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `node ./pinf-loader program.json`
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application
+  * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform (__Not Yet Implemented__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (__Not Yet Implemented__)
+  * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it to build low-level system commands (__Not Yet Implemented__)
   * __[CouchApp](http://couchapp.org/page/index)__ - Use it to serve applications right from your CouchDB database (__Not Yet Implemented__)
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any existing Titanium application (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes (__Not Yet Implemented__)
-    * __Standalone__ - Just include one small file in your page (__Not Yet Implemented__)
+    * __Standalone__ - Just include one small file in your page (**< 8 KB zipped maybe < ~4 KB**) (__Not Yet Implemented__)
     * __[jQuery](http://jquery.org/)__ - Use it in any existing jQuery installation (__Not Yet Implemented__)
     * __[RequireJS](http://requirejs.org/)__ - Use it in any existing requirejs installation (__Not Yet Implemented__)
     * __[Dojo](http://dojotoolkit.org/)__ - Use it in any existing Dojo installation (__Not Yet Implemented__)
+  * __Services__
+    * __[Duostack](http://www.duostack.com/)__ - No npm & hassle free deployment with secret configuration (__Not Yet Implemented__)
+    * __[no.de](https://no.de/)__ (__Not Yet Implemented__)
+    * __[Google App Engine](http://code.google.com/appengine/)__ Use it to run JavaScript on the Java stack (__Not Yet Implemented__)
 
 The loader implements or is compatible with the following specs:
 
@@ -41,6 +49,12 @@ The loader can be used:
   * By setting it up as a package server to load programs into a browser
 
 The loader aims to be __complete and fully specification compliant__ where possible.
+
+The loader can provision complex applications (programs) composed of hundreds of packages by contacting an open network of public registry and repository servers. (__Not Yet Implemented__)
+
+The loader can load complex applications (programs) composed of hundreds of packages from __Content Delivery Networks__ fed by a simple program server. (__Not Yet Implemented__)
+
+**The loader supports REMOTE LIVE application DEBUGGING and EDITING for DEPLOYED applications running on any ANY PLATFORM. (`eval()` or equivalent required)**  (__Not Yet Implemented__)
 
 To learn how to use this loader see [here](https://github.com/pinf/loader-js/blob/master/docs/Learn.md). (__Not Yet Documented__)
 
@@ -96,7 +110,7 @@ To run via a specific supported CommonJS platform binary see below.
 
 The following demos are available:
 
-    # NodeJS + others
+    # Portable
     ./pinf-loader -v ./demos/HelloWorld
     ./pinf-loader -v ./demos/Mappings
     ./pinf-loader -v ./demos/CommonJSModules1
@@ -104,7 +118,7 @@ The following demos are available:
     ./pinf-loader -v ./demos/LoadExtraCode
     ./pinf-loader -v ./demos/BravoJS
     ./pinf-loader -v ./demos/PINFCatalog
-
+    
     # NodeJS
     ./pinf-loader -v ./demos/NodeUnit
     ./pinf-loader -v ./demos/ReloadingJSGI
@@ -113,12 +127,19 @@ The following demos are available:
     ./pinf-loader -v https://gist.github.com/823078
     ./pinf-loader -v https://gist.github.com/823315
     
-    # Jetpack
-    cd ./demos/JetpackExtension
+    # NodeJS -> Browser
+    ./pinf-loader -v ./demos/ProgramServer
+    
+    # Jetpack (assuming SDK activated & FF 4 installed)
+    cfx --pkgdir=./demos/JetpackExtension/extension run
 
 The following tests are available:
 
+    # NodeJS
     ./pinf-loader ./tests/demos
+    
+    # Jetpack (assuming SDK activated & FF 4 installed)
+    cfx --pkgdir=./demos/JetpackExtension/extension test
 
 To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
 
@@ -199,6 +220,7 @@ This project uses code from:
   * [https://github.com/jfd/optparse-js](https://github.com/jfd/optparse-js)
   * [https://github.com/Gozala/light-traits/](https://github.com/Gozala/light-traits/)
   * [https://github.com/Gozala/jetpack-protocol/](https://github.com/Gozala/jetpack-protocol/)
+  * [http://pajhome.org.uk/crypt/md5/sha1.html](http://pajhome.org.uk/crypt/md5/sha1.html)
 
 
 Documentation License
