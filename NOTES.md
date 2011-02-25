@@ -148,14 +148,12 @@ Additions:
 
 Verify alternate mapping locators:
 
-    // `location`-based locators must end in `/` to infer and refer to a directory
-    
-    locator: "/<packagePath>/"
+    locator: "/<packagePath>"
     locator: {
-        location: "/<packagePath>/"
+        location: "/<packagePath>"
     }
     locator: {
-        location: "<relativePath>/"
+        location: "<relativePath>"
     }
 
     locator: {
@@ -207,7 +205,8 @@ Where:
 Other
 -----
 
-  * `require()` must look to platform `require()` to resolve top-level IDs that do not resolve within the loader 
+  * `require()` must look to platform `require()` to resolve top-level IDs that do not resolve within the loader
+    * Actually if a module ID does not resolve locally or via a mapping it should fail
 
 
 Jetpack Wishlist
