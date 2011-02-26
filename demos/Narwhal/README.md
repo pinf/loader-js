@@ -20,9 +20,10 @@ Usage
     # make sure the loader works
     narwhal ../../pinf-loader -h
 
-You can now run the _Portable_ demos under _Usage_ from [../../README.md](https://github.com/pinf/loader-js) by prefixing `narwhal`.
+You can now run the _Portable_ & _Narwhal specific_ demos under _Usage_ from [../../README.md](https://github.com/pinf/loader-js) by prefixing `narwhal`.
 
 For example:
 
     cd ../../
     narwhal ./pinf-loader -v ./demos/HelloWorld
+    narwhal ./pinf-loader -v ./demos/Narwhal
