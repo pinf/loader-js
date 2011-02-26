@@ -14,17 +14,18 @@ This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(c
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `node ./pinf-loader program.json`
-  * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application
   * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform
-  * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (working via Narwhal)
-  * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it to build low-level system commands (__Not Yet Implemented__)
-  * __[CouchApp](http://couchapp.org/page/index)__ - Use it to serve applications right from your CouchDB database (__Not Yet Implemented__)
-  * __[Titanium](http://www.appcelerator.com/)__ - Use it in any existing Titanium application (__Not Yet Implemented__)
+  * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
+  * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
+  * __[RingoJS](http://ringojs.org/)__ (__Not Yet Implemented__)
+  * __[GPSEE](http://code.google.com/p/gpsee/)__ (__Not Yet Implemented__)
+  * __[CouchApp](http://couchapp.org/page/index)__ (__Not Yet Implemented__)
+  * __[Titanium](http://www.appcelerator.com/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
     * __Standalone__ - Just include one small file in your page (**< 8 KB zipped maybe < ~4 KB**)
-    * __[jQuery](http://jquery.org/)__ - Use it in any existing jQuery installation (__Not Yet Implemented__)
-    * __[RequireJS](http://requirejs.org/)__ - Use it in any existing requirejs installation (__Not Yet Implemented__)
-    * __[Dojo](http://dojotoolkit.org/)__ - Use it in any existing Dojo installation (__Not Yet Implemented__)
+    * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
+    * __[RequireJS](http://requirejs.org/)__ (__Not Yet Implemented__)
+    * __[Dojo](http://dojotoolkit.org/)__ (__Not Yet Implemented__)
   * __Services__
     * __[Duostack](http://www.duostack.com/)__ - No npm & hassle free deployment with secret configuration (__Not Yet Implemented__)
     * __[no.de](https://no.de/)__ (__Not Yet Implemented__)
