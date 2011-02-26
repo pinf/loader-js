@@ -15,8 +15,8 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
 
   * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `node ./pinf-loader program.json`
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/Firefox/XULRunner extension or application
-  * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform (__Not Yet Implemented__)
-  * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (__Not Yet Implemented__)
+  * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform
+  * __[Rhino](http://www.mozilla.org/rhino/)__ - Use it in any Java application or from the command line (working via Narwhal)
   * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it to build low-level system commands (__Not Yet Implemented__)
   * __[CouchApp](http://couchapp.org/page/index)__ - Use it to serve applications right from your CouchDB database (__Not Yet Implemented__)
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any existing Titanium application (__Not Yet Implemented__)
