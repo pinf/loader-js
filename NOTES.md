@@ -28,7 +28,7 @@ TODO
 General
 -------
 
-  * Implement: browser adapter
+  * Replace `./lib/optparse.js` with narwhal's `args` module.
 
   * Author: Initial ./docs/
   * Author: CommonJS Programs/A (strawman)

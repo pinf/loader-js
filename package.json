@@ -1,7 +1,7 @@
 {
     "name": "loader-js",
-    "label": "CommonJS Modules Loader",
-    "description": "Versatile & Complete Module Loader for CommonJS JavaScript",
+    "label": "CommonJS Module Loader",
+    "description": "Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader",
     "repositories": [
         {
             "type": "git",

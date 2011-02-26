@@ -1,8 +1,8 @@
 
 *PINF: __Good software just works__*
 
-Versatile & Complete Module Loader for CommonJS JavaScript
-==========================================================
+Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
+========================================================================================
 
 Version: v0.1dev
 
@@ -100,7 +100,7 @@ Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](ht
 Usage
 =====
 
-If you have the `commonjs` command linked to a supported CommonJS platform binary:
+If you have the `commonjs` command linked to a supported CommonJS platform binary (`node` recommended):
 
     ./pinf-loader [.../[program.json]]    // `$PWD/program.json` implied if not provided
 
@@ -110,25 +110,28 @@ To run via a specific supported CommonJS platform binary see below.
 
 The following demos are available:
 
-    # Portable
+    # Portable (NodeJS, Narwhal)
     ./pinf-loader -v ./demos/HelloWorld
     ./pinf-loader -v ./demos/Mappings
     ./pinf-loader -v ./demos/CommonJSModules1
     ./pinf-loader -v ./demos/CommonJSModules2
     ./pinf-loader -v ./demos/LoadExtraCode
-    ./pinf-loader -v ./demos/BravoJS
     ./pinf-loader -v ./demos/PINFCatalog
     
     # NodeJS
-    ./pinf-loader -v ./demos/NodeUnit
-    ./pinf-loader -v ./demos/ReloadingJSGI
-    ./pinf-loader -v ./demos/PreloadCoffeeScript/
-    ./pinf-loader -v ./demos/GithubArchiveDependency
-    ./pinf-loader -v https://gist.github.com/823078
-    ./pinf-loader -v https://gist.github.com/823315
+    node ./pinf-loader -v ./demos/BravoJS
+    node ./pinf-loader -v ./demos/NodeUnit
+    node ./pinf-loader -v ./demos/ReloadingJSGI
+    node ./pinf-loader -v ./demos/PreloadCoffeeScript
+    node ./pinf-loader -v ./demos/GithubArchiveDependency
+    node ./pinf-loader -v https://gist.github.com/823078
+    node ./pinf-loader -v https://gist.github.com/823315
     
     # NodeJS -> Browser
-    ./pinf-loader -v ./demos/ProgramServer
+    node ./pinf-loader -v ./demos/ProgramServer
+    
+    # Narwhal
+    narwhal ./pinf-loader -v ./demos/Narwhal
     
     # Jetpack (assuming SDK activated & FF 4 installed)
     cfx --pkgdir=./demos/JetpackExtension/extension run
@@ -136,7 +139,7 @@ The following demos are available:
 The following tests are available:
 
     # NodeJS
-    ./pinf-loader ./tests/demos
+    node ./pinf-loader ./tests/demos
     
     # Jetpack (assuming SDK activated & FF 4 installed)
     cfx --pkgdir=./demos/JetpackExtension/extension test
@@ -150,6 +153,15 @@ NodeJS
 Homepage: [http://nodejs.org/](http://nodejs.org/)
 
     node ./pinf-loader [.../[program.json]]
+
+Narwhal
+-------
+
+Homepage: [Narwhal](http://narwhaljs.org/)
+
+    narwhal ./pinf-loader [.../[program.json]]
+
+See [./demos/Narwhal/README.md](https://github.com/pinf/loader-js/blob/master/demos/Narwhal/README.md) for notes.
 
 Browser
 -------

@@ -1349,7 +1349,7 @@ bravojs.Module = function bravojs_Module(id, dependencies)
 {
   this._id       = id;
   this.id        = bravojs.callPlugins("sanitizeId", [id]) || id;
-  this.protected = void 0;
+  this["protected"] = void 0;
   this.dependencies = dependencies;
   this.print = bravojs.print;
 
@@ -3481,13 +3481,26 @@ exports.boot = function(options)
         {
             adapter = "jetpack";
         }
+        else
+        {
+            // Test for Narwhal
+            try
+            {
+                var narwhal = "narwhal";
+                if (typeof require(narwhal).ensureEngine != "undefined")
+                {
+                    adapter = "narwhal";
+                }
+            }
+            catch(e) {}
+        }
     }
     else
     {
         // We are most likely running in a browser
     }
     if (!adapter)
-        throw new Error("Cannot select platform adapter. Unable to identify host JavaSvript platform.");
+        throw new Error("Cannot select platform adapter. Unable to identify host JavaScript platform.");
 
     // Normalize JS environment to ES5
     __require__('bravojs/global-es5');
@@ -4498,11 +4511,11 @@ function build_rules(filters, arr) {
 //      filter             The filter to use when parsing the arg. An 
 //                         <<undefined>> value means that the switch does 
 //                         not take anargument.
-function build_rule(filters, short, expr, desc) {
+function build_rule(filters, short1, expr, desc) {
     var optional, filter;
     var m = expr.match(EXT_RULE_RE);
     if(m == null) throw OptError('The switch is not well-formed.');
-    var long = m[1] || m[3];
+    var long1 = m[1] || m[3];
     if(m[2] != undefined) {
         // A switch argument is expected. Check if the argument is optional,
         // then find a filter that suites.
@@ -4513,9 +4526,9 @@ function build_rule(filters, short, expr, desc) {
         if(filter === undefined) filter = filters[DEFAULT_FILTER];
     }
     return {
-        name: long.substr(2),       
-        short: short,               
-        long: long,
+        name: long1.substr(2),       
+        "short": short1,               
+        "long": long1,
         decl: expr,
         desc: desc,                 
         optional_arg: optional,
@@ -4620,7 +4633,7 @@ OptionParser.prototype = {
                 // handler if no rule matched.
                 for(var i = 0; i < rules.length; i++) {
                     var rule = rules[i];
-                    if(rule.long == token || rule.short == token) {
+                    if(rule["long"] == token || rule["short"] == token) {
                         if(rule.filter !== undefined) {
                             arg = tokens.shift();
                             if(!LONG_SWITCH_RE(arg) && !SHORT_SWITCH_RE(arg)) {
@@ -4674,14 +4687,14 @@ OptionParser.prototype = {
         for(var i = 0; i < rules.length; i++) {
             rule = rules[i];
             // Quick-analyze the options. 
-            if(rule.short) shorts = true;
+            if(rule["short"]) shorts = true;
             if(rule.decl.length > longest) longest = rule.decl.length;
         }
         for(var i = 0; i < rules.length; i++) {
             var text; 
             rule = rules[i];
             if(shorts) {
-                if(rule.short) text = spaces(2) + rule.short + ', ';
+                if(rule["short"]) text = spaces(2) + rule["short"] + ', ';
                 else text = spaces(6);
             }
             text += spaces(rule.decl, longest) + spaces(3);

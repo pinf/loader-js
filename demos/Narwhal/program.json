@@ -1,0 +1,13 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/Narwhal/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/Narwhal/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "narwhaljs.org": {
+            "provider": "narwhaljs.org"
+        }
+    }
+}
