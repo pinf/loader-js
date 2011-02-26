@@ -1,4 +1,5 @@
 {
+    "uid": "http://registry.pinf.org/pinf.org/github/loader-js/",
     "name": "loader-js",
     "label": "CommonJS Module Loader",
     "description": "Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader",
@@ -16,9 +17,9 @@
         }
     ],
     "licenses": [
-       {
-           "type": "MIT",
-           "url": "http://www.opensource.org/licenses/mit-license.php"
-       }
+        {
+            "type": "MIT",
+            "url": "http://www.opensource.org/licenses/mit-license.php"
+        }
     ]
 }
