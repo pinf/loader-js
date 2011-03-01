@@ -34,7 +34,7 @@ Jetpack SDK: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/
 
 Version: 1.0b3
 
-Tutorial: [https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started](https://jetpack.mozillalabs.com/sdk/1.0b2/docs/#guide/getting-started)
+Tutorial: [https://jetpack.mozillalabs.com/sdk/1.0b3/docs/#guide/getting-started](https://jetpack.mozillalabs.com/sdk/1.0b3/docs/#guide/getting-started)
 
 More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
