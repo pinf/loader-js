@@ -23,7 +23,7 @@ Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
-  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `node ./pinf-loader program.json`
+  * __[NodeJS](http://nodejs.org/)__ - No npm, just boot via `commonjs program.json`
   * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)

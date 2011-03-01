@@ -1,5 +1,5 @@
 
-To run these tests you must have the loader [./Setup.md].
+To run these tests you must have the loader [./Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md).
 
 Platform: NodeJS
 ================

@@ -1,5 +1,5 @@
 
-To run these demos you must have the loader [./Setup.md].
+To run these demos you must have the loader [./Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md).
 
 Portable
 ========
