@@ -1,6 +1,9 @@
 {
     "uid": "http://github.com/pinf/loader-js/demos/Narwhal/",
     "main": "main.js",
+    "engine": [
+        "narwhal"
+    ],
     "mappings": {
         "narwhal": {
             "id": "narwhaljs.org"

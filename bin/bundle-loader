@@ -1,13 +1,11 @@
 #! /usr/bin/env commonjs
 
-// assuming nodejs
-// TODO: detect dirname according to what platform supports
+exports.main = function(env)
+{
+    var parts = module.id.split("/");
 
-if (typeof __dirname == "undefined")
-    throw new Error("Cannot get dirname. '__dirname' variable not defined (nodejs).");
-
-var parts = __dirname.split("/");
-
-require("../lib/loader").boot({
-    program: parts.slice(0, parts.length-1).join("/") + "/programs/bundle-loader/program.json"
-});
+    env.bootProgram({
+        program: parts.slice(0, parts.length-2).join("/") + "/programs/bundle-loader/program.json",
+        args: env.args
+    });
+}

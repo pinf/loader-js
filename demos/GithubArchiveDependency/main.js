@@ -1,9 +1,6 @@
 
 module.declare(["paperboy/paperboy", "nodejs/path", "nodejs/http", "pinf/loader"], function(require, exports, module)
 {
-    if (require.platform != "nodejs")
-        throw new Error("This program only runs on http://nodejs.org/");
-    
     var PAPERBOY = require("paperboy/paperboy"),
         PATH = require("nodejs/path"),
         HTTP = require("nodejs/http"),
@@ -12,7 +9,7 @@ module.declare(["paperboy/paperboy", "nodejs/path", "nodejs/http", "pinf/loader"
     // Config options
 
     var port = 8003,
-        docroot = PATH.dirname(PATH.dirname(module.id));
+        docroot = PATH.dirname(module.id);
 
     exports.main = function()
     {

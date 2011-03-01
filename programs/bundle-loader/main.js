@@ -1,15 +1,12 @@
 
-if (require.platform != "nodejs")
-    throw new Error("This program only runs on http://nodejs.org/");
-
 var SCANNER = require("./lib/scanner"),
     BUNDLER = require("./lib/bundler"),
     PATH = require("nodejs/path");
 
-exports.main = function()
+exports.main = function(env)
 {
-    var args = getArgs();
-    
+    var args = env.args;
+
     // TODO: Better argument parsing
 
     if (args.length != 3)
@@ -35,17 +32,4 @@ exports.main = function()
     bundler.writeTo(outputPath);
 
     module.print("Bundle written to: " + outputPath + "\n");
-}
-
-
-
-function getArgs()
-{
-    var args = [];
-    process.argv.forEach(function (val, index, array)
-    {
-        if (index >= 2)
-            args.push(val);
-    });
-    return args;
 }

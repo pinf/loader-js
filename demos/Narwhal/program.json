@@ -1,5 +1,8 @@
 {
     "boot": "github.com/pinf/loader-js/demos/Narwhal/",
+    "engine": [
+        "narwhal"
+    ],
     "packages": {
         "github.com/pinf/loader-js/demos/Narwhal/": {
             "locator": {

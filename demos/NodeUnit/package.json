@@ -1,6 +1,9 @@
 {
     "uid": "http://github.com/pinf/loader-js/demos/NodeUnit/",
     "main": "main.js",
+    "engine": [
+        "node"
+    ],
     "mappings": {
         "nodejs": {
             "id": "nodejs.org"

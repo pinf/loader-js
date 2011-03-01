@@ -1,9 +1,6 @@
 
 module.declare(["nodeunit/nodeunit", "nodejs/path"], function(require, exports, module)
 {
-    if (require.platform != "nodejs")
-        throw new Error("This program only runs on http://nodejs.org/");
-
     var PATH = require("nodejs/path"),
         PINF_LOADER = require("pinf/loader");
 

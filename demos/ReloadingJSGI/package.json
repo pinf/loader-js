@@ -1,6 +1,9 @@
 {
     "uid": "http://github.com/pinf/loader-js/demos/ReloadingJSGI/",
     "main": "main.js",
+    "engine": [
+        "node"
+    ],
     "directories": {
         "lib": ""
     },

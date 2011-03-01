@@ -1,5 +1,8 @@
 {
     "boot": "github.com/pinf/loader-js/programs/bundle-loader/",
+    "engine": [
+        "node"
+    ],
     "packages": {
         "github.com/pinf/loader-js/programs/bundle-loader/": {
             "locator": {

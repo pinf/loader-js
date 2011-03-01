@@ -312,6 +312,28 @@ ENV.packageProviders = {
 // # SYSTEM
 // ######################################################################
 
+SYSTEM.exit = function(status)
+{
+    // do nothing for now
+}
+
+SYSTEM.parseArgs = function(args)
+{
+    SYSTEM.preArgs = [];
+    SYSTEM.args = false;
+    args.forEach(function (val, index, array)
+    {
+        if (SYSTEM.args === false)
+            SYSTEM.preArgs.push(val);
+        else
+            SYSTEM.args.push(val);
+        if (SYSTEM.args === false && /\/?pinf-loader(\.js)?$/.test(val))
+            SYSTEM.args = [];
+    });
+    if (SYSTEM.args === false)
+        SYSTEM.args = [];
+}
+
 SYSTEM.colorizedPrint = function(print)
 {
     var TERM = __require__('term'),
@@ -604,6 +626,1281 @@ ARCHIVE.getForPath = function(path)
 
 
 });
+__loader__.memoize('args', function(__require__, module, exports) {
+// ######################################################################
+// # /args.js
+// ######################################################################
+// @see https://github.com/280north/narwhal/blob/master/packages/narwhal-lib/lib/narwhal/args.js
+// -- kriskowal Kris Kowal Copyright (C) 2009-2010 MIT License
+// -- tlrobinson Tom Robinson
+// -- abhinav Abhinav Gupta
+
+var API = __require__('api'),
+    util = __require__('util');
+
+exports.UsageError = function (message) {
+    this.name = "UsageError";
+    this.message = message;
+};
+
+exports.UsageError.prototype = Object.create(Error.prototype);
+
+exports.ConfigurationError = function (message) {
+    this.name = "ConfigurationError";
+    this.message = message;
+};
+
+exports.ConfigurationError.prototype = Object.create(Error.prototype);
+
+/**
+ * Create a new command line argument parser.
+ *
+ * @constructor
+ */
+exports.Parser = function () {
+    this._options = [];
+    this._def = {};
+    this._long = {};
+    this._short = {};
+    this._commands = {};
+    this._args = [];
+    this._vargs = undefined;
+    this._interleaved = false;
+};
+
+/**
+ * Add an option to the parser.
+ *
+ * Takes the same arguments as the {@link Option} constructor.
+ *
+ * @returns {Option} the new Option object
+ */
+exports.Parser.prototype.option = function () {
+    var option = new this.Option(this, arguments);
+    this._options.push(option);
+    return option;
+};
+
+/**
+ * Create a new group of options.
+ *
+ * @param {String} name     name of the group
+ * @returns {Group}         {@link Group} object representing the group
+ */
+exports.Parser.prototype.group = function (name) {
+    var group = new this.Group(this, this, name);
+    this._options.push(group);
+    return group;
+};
+
+/**
+ * Set default values for the parser.
+ *
+ * @param {String} name     key in the result
+ * @param          value    default value for the key
+ * @returns {Parser}        this
+ */
+exports.Parser.prototype.def = function (name, value) {
+    this._def[name] = value;
+    return this;
+};
+
+/**
+ * Reset the default values in the given hash.
+ *
+ * Normally, this won't be used externally.
+ *
+ * @param {Object} options  parser state
+ */
+exports.Parser.prototype.reset = function (options) {
+    var self = this;
+    for (var name in this._def) {
+        if (util.has(this._def, name) && !util.has(options, name))
+            options[name] = util.copy(this._def[name]);
+    }
+    this._options.forEach(function (option) {
+        if (!(option instanceof self.Option))
+            return;
+        if (!util.has(options, option.getName()))
+            options[option.getName()] = option._def;
+    });
+};
+
+/**
+ * Add a new sub-command to the parser.
+ *
+ * @param {String} name         name of the sub command
+ * @param          [handler]    either a module name that exports a `parser'
+ *                              or a function that will be used as a parser
+ *                              action
+ * @returns {Parser}            if no handler was given or a parser action was
+ *                              given, returns the Parser for the sub-command
+ */
+exports.Parser.prototype.command = function (name, handler) {
+    var parent = this;
+    if (!handler) {
+        var parser = new exports.Parser();
+        this._commands[name] = function () {
+            return parser;
+        };
+        return parser;
+    } else if (typeof handler == "string") {
+        this._commands[name] = function () {
+            return require(handler).parser;
+        };
+        return;
+    } else {
+        var parser = new this.Parser();
+        parser.action(handler);
+        this._commands[name] = function () {
+            return parser;
+        };
+        return parser;
+    }
+};
+
+/**
+ * Add a single positional argument to the command.
+ *
+ * Warning: Only used for printing the help or usage. The parser is not
+ * responsible for reading them from the command line arguments.
+ *
+ * @param {String} name     name of the argument
+ * @returns {Argument}      {@link Argument} object reprsenting the argument
+ */
+exports.Parser.prototype.arg = function (name) {
+    var argument = new exports.Argument(this).name(name);
+    this._args.push(argument);
+    return argument;
+};
+
+/**
+ * Add a variable number of arguments to the command.
+ *
+ * Warning: Only used for printing the help or usage. The parser is not
+ * responsible for reading them from the command line arguments.
+ *
+ * @param {String} name     name of the arguments
+ * @returns {Argument}      {@link Argument} object representing the argument
+ */
+exports.Parser.prototype.args = function (name) {
+    var argument = new exports.Argument(this).name(name);
+    this._vargs = argument;
+    return argument;
+};
+
+/**
+ * Enable or disable interleaved arguments.
+ *
+ * Disabled by default.
+ *
+ * @param {Boolean} [value=true]    true to allow interleaved arguments
+ * @returns {Parser}                this
+ */
+exports.Parser.prototype.interleaved = function (value) {
+    if (value === undefined)
+        value = true;
+    this._interleaved = value;
+    return this;
+};
+
+/**
+ * Act on the given arguments.
+ *
+ * Parses the arguments and calls the appropriate actions.
+ *
+ * Normally, this won't be used externally.
+ *
+ * @param {String[]} args       arguments to parse
+ * @param {Option[]} options    result of the parent parser
+ */
+exports.Parser.prototype.act = function (args, options) {
+    if (!this._action) {
+        this.error(options, "Not yet implemented.");
+        this.exit(-1);
+    }
+    options.acted = true;
+    this._action.call(this, this.parse(args), options);
+};
+
+/**
+ * Add an action to the parser.
+ * 
+ * If an action already exists, the new action will be executed after the
+ * executing action.
+ *
+ * Warning: Not executed when the parse method is called. Normally used on
+ * sub-command parsers only.
+ *
+ * @param {Function} action     the action to execute
+ * @returns {Parser}            this
+ */
+exports.Parser.prototype.action = function (action) {
+    if (this._action) {
+        action = (function (previous, next) {
+            return function () {
+                previous.apply(this, arguments);
+                next.apply(this, arguments);
+            };
+         })(this._action, action);
+    }
+    this._action = action;
+    return this;
+};
+
+/**
+ * Make the parser helpful.
+ *
+ * Will add help options and if required, commands.
+ *
+ * Warning: Must be called last, after all parser configuration is finished.
+ *
+ * @returns {Parser} this
+ */
+exports.Parser.prototype.helpful = function () {
+    var self = this;
+    this.option('-h', '--help')
+        .help('displays usage information')
+        .action(function (options) {
+            return self.printHelp(options);
+        })
+        .halt();
+    if (util.len(this._commands))
+        this.command('help', function (options) {
+            self.printHelp(options);
+        }).help('displays usage information');
+    return this;
+};
+
+exports.Parser.prototype.usage = function (usage) {
+    this._usage = usage;
+    return this;
+};
+
+exports.Parser.prototype.help = function (help) {
+    this._help = help;
+    return this;
+};
+
+exports.Parser.prototype.printHelp = function (options) {
+    var args = options.args || [];
+    if (args.length) {
+        // parse args for deep help
+        // TODO offer extended help for options
+        if (!util.has(this._commands, args[0])) {
+            this.error(options, util.repr(args[0]) + ' is not a command.');
+            this.printCommands(options);
+            this.exit(options);
+        } else {
+            util.put(args, 1, '--help');
+            this._commands[args[0]]().act(args, options);
+            this.exit(options);
+        }
+    } else {
+        this.printUsage(options);
+        if (this._help)
+            this.print('' + this._help + '');
+        this.printCommands(options);
+        this.printOptions(options);
+        this.exit(options);
+    }
+};
+
+exports.Parser.prototype.printUsage = function (options) {
+    this.print(
+        'Usage: \0bold(\0blue(' + API.FILE.basename(options.command || '<unknown>') +
+        (!this._interleaved ?  ' [OPTIONS]' : '' ) + 
+        (util.len(this._commands) ?
+            ' COMMAND' :
+            ''
+        ) + 
+        (util.len(this._args) ?
+            ' ' + this._args.map(function (arg) {
+                if (arg._optional) {
+                    return '[' + arg._name.toUpperCase() + ']';
+                } else {
+                    return arg._name.toUpperCase();
+                }
+            }).join(' ') :
+            ''
+        ) +
+        (this._vargs ?
+            ' [' + this._vargs._name.toUpperCase() + ' ...]':
+            ''
+        ) + 
+        (this._interleaved ?  ' [OPTIONS]' : '' ) + 
+        (this._usage ?
+            ' ' + this._usage :
+            ''
+        ) + "\0)\0)"
+    );
+};
+
+exports.Parser.prototype.printCommands = function (options) {
+    var self = this;
+    util.forEachApply(
+        util.items(this._commands),
+        function (name, command) {
+            var parser = command();
+            self.print('  \0bold(\0green(' + name + '\0)\0)' + (
+                parser._help ?
+                (
+                    ': ' +
+                    (
+                        parser._action?
+                        '': '\0red(NYI\0): '
+                    ) + 
+                    parser._help
+                ) : ''
+            ));
+        }
+    );
+};
+
+exports.Parser.prototype.printOption = function (options, option, depth, parent) {
+    var self = this;
+    depth = depth || 0;
+    var indent = util.mul('   ', depth);
+
+    if (option._hidden)
+        return;
+    if (option._group !== parent)
+        return;
+
+    if (option instanceof exports.Group) {
+        self.print(indent + ' \0yellow(' + option._name + ':\0)');
+        var parent = option;
+        option._options.forEach(function (option) {
+            return self.printOption(options, option, depth + 1, parent);
+        });
+        return;
+    }
+
+    var message = [];
+    if (option._short.length)
+        message.push(option._short.map(function (_short) {
+            return ' \0bold(\0green(-' + _short + '\0)\0)';
+        }).join(''));
+    if (option._long.length)
+        message.push(option._long.map(function (_long) {
+            return ' \0bold(\0green(--' + _long + '\0)\0)';
+        }).join(''));
+    if (option._action && option._action.length > 2)
+        message.push(
+            ' ' +
+            util.range(option._action.length - 2)
+            .map(function () {
+                return '\0bold(\0green(' + util.upper(
+                    option.getDisplayName()
+                ) + '\0)\0)';
+            }).join(' ')
+        );
+    if (option._help)
+        message.push(': ' + option._help + '');
+    if (option._choices) {
+        var choices = option._choices;
+        if (!util.isArrayLike(choices))
+            choices = util.keys(choices);
+        message.push(' \0bold(\0blue((' + choices.join(', ') + ')\0)\0)');
+    }
+    if (option._halt)
+        message.push(' \0bold(\0blue((final option)\0)\0)');
+    self.print(indent + message.join(''));
+
+};
+
+exports.Parser.prototype.printOptions = function (options) {
+    var self = this;
+    self._options.forEach(function (option) {
+        self.printOption(options, option);
+    });
+};
+
+exports.Parser.prototype.error = function (options, message) {
+    if (this._parser) {
+        this._parser.error.apply(
+            this._parser,
+            arguments
+        );
+    } else {
+        this.print('\0red(' + message + '\0)');
+        this.exit();
+    }
+};
+
+exports.Parser.prototype.exit = function (status) {
+    if (this._parser) {
+        this._parser.exit.apply(
+            this._parser,
+            arguments
+        );
+    } else {
+        // FIXME: exit is sometimes called with the "options" object as the "status" argument. Why?
+        API.SYSTEM.exit(typeof status == "number" ? status : 1);
+//        throw new Error("exit failed");
+    }
+};
+
+exports.Parser.prototype.print = function () {
+    if (this._parser)
+        this._parser.print.apply(
+            this._parser,
+            arguments
+        );
+    else
+    {
+        var args = [];
+        for (var i=0, ic=arguments.length ; i<ic ; i++ )
+            args.push(arguments[i]);
+        API.SYSTEM.print(args.join("") + "\n");
+    }
+};
+
+// verifies that the parser is fully configured
+exports.Parser.prototype.check = function () {
+    // make sure all options have associated actions
+    var self = this;
+    self._options.forEach(function (option) {
+        if (!(option instanceof self.Option))
+            return;
+        if (!option._action)
+            throw new exports.ConfigurationError(
+                "No action associated with the option " + 
+                util.repr(option.getDisplayName())
+            );
+    });
+};
+
+/**
+ * Parse the arguments, calling the appropriate option actions.
+ *
+ * @param {String[]}    [args=system.args]  command line arguments
+ * @param {Object}      [options]           parser state
+ * @param {Boolean}     [noCommand=false]   true if sub-commands are not
+ *                                          allowed
+ * @param {Boolean}     [allowInterleaved]  true to allow interleaved
+ *                                          arguments; overrides
+ *                                          this.interleaved
+ * @returns {Object}                        final parser state
+ */
+exports.Parser.prototype.parse = function (args, options, noCommand, allowInterleaved) {
+
+    // TODO break this into sub-functions
+    // TODO wrap with a try catch and print the progress through the arguments
+
+    var self = this;
+
+    this.check();
+
+    if (!args)
+    {
+        throw new Error("NI");
+//        args = system.args;
+    }
+    if (!options)
+        options = {};
+    if (allowInterleaved === undefined)
+        allowInterleaved = this._interleaved;
+
+    options.args = args;
+    if (!noCommand && args.length && !/^-/.test(args[0]))
+        options.command = args.shift();
+
+    function mandatoryShift(n, name) {
+        if (n > args.length) {
+            this.error(
+                options,
+                'Error: The ' + util.enquote(name) +
+                ' option requires ' + n + ' arguments.'
+            );
+        }
+        var result = args.slice(0, n);
+        for (var i = 0; i < n; i++)
+            args.shift()
+        return result;
+    };
+
+    function validate(option, value) {
+        try {
+            if (option._action.length <= 3)
+                value = value[0];
+            return option._validate.call(self, value);
+        } catch (exception) {
+            throw exception;
+            self.error(options, exception);
+        }
+    };
+
+    // initial values
+    this.reset(options);
+
+    var interleavedArgs = [];
+
+    // walk args
+    ARGS: while (args.length) {
+        var arg = args.shift();
+        if (arg == "--") {
+            break;
+
+        } else if (/^--/.test(arg)) {
+
+            var pattern = arg.match(/^--([^=]+)(?:=(.*))?/).slice(1);
+            var word = pattern[0];
+            var value = pattern[1];
+
+            if (!!value) {
+                args.unshift(value);
+            }
+
+            if (util.has(this._long, word)) {
+
+                var option = this._long[word];
+                if (!option._action) {
+                    self.error(
+                        options,
+                        "Programmer error: The " + word +
+                        " option does not have an associated action."
+                    );
+                }
+
+                option._action.apply(
+                    self,
+                    [
+                        options,
+                        option.getName()
+                    ].concat(
+                        validate(option, mandatoryShift.call(
+                            this,
+                            Math.max(0, option._action.length - 2),
+                            option.getName()
+                        ))
+                    )
+                );
+
+                if (option._halt)
+                    break ARGS;
+
+            } else {
+                this.error(options, 'Error: Unrecognized option: ' + util.enquote(word));
+            }
+
+        } else if (/^-/.test(arg)) {
+
+            var letters = arg.match(/^-(.*)/)[1].split('');
+            while (letters.length) {
+                var letter = letters.shift();
+                if (util.has(this._short, letter)) {
+                    var option = this._short[letter];
+
+                    if (option._action.length > 2) {
+                        if (letters.length) {
+                            args.unshift(letters.join(''));
+                            letters = [];
+                        }
+                    }
+
+                    option._action.apply(
+                        self,
+                        [
+                            options,
+                            option.getName(),
+                        ].concat(
+                            validate(
+                                option,
+                                mandatoryShift.call(
+                                    this,
+                                    Math.max(0, option._action.length - 2),
+                                    option.getName()
+                                )
+                            )
+                        )
+                    );
+
+                    if (option._halt)
+                        break ARGS;
+
+                } else {
+                    this.error(options, 'Error: unrecognized option: ' + util.enquote(letter));
+                }
+            }
+
+        } else {
+            interleavedArgs.push(arg);
+            if (!allowInterleaved)
+                break;
+        }
+
+    }
+
+    // add the interleaved arguments back in
+    args.unshift.apply(args, interleavedArgs)
+
+    if (util.len(this._commands)) {
+        if (args.length) {
+            if (util.has(this._commands, args[0])) {
+                var command = this._commands[args[0]];
+                command().act(args, options);
+            } else {
+                this.error(options, 'Error: unrecognized command');
+            }
+        } else {
+            this.error(options, 'Error: command required');
+            this.exit(0);
+        }
+    }
+
+    return options;
+};
+
+/**
+ * Represents positional arguments for the parser.
+ * 
+ * @constructor
+ * @param {Parser} parser   the parent parser
+ */
+exports.Argument = function (parser) {
+    this._parser = parser;
+    return this;
+};
+
+/**
+ * Set the name of the argument.
+ *
+ * @param {String} name     name of the parser
+ * @returns {Argument}      this
+ */
+exports.Argument.prototype.name = function (name) {
+    this._name = name;
+    return this;
+};
+
+/**
+ * Make the argument optional.
+ *
+ * @param {Boolean} [value=true]    true to make this optional
+ * @returns {Argument}              this
+ */
+exports.Argument.prototype.optional = function (value) {
+    if (value === undefined)
+        value = true;
+    this._optional = value;
+    return this;
+};
+
+/**
+ * Represents a command line option.
+ *
+ * Other than the parser, the arguments are read with the following rules.
+ *
+ * Hashes contain attributes.
+ * <code>
+ *      new Option(parser, {
+ *          action: function () { ... },
+ *          _: 'l',         // short name
+ *          __: 'list',     // long name
+ *          help: "list all packages"
+ *      });
+ * </code>
+ *
+ * A function is the option's action.
+ * <code>
+ *      new Option(parser, function () { ... });
+ * </code>
+ *
+ * Strings starting with "-" and "--" are short and long names respectivey.
+ * <code>
+ *      new Option(parser, "-l", "--list");
+ * </code>
+ *
+ * A string with spaces is the help message.
+ * <code>
+ *      new Option(parser, "-l", "--list", "list all packages");
+ * </code>
+ *
+ * A one-word string is the display name and the option name. An additional
+ * one-word string is the option name.
+ * <code>
+ *      new Option(parser, "-d", "--delete", "file", "del");
+ *      // file is the display name and del is the option name
+ * </code>
+ *
+ * @param {Parser} parser       the owning parser
+ */
+exports.Option = function (parser, args) {
+    var self = this;
+    this._parser = parser;
+    this._validate = function (value) {
+        return value;
+    };
+    this._long = [];
+    this._short = [];
+    util.forEach(args, function (arg) {
+        if (typeof arg == "function") {
+            self.action(arg);
+        } else if (typeof arg !== "string") {
+            for (var name in arg) {
+                var value = arg[name];
+                self[name](value);
+            }
+        } else if (/ /.test(arg)) {
+            self.help(arg);
+        } else if (/^--/.test(arg)) {
+            arg = arg.match(/^--(.*)/)[1];
+            self.__(arg);
+        } else if (/^-.$/.test(arg)) {
+            arg = arg.match(/^-(.)/)[1];
+            self._(arg);
+        } else if (/^-/.test(arg)) {
+            throw new Error("option names with one dash can only have one letter.");
+        } else {
+            if (!self._name) {
+                self.name(arg);
+                self.displayName(arg);
+            } else {
+                self.name(arg);
+            }
+        }
+    });
+    if (!(self._short.length || self._long.length || self._name))
+        throw new exports.ConfigurationError("Option has no name.");
+    return this;
+};
+
+/**
+ * Set the short option.
+ *
+ * @param {String} letter   the character for the option
+ * @returns {Option}        this
+ */
+exports.Option.prototype._ = function (letter) {
+    this._short.push(letter);
+    this._parser._short[letter] = this;
+    return this;
+};
+
+/**
+ * Set the long option.
+ *
+ * @param {String} word     the word for the long option
+ * @returns {Option}        this
+ */
+exports.Option.prototype.__ = function (word) {
+    this._long.push(word);
+    this._parser._long[word] = this;
+    return this;
+};
+
+/**
+ * Set the name of the option.
+ *
+ * Used in the result hash.
+ *
+ * @param {String} name     name of the option
+ * @returns {Option}        this
+ */
+exports.Option.prototype.name = function (name) {
+    this._name = name;
+    return this;
+};
+
+/**
+ * Set the display name for the option.
+ *
+ * Shown in the help as the name of the argument. Useless if the option
+ * doesn't have an argument.
+ *
+ * @param {String} displayName      new display name
+ * @returns {Option}                this
+ */
+exports.Option.prototype.displayName = function (displayName) {
+    this._displayName = displayName;
+    return this;
+};
+
+/**
+ * @returns {String} the display name
+ */
+exports.Option.prototype.getDisplayName = function () {
+    if (this._displayName)
+        return this._displayName;
+    return this.getName();
+};
+
+/**
+ * @returns {String} the name
+ */
+exports.Option.prototype.getName = function () {
+    if (this._name) {
+        return this._name;
+    }
+    if (this._long.length > 0) {
+        return this._long[0];
+    }
+    if (this._short.length > 0) {
+        return this._short[0];
+    }
+    throw new Error("Programmer error: unnamed option");
+};
+
+/**
+ * Set the action executed when this option is encountered.
+ *
+ * @param action        either a function or a string with the name of a
+ *                      function in the parser
+ * @returns {Option}    this
+ */
+exports.Option.prototype.action = function (action) {
+    var self = this;
+    if (typeof action == "string") {
+        this._action = self._parser[action];
+    } else {
+        this._action = action;
+    }
+    return this;
+};
+
+/**
+ * If value is given, the option will not take any arguments and will have the
+ * given value if its flag was passed.
+ *
+ * Otherwise, the option will take a single argument.
+ *
+ * @param value         desired value
+ * @returns {Option}    this
+ */
+exports.Option.prototype.set = function (value) {
+    var option = this;
+    if (arguments.length == 0)
+        return this.action(function (options, name, value) {
+            options[name] = value;
+        });
+    else if (arguments.length == 1)
+        return this.action(function (options, name) {
+            options[name] = value;
+        });
+    else
+        throw new exports.UsageError("Option().set takes 0 or 1 arguments");
+};
+
+/**
+ * The option can have multiple values.
+ *
+ * Each argument for this option will be passed separately.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.push = function () {
+    var option = this;
+    return this.def([]).action(function (options, name, value) {
+        options[name].push(option._validate.call(
+            this,
+            value
+        ));
+    });
+};
+
+/**
+ * The option will keep track of the number of times the flag was passed in the
+ * arguments.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.inc = function () {
+    return this.def(0).action(function (options, name) {
+        options[name]++;
+    });
+};
+
+/**
+ * The option's value will be the negative of number of times its flag was
+ * passed in the arguments.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.dec = function () {
+    return this.def(0).action(function (options, name) {
+        options[name]--;
+    });
+};
+
+/**
+ * The option can only have one of the given values.
+ *
+ * @param choices array of string containing the choices or hash whose keys
+ *                will be the possible choices and the mapped value will be
+ *                the value of the option
+ * @returns {Option} this
+ */
+exports.Option.prototype.choices = function (choices) {
+    this.set();
+    this._choices = choices;
+    var self = this;
+    if (util.isArrayLike(choices)) {
+        return this.validate(function (value) {
+            if (choices.indexOf(value) < 0)
+                throw new exports.UsageError(
+                    "choice for " + util.upper(self.getDisplayName()) +
+                    " is invalid: " + util.repr(value) + "\n" +
+                    "Use one of: " + choices.map(function (choice) {
+                        return util.enquote(choice);
+                    }).join(', ')
+                );
+            return value;
+        })
+    } else {
+        return this.validate(function (value) {
+            if (!util.has(choices, value))
+                throw new exports.UsageError(
+                    "choice for " + util.upper(self.getDisplayName()) +
+                    " is invalid: " + util.enquote(value) + "\n" +
+                    "Use one of: " + util.keys(choices).map(function (choice) {
+                        return util.enquote(choice);
+                    }).join(', ')
+                );
+            return choices[value];
+        });
+    }
+};
+
+/**
+ * Set the default value for the option.
+ *
+ * Overrides setting from Parser.def().
+ *
+ * @param value      new default value
+ * @returns {Option} this
+ */
+exports.Option.prototype.def = function (value) {
+    if (this._def === undefined)
+        this._def = value;
+    return this;
+};
+
+/**
+ * Add a validate function to the option.
+ *
+ * The last added validate function is executed first.
+ *
+ * @param {Function} validate   the validate function - takes the option's
+ *                              value and returns a new value or the original
+ *                              value unchanged; can throw {@link UsageError}
+ * @returns {Option}            this
+ */
+exports.Option.prototype.validate = function (validate) {
+    var current = this._validate;
+    if (this._validate) {
+        validate = (function (previous) {
+            return function () {
+                return current.call(
+                    this,
+                    previous.apply(this, arguments)
+                );
+            };
+        })(validate);
+    }
+    this._validate = validate;
+    return this;
+};
+
+/**
+ * The option will take an input file.
+ *
+ * If the given file name is "-", stdin is used.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.input = function () {
+    throw new Error("NYI");
+/*
+    return this.set().validate(function (value) {
+        if (value == "-")
+            return system.stdin;
+        else
+            return file.open(value, 'r');
+    });
+*/
+};
+
+/**
+ * The option will take an output file.
+ *
+ * If the given file name is "-", stdout is used.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.output = function () {
+    throw new Error("NYI");
+/*
+    return this.set().validate(function (value) {
+        if (value == "-")
+            return system.stdout;
+        else
+            return file.open(value, 'w');
+    });
+*/
+};
+
+/**
+ * The option will take a number.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.number = function () {
+    return this.set().validate(function (value) {
+        var result = +value;
+        if (isNaN(result))
+            throw new exports.UsageError("not a number");
+        return result;
+    });
+};
+
+/**
+ * The option will take an octal value.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.oct = function () {
+    return this.set().validate(function (value) {
+        var result = parseInt(value, 8);
+        if (isNaN(result))
+            throw new exports.UsageError("not an octal value");
+        return result;
+    });
+};
+
+/**
+ * The option will take a hexadecimal value.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.hex = function () {
+    return this.set().validate(function (value) {
+        var result = parseInt(value, 16);
+        if (isNaN(result))
+            throw new exports.UsageError("not an hex value");
+        return result;
+    });
+};
+
+/**
+ * The option will take an integer value.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.integer = function () {
+    return this.set().validate(function (value) {
+        var result = parseInt(value, 10);
+        if (isNaN(result) || result !== +value)
+            throw new exports.UsageError("not an integer");
+        return result;
+    });
+};
+
+/**
+ * The option will take a natural number
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.natural = function () {
+    return this.set().validate(function (value) {
+        var result = value >>> 0;
+        if (result !== +value || result < 0)
+            throw new exports.UsageError("not a natural number");
+        return result;
+    });
+};
+
+/**
+ * The option will take a whole number.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.whole = function () {
+    return this.set().validate(function (value) {
+        var result = value >>> 0;
+        if (result !== +value || result < 1)
+            throw new exports.UsageError("not a whole number");
+        return result;
+    });
+};
+
+/**
+ * The option will take a boolean value.
+ *
+ * @param {Boolean} def     default value
+ * @returns {Option}        this
+ */
+exports.Option.prototype.bool = function (def) {
+    if (def === undefined)
+        def = true;
+    return this.def(!def).set(!!def);
+};
+
+exports.Option.prototype.todo = function (command, value) {
+    this._parser.def('todo', []);
+    command = command || this.getName();
+    if (value)
+        return this.action(function (options, name, value) {
+            options.todo.push([command, value]);
+        });
+    else
+        return this.action(function (options, name) {
+            options.todo.push([command]);
+        });
+};
+
+/**
+ * The option will have an inverse option.
+ *
+ * @returns {Option} this
+ */
+exports.Option.prototype.inverse = function () {
+    var args = arguments;
+    if (!args.length) {
+        args = [];
+        this._short.forEach(function (_) {
+            args.push('-' + _.toUpperCase());
+        });
+        this._long.forEach(function (__) {
+            args.push('--no-' + __);
+        });
+        if (this.getName()) 
+            args.push(this.getName());
+    }
+    var parser = this._parser;
+    var inverse = this._inverse = parser.option.apply(
+        parser,
+        args
+    ).set(!this._def).help('^ inverse');
+    return this;
+};
+
+/**
+ * Set the help text for this option.
+ *
+ * @param {String} text     the help text
+ * @returns {Option}        this
+ */
+exports.Option.prototype.help = function (text) {
+    this._help = text;
+    return this;
+};
+
+/**
+ * The option is final.
+ *
+ * None of the other options will be parsed after this.
+ *
+ * @param {Boolean} [value=true]    true to make this option final
+ * @returns {Option}                this
+ */
+exports.Option.prototype.halt = function (value) {
+    if (value == undefined)
+        value = true;
+    this._halt = value;
+    return this;
+};
+
+/**
+ * The option is hidden.
+ *
+ * It won't be shown in the program usage.
+ *
+ * @param {Boolean} [value=true]    true to make this option hidden
+ * @returns {Option}                this
+ */
+exports.Option.prototype.hidden = function (value) {
+    if (value === undefined)
+        value = true;
+    this._hidden = value;
+    return this;
+};
+
+/**
+ * Return the option's owning parser.
+ *
+ * Useful for chaining.
+ *
+ * @returns {Parser} owning parser
+ */
+exports.Option.prototype.end = function () {
+    return this._parser;
+};
+
+/**
+ * Helper function equivalent to end().option(...).
+ */
+exports.Option.prototype.option = function () {
+    return this.end().option.apply(this, arguments);
+};
+
+/**
+ * Return the parser's parent parser.
+ *
+ * @returns {Parser} parent parser
+ */
+exports.Parser.prototype.end = function () {
+    return this._parser;
+};
+
+/**
+ * Represents an option group.
+ *
+ * @param {Parser} parser   option parser
+ * @param          parent   parent parser or group
+ * @param {String} name     name of the group
+ */
+exports.Group = function (parser, parent, name) {
+    this._name = name;
+    this._parser = parser;
+    this._parent = parent;
+    this._options = [];
+    return this;
+};
+
+/**
+ * Add an option to the group.
+ *
+ * Takes the same arguments as the {@link Option} constructor.
+ *
+ * @returns {Option} the new Option object
+ */
+exports.Group.prototype.option = function () {
+    var option = this._parser.option.apply(this._parser, arguments);
+    option._group = this;
+    this._options.push(option);
+    return option;
+};
+
+/**
+ * Create a sub-group to this group.
+ *
+ * @param {String} name     name of the new group
+ * @returns {Group}         the new group
+ */
+exports.Group.prototype.group = function (name) {
+    var Group = this.Group || this._parser.Group;
+    var group = new Group(this._parser, this, name);
+    return group;
+};
+
+/**
+ * Returns the group's parent group or parser.
+ * 
+ * Useful for chaining commands.
+ *
+ * @returns parent parser or group
+ */
+exports.Group.prototype.end = function () {
+    return this._parent;
+};
+
+exports.Parser.prototype.Parser = exports.Parser;
+exports.Parser.prototype.Option = exports.Option;
+exports.Parser.prototype.Group = exports.Group;
+
+
+});
 __loader__.memoize('assembler', function(__require__, module, exports) {
 // ######################################################################
 // # /assembler.js
@@ -626,9 +1923,14 @@ var Assembler = exports.Assembler = function(downloader)
     this.cleaned = [];
 }
 
-Assembler.prototype.assembleProgram = function(sandbox, uri, callback)
+Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, callback)
 {
     var self = this;
+    if (typeof callback == "undefined")
+    {
+        callback = programCallback;
+        programCallback = void 0;
+    }
 
     var di = DEBUG.indent();
     DEBUG.print("Assembling program:").indent(di+1);
@@ -644,6 +1946,12 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, callback)
         var programDescriptor = new DESCRIPTORS.Program(path);
         
         var program = new PROGRAM.Program(programDescriptor);
+
+        if (typeof programCallback != "undefined")
+        {
+            if (programCallback(program) === false)
+                return;
+        }
 
         sandbox.setProgram(program);
 
@@ -3438,7 +4746,7 @@ __loader__.memoize('loader', function(__require__, module, exports) {
 // Authors:
 //  - cadorn, Christoph Dorn <christoph@christophdorn.com>, Copyright 2011, MIT License
 
-exports.boot = function(options)
+var boot = exports.boot = function(options)
 {
     const VERSION = "v0.1dev";
     var timers = {
@@ -3472,7 +4780,7 @@ exports.boot = function(options)
         var httpId = "http";
         if (typeof process != "undefined" && typeof require(httpId).Server != "undefined")
         {
-            adapter = "nodejs";
+            adapter = "node";
         }
         else
         
@@ -3511,6 +4819,7 @@ exports.boot = function(options)
     API.ENV.timers = timers;
     API.DEBUG.enabled = options.debug || void 0;
     API.SYSTEM.print = options.print || void 0;
+    API.ENV.platformRequire = options.platformRequire || void 0;
 
     // NOTE: If you modify this line you need to update: ../programs/bundle-loader/lib/bundler.js
     __require__("adapter/" + adapter).init(API);
@@ -3522,55 +4831,92 @@ exports.boot = function(options)
     // # CLI
     // ######################################################################
 
-    
     // Setup command line options
 
-    API.OPT_PARSE = __require__('optparse');
-    var optParser = new API.OPT_PARSE.OptionParser([
-            ['-v', '--verbose', "Enables progress messages"],
-//            ['-t', '--test', "Runs tests instead"],
-            ['--clean', "Removes all downloaded packages first"],
-            ['--terminate', "Asks program to terminate if it was going to deamonize"],
-            ['-h', '--help', "Shows this help screen"]
-        ]),
-        optPrintUsage = false,
-        optFirstArg = "";
-    optParser.banner = "\n" + "\0magenta(\0bold(PINF Loader "+VERSION+"  ~  https://github.com/pinf/loader-js/\0)\0)" + "\n\n" +
-                       "Usage: [commonjs] pinf-loader [options] .../[program.json]";
-    optParser.on(0, function(value)
-    {
-        optFirstArg = value;
-    });
-    if (typeof API.DEBUG.enabled == "undefined")
-        optParser.on('verbose', function()
-        {
-            API.DEBUG.enabled = true;
-        });
-    optParser.on('terminate', function()
-    {
-        API.ENV.mustTerminate = true;
-    });
-    optParser.on('clean', function()
-    {
-        API.ENV.mustClean = true;
-    });
-    optParser.on('help', function()
-    {
-        optPrintUsage = true;
-    });
+    API.ARGS = __require__('args');
+
+    var optParser = new API.ARGS.Parser(),
+        cliOptions;
+
+    //command.help('Announce a new release of a package');
+    optParser.arg(".../[program.json]").optional();
+    optParser.help("Runs the PINF JavaScript Loader.");
+    optParser.option("-v", "--verbose").bool().help("Enables progress messages");
+    optParser.option("--platform").set().help("The platform to use");
+    optParser.option("--test-platform").set().help("Make sure a platform is working properly");
+    optParser.option("--clean").bool().help("Removes all downloaded packages first");
+    optParser.option("--terminate").bool().help("Asks program to terminate if it was going to deamonize (primarily used for testing)");
+    optParser.option("-h", "--help").bool().help("Display usage information");
 
     if (typeof options.program != "undefined")
-    {
-        optParser.parse([options.program]);
-    }
+        cliOptions = optParser.parse(["pinf-loader"].concat([options.program]));
     else
+        cliOptions = optParser.parse(["pinf-loader"].concat(API.SYSTEM.args));
+
+    if (cliOptions.help === true)
     {
-        optParser.parse(API.SYSTEM.args);
+        optParser.printHelp(cliOptions);
+        return;
+    }
+    if (typeof API.DEBUG.enabled == "undefined")
+    {
+        if (cliOptions.verbose === true)
+            API.DEBUG.enabled = true;
+    }
+    if (cliOptions.terminate === true)
+        API.ENV.mustTerminate = true;
+    if (cliOptions.clean === true)
+        API.ENV.mustClean = true;
+
+    var knownCliPlatforms = [
+        "node",
+        "narwhal"
+    ];
+
+    function spawnForPlatform(platform)
+    {
+        // A different platform is requested than is running
+        // TODO: Get this working with all adapters
+        if (API.ENV.platform != "node")
+            throw new Error("NYI - Spawning loader for platform '" + platform + "' from platform '" + API.ENV.platform + "'");
+
+        if (knownCliPlatforms.indexOf(platform) === -1)
+            throw new Error("Unknown command line platform: " + platform);
+
+        API.SYSTEM.exec("which " + platform, function (stdout, stderr, error) {
+            if (!stdout)
+                throw new Error("Platform command '" + platform + "' not found via 'which'!");
+
+            API.SYSTEM.spawn(stdout.split("\n").shift(), [API.ENV.loaderRoot + "/pinf-loader.js"].concat(API.SYSTEM.args));
+        });
     }
 
-    if (optPrintUsage)
+    if (typeof cliOptions["test-platform"] != "undefined")
     {
-        API.SYSTEM.print(optParser.toString() + "\n");
+        if (knownCliPlatforms.indexOf(cliOptions["test-platform"]) === -1)
+            throw new Error("Unknown command line platform: " + cliOptions["test-platform"]);
+
+        API.SYSTEM.exec("which " + cliOptions["test-platform"], function (stdout, stderr, error) {
+            if (!stdout)
+                API.SYSTEM.print("\0red(FAIL: 'which " + cliOptions["test-platform"] + "' did not locate command!\0)");
+            else
+            {
+                var cmd = stdout.split("\n").shift();
+                API.SYSTEM.exec(cmd + " -h", function (stdout, stderr, error) {
+                    // TODO: This check should be more definitive
+                    if (!stdout)
+                        API.SYSTEM.print("\0red(FAIL: '" + cmd + " -h' did not yield expected output!\0)");
+                    else
+                        API.SYSTEM.print("\0green(OK\0)");
+                });
+            }
+        });
+        return;
+    }
+    else
+    if (typeof cliOptions.platform != "undefined" && cliOptions.platform != API.ENV.platform)
+    {
+        spawnForPlatform(cliOptions.platform);
         return;
     }
 
@@ -3594,6 +4940,7 @@ exports.boot = function(options)
 
     var init = function(path)
     {
+        path = path || "";
         if (path.charAt(0) != "/")
             path = API.SYSTEM.pwd + "/" + path;
         path = path.split("/");
@@ -3614,11 +4961,7 @@ exports.boot = function(options)
         downloader.basePath = path.substring(0, path.length-13) + "/.pinf-packages";
     
         API.DEBUG.print("Using program cache directory: " + downloader.basePath);
-    
-        if (!API.FILE.isFile(path))
-            throw new Error("No program descriptor found at: " + path);
-    
-    
+
         // ######################################################################
         // # Sandbox
         // ######################################################################
@@ -3627,14 +4970,69 @@ exports.boot = function(options)
             mainModuleDir: API.FILE.dirname(path) + "/"
         });
 
+        // ######################################################################
+        // # Simple script
+        // ######################################################################
+
+        if (!API.FILE.isFile(path))
+        {
+            var scriptPath = cliOptions.args[0];
+
+            if (scriptPath.charAt(0) == ".")
+            {
+                scriptPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + scriptPath);
+                if (!/\.js$/.test(scriptPath))
+                    scriptPath += ".js";
+            }
+
+            if (!API.FILE.exists(scriptPath))
+                throw new Error("Script not found at: " + scriptPath);
+
+            sandbox.init();
+            sandbox.declare([ scriptPath ], function(require, exports, module)
+            {
+                var scriptModule = require(scriptPath);
+                if (typeof scriptModule.main == "undefined")
+                    throw new Error("Script at '" + scriptPath + "' does not export 'main()'");
+
+                API.DEBUG.print("Running script: " + scriptPath);
+
+                API.DEBUG.print("\0magenta(\0:blue(----- | Script stdout & stderr follows ====>\0:)\0)");
+
+                scriptModule.main({
+                    bootProgram: function(options)
+                    {
+                        if (typeof options.platformRequire == "undefined")
+                            options.platformRequire = API.ENV.platformRequire;
+                        return boot(options);
+                    },
+                    args: cliOptions.args.slice(1, cliOptions.args.length)
+                });
+            });
+            return;
+        }    
 
         // ######################################################################
-        // # Assembly
+        // # Program assembly
         // ######################################################################
 
         // Assemble the program (making all code available on disk) by downloading all it's dependencies
 
         assembler.assembleProgram(sandbox, path, function(program)
+        {
+            var engines = program.getEngines();
+            if (engines)
+            {
+                if (engines.indexOf(API.ENV.platform) === -1)
+                {
+                    API.DEBUG.print("\0yellow(Spawning platform: " + engines[0] + "\0)");
+                    spawnForPlatform(engines[0]);
+                    return false;
+                }
+            }
+            return true;
+        },
+        function(program)
         {
             API.ENV.booting = false;
 
@@ -3662,6 +5060,7 @@ exports.boot = function(options)
             timers.load = new Date().getTime()
 
             var env = options.env || {};
+            env.args = env.args || options.args || [];
 
             sandbox.declare(dependencies, function(require, exports, module)
             {
@@ -3710,14 +5109,14 @@ exports.boot = function(options)
         });
     } // init()
 
-    if (/^https?:\/\//.test(optFirstArg))
+    if (/^https?:\/\//.test(cliOptions.args[0]))
     {
         API.DEBUG.print("Boot cache directory: " + downloader.basePath);
 
-        assembler.provisonProgramForURL(optFirstArg, init);
+        assembler.provisonProgramForURL(cliOptions.args[0], init);
     }
     else
-        init(optFirstArg);
+        init(cliOptions.args[0]);
 
     }
     catch(e)
@@ -4135,13 +5534,13 @@ JSGI.prototype.respond = function(request, callback)
     
                 // Pull in BravoJS and plugins
     
-                path = API.ENV.loaderRoot + "/bravojs/bravo.js";
+                path = API.ENV.loaderRoot + "/lib/bravojs/bravo.js";
                 body.push(API.FILE.read(path));
     
-                path = API.ENV.loaderRoot + "/bravojs/plugins/packages/packages.js";
+                path = API.ENV.loaderRoot + "/lib/bravojs/plugins/packages/packages.js";
                 body.push(API.FILE.read(path));
     
-                path = API.ENV.loaderRoot + "/bravojs/plugins/packages/loader.js";
+                path = API.ENV.loaderRoot + "/lib/bravojs/plugins/packages/loader.js";
                 body.push(API.FILE.read(path));
 
                 // Memoize modules
@@ -4394,322 +5793,6 @@ var JSGI = exports.JSGI = function(options)
 }
 
 });
-__loader__.memoize('optparse', function(__require__, module, exports) {
-// ######################################################################
-// # /optparse.js
-// ######################################################################
-//  Optparse.js 1.0.2 - Option Parser for Javascript 
-// 
-//  Copyright (c) 2009 Johan Dahlberg
-// 
-//  License: MIT
-//  See: https://github.com/jfd/optparse-js
-//                                                        
-var optparse = {};
-try{ optparse = exports } catch(e) {}; // Try to export the lib for node.js
-(function(self) {
-var VERSION = '1.0.2';
-var LONG_SWITCH_RE = /^--\w/;
-var SHORT_SWITCH_RE = /^-\w/;
-var NUMBER_RE = /^(0x[A-Fa-f0-9]+)|([0-9]+\.[0-9]+)|(\d+)$/;
-var DATE_RE = /^\d{4}-(0[0-9]|1[0,1,2])-([0,1,2][0-9]|3[0,1])$/;
-var EMAIL_RE = /^([0-9a-zA-Z]+([_.-]?[0-9a-zA-Z]+)*@[0-9a-zA-Z]+[0-9,a-z,A-Z,.,-]*(.){1}[a-zA-Z]{2,4})+$/;
-var EXT_RULE_RE = /(\-\-[\w_-]+)\s+([\w\[\]_-]+)|(\-\-[\w_-]+)/;
-var ARG_OPTIONAL_RE = /\[(.+)\]/;
-
-// The default switch argument filter to use, when argument name doesnt match
-// any other names. 
-var DEFAULT_FILTER = '_DEFAULT';
-var PREDEFINED_FILTERS = {};
-
-// The default switch argument filter. Parses the argument as text.
-function filter_text(value) {
-    return value;
-}
-
-// Switch argument filter that expects an integer, HEX or a decimal value. An 
-// exception is throwed if the criteria is not matched. 
-// Valid input formats are: 0xFFFFFFF, 12345 and 1234.1234
-function filter_number(value) {
-    var m = NUMBER_RE(value);
-    if(m == null) throw OptError('Expected a number representative');
-    if(m[1]) {
-        // The number is in HEX format. Convert into a number, then return it
-        return parseInt(m[1], 16);
-    } else {
-        // The number is in regular- or decimal form. Just run in through 
-        // the float caster.
-        return parseFloat(m[2] || m[3]);
-    }
-};
-
-// Switch argument filter that expects a Date expression. The date string MUST be
-// formated as: "yyyy-mm-dd" An exception is throwed if the criteria is not 
-// matched. An DATE object is returned on success. 
-function filter_date(value) {
-    var m = DATE_RE(value);
-    if(m == null) throw OptError('Expected a date representation in the "yyyy-mm-dd" format.');
-    return new Date(parseInt(m[0]), parseInt(m[1]), parseInt(m[2]));
-};
-
-// Switch argument filter that expects an email address. An exception is throwed
-// if the criteria doesn`t match. 
-function filter_email(value) {
-    var m = EMAIL_RE(value);
-    if(m == null) throw OptError('Excpeted an email address.');
-    return m[1];
-}
-
-// Register all predefined filters. This dict is used by each OptionParser 
-// instance, when parsing arguments. Custom filters can be added to the parser 
-// instance by calling the "add_filter" -method. 
-PREDEFINED_FILTERS[DEFAULT_FILTER] = filter_text;
-PREDEFINED_FILTERS['TEXT'] = filter_text;
-PREDEFINED_FILTERS['NUMBER'] = filter_number;
-PREDEFINED_FILTERS['DATE'] = filter_date;
-PREDEFINED_FILTERS['EMAIL'] = filter_email;
-
-//  Buildes rules from a switches collection. The switches collection is defined
-//  when constructing a new OptionParser object. 
-function build_rules(filters, arr) {
-    var rules = [];
-    for(var i=0; i<arr.length; i++) {
-        var r = arr[i], rule
-        if(!contains_expr(r)) throw OptError('Rule MUST contain an option.');
-        switch(r.length) {
-            case 1:
-                rule = build_rule(filters, r[0]);
-                break;
-            case 2:
-                var expr = LONG_SWITCH_RE(r[0]) ? 0 : 1;
-                var alias = expr == 0 ? -1 : 0;
-                var desc = alias == -1 ? 1 : -1;
-                rule = build_rule(filters, r[alias], r[expr], r[desc]);
-                break;
-            case 3:
-                rule = build_rule(filters, r[0], r[1], r[2]);
-                break;
-            default:
-            case 0:
-                continue;
-        }
-        rules.push(rule)
-    }
-    return rules;
-}
-
-//  Builds a rule with specified expression, short style switch and help. This 
-//  function expects a dict with filters to work correctly. 
-//
-//  Return format:
-//      name               The name of the switch.
-//      short              The short style switch
-//      long               The long style switch
-//      decl               The declaration expression (the input expression)
-//      desc               The optional help section for the switch
-//      optional_arg       Indicates that switch argument is optional
-//      filter             The filter to use when parsing the arg. An 
-//                         <<undefined>> value means that the switch does 
-//                         not take anargument.
-function build_rule(filters, short1, expr, desc) {
-    var optional, filter;
-    var m = expr.match(EXT_RULE_RE);
-    if(m == null) throw OptError('The switch is not well-formed.');
-    var long1 = m[1] || m[3];
-    if(m[2] != undefined) {
-        // A switch argument is expected. Check if the argument is optional,
-        // then find a filter that suites.
-        var optional_match = ARG_OPTIONAL_RE(m[2]);
-        var filter_name = optional_match === null ? m[2] : optional_match[1];
-        optional = optional_match !== null;
-        filter = filters[filter_name];
-        if(filter === undefined) filter = filters[DEFAULT_FILTER];
-    }
-    return {
-        name: long1.substr(2),       
-        "short": short1,               
-        "long": long1,
-        decl: expr,
-        desc: desc,                 
-        optional_arg: optional,
-        filter: filter              
-    }
-}
-
-// Loop's trough all elements of an array and check if there is valid
-// options expression within. An valid option is a token that starts 
-// double dashes. E.G. --my_option
-function contains_expr(arr) {
-    if(!arr || !arr.length) return false;
-    var l = arr.length;
-    while(l-- > 0) if(LONG_SWITCH_RE(arr[l])) return true;
-    return false;
-}
-
-// Extends destination object with members of source object
-function extend(dest, src) {
-    var result = dest;
-    for(var n in src) {
-        result[n] = src[n];
-    }
-    return result;
-}
-
-// Appends spaces to match specified number of chars
-function spaces(arg1, arg2) {
-    var l, builder = [];
-    if(arg1.constructor === Number) {
-        l = arg1;  
-    } else {
-        if(arg1.length == arg2) return arg1;
-        l = arg2 - arg1.length;
-        builder.push(arg1);
-    }
-    while(l-- > 0) builder.push(' ');
-    return builder.join('');
-}
-
-//  Create a new Parser object that can be used to parse command line arguments.
-//
-//
-function Parser(rules) {
-    return new OptionParser(rules);
-}
-
-// Creates an error object with specified error message.
-function OptError(msg) {
-    return new function() {
-        this.msg = msg;
-        this.toString = function() {
-            return this.msg;
-        }
-    }
-}
-
-function OptionParser(rules) {
-    this.banner = 'Usage: [Options]';
-    this.options_title = 'Available options:'
-    this._rules = rules;
-    this._halt = false;
-    this.filters = extend({}, PREDEFINED_FILTERS);
-    this.on_args = {};
-    this.on_switches = {};
-    this.on_halt = function() {};
-    this.default_handler = function() {};
-}
-
-OptionParser.prototype = {
-    
-    // Adds args and switchs handler.
-    on: function(value, fn) {
-        if(value.constructor === Function ) {
-            this.default_handler = value;
-        } else if(value.constructor === Number) {
-            this.on_args[value] = fn;
-        } else {
-            this.on_switches[value] = fn;
-        }
-    },
-    
-    // Adds a custom filter to the parser. It's possible to override the
-    // default filter by passing the value "_DEFAULT" to the ´´name´´
-    // argument. The name of the filter is automatically transformed into 
-    // upper case. 
-    filter: function(name, fn) {
-        this.filters[name.toUpperCase()] = fn;
-    },
-    
-    // Parses specified args. Returns remaining arguments. 
-    parse: function(args) {
-        var result = [], callback;
-        var rules = build_rules(this.filters, this._rules);
-        var tokens = args.concat([]);
-        var token;
-        while((token = tokens.shift()) && this._halt == false) {
-            if(LONG_SWITCH_RE(token) || SHORT_SWITCH_RE(token)) {
-                var arg = undefined;
-                // The token is a long or a short switch. Get the corresponding 
-                // rule, filter and handle it. Pass the switch to the default 
-                // handler if no rule matched.
-                for(var i = 0; i < rules.length; i++) {
-                    var rule = rules[i];
-                    if(rule["long"] == token || rule["short"] == token) {
-                        if(rule.filter !== undefined) {
-                            arg = tokens.shift();
-                            if(!LONG_SWITCH_RE(arg) && !SHORT_SWITCH_RE(arg)) {
-                                try {
-                                    arg = rule.filter(arg);
-                                } catch(e) {
-                                    throw OptError(token + ': ' + e.toString());
-                                }
-                            } else if(rule.optional_arg) {
-                                tokens.unshift(arg);
-                            } else {
-                                throw OptError('Expected switch argument.');
-                            }
-                        } 
-                        callback = this.on_switches[rule.name];
-                        if (!callback) callback = this.on_switches['*'];
-                        if(callback) callback.apply(this, [rule.name, arg]);
-                        break;
-                    } 
-                }
-                if(i == rules.length) this.default_handler.apply(this, [token]);
-            } else {
-                // Did not match long or short switch. Parse the token as a 
-                // normal argument.
-                callback = this.on_args[result.length];
-                result.push(token);
-                if(callback) callback.apply(this, [token]);
-            }
-        }
-        return this._halt ? this.on_halt.apply(this, []) : result;
-    },
-    
-    // Returns an Array with all defined option rules 
-    options: function() {
-        return build_rules(this.filters, this._rules);
-    },
-
-    // Add an on_halt callback if argument ´´fn´´ is specified. on_switch handlers can 
-    // call instance.halt to abort the argument parsing. This can be useful when
-    // displaying help or version information.
-    halt: function(fn) {
-        this._halt = fn === undefined
-        if(fn) this.on_halt = fn;
-    },
-    
-    // Returns a string representation of this OptionParser instance.
-    toString: function() {
-        var builder = [this.banner, '', this.options_title], 
-            shorts = false, longest = 0, rule;
-        var rules = build_rules(this.filters, this._rules);
-        for(var i = 0; i < rules.length; i++) {
-            rule = rules[i];
-            // Quick-analyze the options. 
-            if(rule["short"]) shorts = true;
-            if(rule.decl.length > longest) longest = rule.decl.length;
-        }
-        for(var i = 0; i < rules.length; i++) {
-            var text; 
-            rule = rules[i];
-            if(shorts) {
-                if(rule["short"]) text = spaces(2) + rule["short"] + ', ';
-                else text = spaces(6);
-            }
-            text += spaces(rule.decl, longest) + spaces(3);
-            text += rule.desc;
-            builder.push(text);
-        }
-        return builder.join('\n');
-    }
-}
-
-self.VERSION = VERSION;
-self.OptionParser = OptionParser;
-
-})(optparse);
-});
 __loader__.memoize('package', function(__require__, module, exports) {
 // ######################################################################
 // # /package.js
@@ -4785,6 +5868,11 @@ var Package = exports.Package = function(descriptor)
         this.uid = this.normalizedDescriptor.json.uid.match(/^https?:\/\/(.*)\/$/)[1] + "/";
     }
     this.preloaders = null;
+    if (typeof this.normalizedDescriptor.json.engine != "undefined")
+    {
+        if (this.normalizedDescriptor.json.engine.indexOf(API.ENV.platform) === -1)
+            throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engine+"') on platform '" + API.ENV.platform + "'");
+    }
 }
 
 Package.prototype.getHashId = function()
@@ -5574,6 +6662,13 @@ Program.prototype.getProviderPackages = function()
     return packages;
 }
 
+Program.prototype.getEngines = function()
+{
+    if (typeof this.descriptor.json.engine == "undefined")
+        return false;
+    return this.descriptor.json.engine;
+}
+
 Program.prototype.getBootPackages = function()
 {
     var self = this,
@@ -5853,6 +6948,9 @@ Sandbox.prototype.init = function()
 
             try
             {
+                // Remove shebang line if present
+                data = data.replace(/^#!(.*?)\n/, "");
+
                 if ((typeof loader.bravojs.module.constructor.prototype.load != "undefined" &&
                      typeof loader.bravojs.module.constructor.prototype.load.modules11 != "undefined" &&
                      loader.bravojs.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
@@ -5891,6 +6989,9 @@ Sandbox.prototype.init = function()
             var URL = loader.bravojs.require.canonicalize(moduleIdentifier),
                 m = URL.match(/^memory:\/(.*)$/),
                 path = m[1];
+
+            if (/\.js$/.test(path) && !API.FILE.exists(path))
+                path = path.substring(0, path.length-3);
 
             load(API.FILE.read(path));
         }
@@ -6335,11 +7436,13 @@ __loader__.memoize('term', function(__require__, module, exports) {
 // ######################################################################
 // # /term.js
 // ######################################################################
+// @see https://github.com/280north/narwhal/blob/master/packages/narwhal-lib/lib/narwhal/term.js
 // -- kriskowal Kris Kowal Copyright (C) 2009-2010 MIT License
 // reference: http://ascii-table.com/ansi-escape-sequences-vt-100.php
 
 var API = __require__('api'),
-    SYSTEM = API.SYSTEM;
+    SYSTEM = API.SYSTEM,
+    UTIL = __require__('util');
 
 var terms = [
     'ansi',
@@ -6358,7 +7461,7 @@ exports.Stream = function (system) {
     var back = "";
     var bold = "0";
     var stack = [];
-    var enabled = (Array.prototype.indexOf.call(terms, SYSTEM.env.TERM) >= 0);
+    var enabled = UTIL.has(terms, SYSTEM.env.TERM);
 
     self.enable = function () {
         enabled = true;
@@ -6526,6 +7629,1144 @@ exports.colors = {
     "cyan": "6",
     "white": "7"
 }
+
+});
+__loader__.memoize('util', function(__require__, module, exports) {
+// ######################################################################
+// # /util.js
+// ######################################################################
+// @see https://github.com/280north/narwhal/blob/master/packages/narwhal-lib/lib/narwhal/util.js
+// -- kriskowal Kris Kowal Copyright (C) 2009-2010 MIT License
+// -- isaacs Isaac Schlueter
+// -- nrstott Nathan Stott
+// -- fitzgen Nick Fitzgerald
+// -- nevilleburnell Neville Burnell
+// -- cadorn Christoph Dorn
+
+// a decorator for functions that curry "polymorphically",
+// that is, that return a function that can be tested
+// against various objects if they're only "partially
+// completed", or fewer arguments than needed are used.
+//
+// this enables the idioms:
+//      [1, 2, 3].every(lt(4)) eq true
+//      [1, 2, 3].map(add(1)) eq [2, 3, 4]
+//      [{}, {}, {}].forEach(set('a', 10))
+//
+exports.operator = function (name, length, block) {
+    var operator = function () {
+        var args = exports.array(arguments);
+        var completion = function (object) {
+            if (
+                typeof object == "object" &&
+                object !== null && // seriously?  typeof null == "object"
+                name in object && // would throw if object === null
+                // not interested in literal objects:
+                !Object.prototype.hasOwnProperty.call(object, name)
+            )
+                return object[name].apply(object, args);
+            return block.apply(
+                this,
+                [object].concat(args)
+            );
+        };
+        if (arguments.length < length) {
+            // polymoprhic curry, delayed completion
+            return completion;
+        } else {
+            // immediate completion
+            return completion.call(this, args.shift());
+        }
+    };
+//    operator.name = name;
+//    operator.length = length;
+    operator.displayName = name;
+    operator.operator = block;
+    return operator;
+};
+
+exports.no = function (value) {
+    return value === null || value === undefined;
+};
+
+// object
+
+exports.object = exports.operator('toObject', 1, function (object) {
+    var items = object;
+    if (!items.length)
+        items = exports.items(object);
+    var copy = {};
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var key = item[0];
+        var value = item[1];
+        copy[key] = value;
+    }
+    return copy;
+});
+
+exports.object.copy = function (object) {
+    var copy = {};
+    exports.object.keys(object).forEach(function (key) {
+        copy[key] = object[key];
+    });
+    return copy;
+};
+
+exports.object.deepCopy = function (object) {
+    var copy = {};
+    exports.object.keys(object).forEach(function (key) {
+        copy[key] = exports.deepCopy(object[key]);
+    });
+    return copy;
+};
+
+exports.object.eq = function (a, b, stack) {
+    return (
+        !exports.no(a) && !exports.no(b) &&
+        exports.array.eq(
+            exports.sort(exports.object.keys(a)),
+            exports.sort(exports.object.keys(b))
+        ) &&
+        exports.object.keys(a).every(function (key) {
+            return exports.eq(a[key], b[key], stack);
+        })
+    );
+};
+
+exports.object.len = function (object) {
+    return exports.object.keys(object).length;
+};
+
+exports.object.has = function (object, key) {
+    return Object.prototype.hasOwnProperty.call(object, key);
+};
+
+exports.object.keys = function (object) {
+    var keys = [];
+    for (var key in object) {
+        if (exports.object.has(object, key))
+            keys.push(key);
+    }
+    return keys;
+};
+
+exports.object.values = function (object) {
+    var values = [];
+    exports.object.keys(object).forEach(function (key) {
+        values.push(object[key]);
+    });
+    return values;
+};
+
+exports.object.items = function (object) {
+    var items = [];
+    exports.object.keys(object).forEach(function (key) {
+        items.push([key, object[key]]);
+    });
+    return items;
+};
+
+/**
+ * Updates an object with the properties from another object.
+ * This function is variadic requiring a minimum of two arguments.
+ * The first argument is the object to update.  Remaining arguments
+ * are considered the sources for the update.  If multiple sources
+ * contain values for the same property, the last one with that
+ * property in the arguments list wins.
+ *
+ * example usage:
+ * util.update({}, { hello: "world" });  // -> { hello: "world" }
+ * util.update({}, { hello: "world" }, { hello: "le monde" }); // -> { hello: "le monde" }
+ *
+ * @returns Updated object
+ * @type Object
+ *
+ */
+exports.object.update = function () {
+    return variadicHelper(arguments, function(target, source) {
+        var key;
+        for (key in source) {
+            if (exports.object.has(source, key)) {
+                target[key] = source[key];
+            }
+        }
+    });
+};
+
+exports.object.deepUpdate = function (target, source) {
+    var key;
+    for (key in source) {
+        if(exports.object.has(source, key)) {
+            if(typeof source[key] == "object" && exports.object.has(target, key)) {
+                exports.object.deepUpdate(target[key], source[key]);
+            } else {
+                target[key] = source[key];
+            }
+        }
+    }
+};
+
+/**
+ * Updates an object with the properties of another object(s) if those
+ * properties are not already defined for the target object. First argument is
+ * the object to complete, the remaining arguments are considered sources to
+ * complete from. If multiple sources contain the same property, the value of
+ * the first source with that property will be the one inserted in to the
+ * target.
+ *
+ * example usage:
+ * util.complete({}, { hello: "world" });  // -> { hello: "world" }
+ * util.complete({ hello: "narwhal" }, { hello: "world" }); // -> { hello: "narwhal" }
+ * util.complete({}, { hello: "world" }, { hello: "le monde" }); // -> { hello: "world" }
+ *
+ * @returns Completed object
+ * @type Object
+ *
+ */
+exports.object.complete = function () {
+    return variadicHelper(arguments, function(target, source) {
+        var key;
+        for (key in source) {
+            if (
+                exports.object.has(source, key) &&
+                !exports.object.has(target, key)
+            ) {
+                target[key] = source[key];
+            }
+        }
+    });
+};
+
+exports.object.deepComplete = function () {
+    return variadicHelper(arguments, function (target, source) {
+        var key;
+        for (key in source) {
+            if (
+                exports.object.has(source, key) &&
+                !exports.object.has(target, key)
+            ) {
+                target[key] = exports.deepCopy(source[key]);
+            }
+        }
+    });
+};
+
+exports.object.repr = function (object) {
+    return "{" +
+        exports.object.keys(object)
+        .map(function (key) {
+            return exports.enquote(key) + ": " +
+                exports.repr(object[key]);
+        }).join(", ") +
+    "}";
+};
+
+/**
+ * @param args Arguments list of the calling function
+ * First argument should be a callback that takes target and source parameters.
+ * Second argument should be target.
+ * Remaining arguments are treated a sources.
+ *
+ * @returns Target
+ * @type Object
+ */
+var variadicHelper = function (args, callback) {
+    var sources = Array.prototype.slice.call(args);
+    var target = sources.shift();
+
+    sources.forEach(function(source) {
+        callback(target, source);
+    });
+
+    return target;
+};
+
+// array
+
+exports.array = function (array) {
+    if (exports.no(array))
+        return [];
+    if (!exports.isArrayLike(array)) {
+        if (
+            array.toArray &&
+            !Object.prototype.hasOwnProperty.call(array, 'toArray')
+        ) {
+            return array.toArray();
+        } else if (
+            array.forEach &&
+            !Object.prototype.hasOwnProperty.call(array, 'forEach')
+        ) {
+            var results = [];
+            array.forEach(function (value) {
+                results.push(value);
+            });
+            return results;
+        } else if (typeof array === "string") {
+            return Array.prototype.slice.call(array);
+        } else {
+            return exports.items(array);
+        }
+    }
+    return Array.prototype.slice.call(array);
+};
+
+exports.array.coerce = function (array) {
+    if (!Array.isArray(array))
+        return exports.array(array);
+    return array;
+};
+
+exports.isArrayLike = function(object) {
+    return Array.isArray(object) || exports.isArguments(object);
+};
+
+// from http://code.google.com/p/google-caja/wiki/NiceNeighbor
+// by "kangax"
+//
+// Mark Miller posted a solution that will work in ES5 compliant
+// implementations, that may provide future insight:
+// (http://groups.google.com/group/narwhaljs/msg/116097568bae41c6)
+exports.isArguments = function (object) {
+    // ES5 reliable positive
+    if (Object.prototype.toString.call(object) == "[object Arguments]")
+        return true;
+    // for ES5, we will still need a way to distinguish false negatives
+    //  from the following code (in ES5, it is possible to create
+    //  an object that satisfies all of these constraints but is
+    //  not an Arguments object).
+    // callee should exist
+    if (
+        !typeof object == "object" ||
+        !Object.prototype.hasOwnProperty.call(object, 'callee') ||
+        !object.callee ||
+        // It should be a Function object ([[Class]] === 'Function')
+        Object.prototype.toString.call(object.callee) !== '[object Function]' ||
+        typeof object.length != 'number'
+    )
+        return false;
+    for (var name in object) {
+        // both "callee" and "length" should be { DontEnum }
+        if (name === 'callee' || name === 'length') return false;
+    }
+    return true;
+};
+
+exports.array.copy = exports.array;
+
+exports.array.deepCopy = function (array) {
+    return array.map(exports.deepCopy);
+};
+
+exports.array.len = function (array) {
+    return array.length;
+};
+
+exports.array.has = function (array, value) {
+    return Array.prototype.indexOf.call(array, value) >= 0;
+};
+
+exports.array.put = function (array, key, value) {
+    array.splice(key, 0, value);
+    return array;
+};
+
+exports.array.del = function (array, begin, end) {
+    array.splice(begin, end === undefined ? 1 : (end - begin));
+    return array;
+};
+
+exports.array.eq = function (a, b, stack) {
+    return exports.isArrayLike(b) &&
+        a.length == b.length &&
+        exports.zip(a, b).every(exports.apply(function (a, b) {
+            return exports.eq(a, b, stack);
+        }));
+};
+
+exports.array.lt = function (a, b) {
+    var length = Math.max(a.length, b.length);
+    for (var i = 0; i < length; i++)
+        if (!exports.eq(a[i], b[i]))
+            return exports.lt(a[i], b[i]);
+    return false;
+};
+
+exports.array.repr = function (array) {
+    return "[" + exports.map(array, exports.repr).join(', ') + "]";
+};
+
+exports.array.first = function (array) {
+    return array[0];
+};
+
+exports.array.last = function (array) {
+    return array[array.length - 1];
+};
+
+exports.apply = exports.operator('apply', 2, function (args, block) {
+    return block.apply(this, args);
+});
+
+exports.copy = exports.operator('copy', 1, function (object) {
+    if (exports.no(object))
+        return object;
+    if (exports.isArrayLike(object))
+        return exports.array.copy(object);
+    if (object instanceof Date)
+        return object;
+    if (typeof object == 'object')
+        return exports.object.copy(object);
+    return object;
+});
+
+exports.deepCopy = exports.operator('deepCopy', 1, function (object) {
+    if (exports.no(object))
+        return object;
+    if (exports.isArrayLike(object))
+        return exports.array.deepCopy(object);
+    if (typeof object == 'object')
+        return exports.object.deepCopy(object);
+    return object;
+});
+
+exports.repr = exports.operator('repr', 1, function (object) {
+    if (exports.no(object))
+        return String(object);
+    if (exports.isArrayLike(object))
+        return exports.array.repr(object);
+    if (typeof object == 'object' && !(object instanceof Date))
+        return exports.object.repr(object);
+    if (typeof object == 'string')
+        return exports.enquote(object);
+    return object.toString();
+});
+
+exports.keys = exports.operator('keys', 1, function (object) {
+    if (exports.isArrayLike(object))
+        return exports.range(object.length);
+    else if (typeof object == 'object')
+        return exports.object.keys(object);
+    return [];
+});
+
+exports.values = exports.operator('values', 1, function (object) {
+    if (exports.isArrayLike(object))
+        return exports.array(object);
+    else if (typeof object == 'object')
+        return exports.object.values(object);
+    return [];
+});
+
+exports.items = exports.operator('items', 1, function (object) {
+    if (exports.isArrayLike(object) || typeof object == "string")
+        return exports.enumerate(object);
+    else if (typeof object == 'object')
+        return exports.object.items(object);
+    return [];
+});
+
+exports.len = exports.operator('len', 1, function (object) {
+    if (exports.isArrayLike(object))
+        return exports.array.len(object);
+    else if (typeof object == 'object')
+        return exports.object.len(object);
+});
+
+exports.has = exports.operator('has', 2, function (object, value) {
+    if (exports.isArrayLike(object))
+        return exports.array.has(object, value);
+    else if (typeof object == 'object')
+        return exports.object.has(object, value);
+    return false;
+});
+
+exports.get = exports.operator('get', 2, function (object, key, value) {
+    if (typeof object == "string") {
+        if (!typeof key == "number")
+            throw new Error("TypeError: String keys must be numbers");
+        if (!exports.has(exports.range(object.length), key)) {
+            if (arguments.length == 3)
+                return value;
+            throw new Error("KeyError: " + exports.repr(key));
+        }
+        return object.charAt(key);
+    }
+    if (typeof object == "object") {
+        if (!exports.object.has(object, key)) {
+            if (arguments.length == 3)
+                return value;
+            throw new Error("KeyError: " + exports.repr(key));
+        }
+        return object[key];
+    }
+    throw new Error("Object does not have keys: " + exports.repr(object));
+});
+
+exports.set = exports.operator('set', 3, function (object, key, value) {
+    object[key] = value;
+    return object;
+});
+
+exports.getset = exports.operator('getset', 3, function (object, key, value) {
+    if (!exports.has(object, key))
+        exports.set(object, key, value);
+    return exports.get(object, key);
+});
+
+exports.del = exports.operator('del', 2, function (object, begin, end) {
+    if (exports.isArrayLike(object))
+        return exports.array.del(object, begin, end);
+    delete object[begin];
+    return object;
+});
+
+exports.cut = exports.operator('cut', 2, function (object, key) {
+    var result = exports.get(object, key);
+    exports.del(object, key);
+    return result;
+});
+
+exports.put = exports.operator('put', 2, function (object, key, value) {
+    if (exports.isArrayLike(object))
+        return exports.array.put(object, key, value);
+    return exports.set(object, key, value);
+});
+
+exports.first = exports.operator('first', 1, function (object) {
+    return object[0];
+});
+
+exports.last = exports.operator('last', 1, function (object) {
+    return object[object.length - 1];
+});
+
+exports.update = exports.operator('update', 2, function () {
+    var args = Array.prototype.slice.call(arguments);
+    return exports.object.update.apply(this, args);
+});
+
+exports.deepUpdate = exports.operator('deepUpdate', 2, function (target, source) {
+    exports.object.deepUpdate(target, source);
+});
+
+exports.complete = exports.operator('complete', 2, function (target, source) {
+    var args = Array.prototype.slice.call(arguments);
+    return exports.object.complete.apply(this, args);
+});
+
+exports.deepComplete = exports.operator('deepComplete', 2, function (target, source) {
+    var args = Array.prototype.slice.call(arguments);
+    return exports.object.deepComplete.apply(this, args);
+});
+
+exports.remove = exports.operator('remove', 2, function (list, value) {
+    var index;
+    if ((index = list.indexOf(value))>-1)
+        list.splice(index,1);
+    return list;
+});
+
+// TODO insert
+// TODO discard
+
+exports.range = function () {
+    var start = 0, stop = 0, step = 1;
+    if (arguments.length == 1) {
+        stop = arguments[0];
+    } else {
+        start = arguments[0];
+        stop = arguments[1];
+        step = arguments[2] || 1;
+    }
+    var range = [];
+    for (var i = start; i < stop; i += step)
+        range.push(i);
+    return range;
+};
+
+exports.forEach = function (array, block) {
+    Array.prototype.forEach.call(
+        exports.array.coerce(array),
+        block
+    );
+};
+
+exports.forEachApply = function (array, block) {
+    Array.prototype.forEach.call(
+        exports.array.coerce(array),
+        exports.apply(block)
+    );
+};
+
+exports.map = function (array, block, context) {
+    return Array.prototype.map.call(
+        exports.array.coerce(array),
+        block,
+        context
+    );
+};
+
+exports.mapApply = function (array, block) {
+    return Array.prototype.map.call(
+        exports.array.coerce(array),
+        exports.apply(block)
+    );
+};
+
+exports.every = exports.operator('every', 2, function (array, block, context) {
+    return exports.all(exports.map(array, block, context));
+});
+
+exports.some = exports.operator('some', 2, function (array, block, context) {
+    return exports.any(exports.map(array, block, context));
+});
+
+exports.all = exports.operator('all', 1, function (array) {
+    array = exports.array.coerce(array);
+    for (var i = 0; i < array.length; i++)
+        if (!array[i])
+            return false;
+    return true;
+});
+
+exports.any = exports.operator('any', 1, function (array) {
+    array = exports.array.coerce(array);
+    for (var i = 0; i < array.length; i++)
+        if (array[i])
+            return true;
+    return false;
+});
+
+exports.reduce = exports.operator('reduce', 2, function (array, block, basis) {
+    array = exports.array.coerce(array);
+    return array.reduce.apply(array, arguments);
+});
+
+exports.reduceRight = exports.operator('reduceRight', 2, function (array, block, basis) {
+    array = exports.array.coerce(array);
+    return array.reduceRight.apply(array, arguments);
+});
+
+exports.zip = function () {
+    return exports.transpose(arguments);
+};
+
+exports.transpose = function (array) {
+    array = exports.array.coerce(array);
+    var transpose = [];
+    var length = Math.min.apply(this, exports.map(array, function (row) {
+        return row.length;
+    }));
+    for (var i = 0; i < array.length; i++) {
+        var row = array[i];
+        for (var j = 0; j < length; j++) {
+            var cell = row[j];
+            if (!transpose[j])
+                transpose[j] = [];
+            transpose[j][i] = cell;
+        }
+    }
+    return transpose;
+};
+
+exports.enumerate = function (array, start) {
+    array = exports.array.coerce(array);
+    if (exports.no(start))
+        start = 0;
+    return exports.zip(
+        exports.range(start, start + array.length),
+        array
+    );
+};
+
+// arithmetic, transitive, and logical operators
+
+exports.is = function (a, b) {
+    // <Mark Miller>
+    if (a === b)
+        // 0 === -0, but they are not identical
+        return a !== 0 || 1/a === 1/b;
+    // NaN !== NaN, but they are identical.
+    // NaNs are the only non-reflexive value, i.e., if a !== a,
+    // then a is a NaN.
+    return a !== a && b !== b;
+    // </Mark Miller>
+};
+
+exports.eq = exports.operator('eq', 2, function (a, b, stack) {
+    if (!stack)
+        stack = [];
+    if (a === b)
+        return true;
+    if (typeof a !== typeof b)
+        return false;
+    if (exports.no(a))
+        return exports.no(b);
+    if (a instanceof Date)
+        return a.valueOf() === b.valueOf();
+    if (a instanceof RegExp)
+        return a.source === b.source &&
+            a.global === b.global &&
+            a.ignoreCase === b.ignoreCase &&
+            a.multiline === b.multiline;
+    if (typeof a === "function") {
+        var caller = stack[stack.length - 1];
+        // XXX what is this for?  can it be axed?
+        // it comes from the "equiv" project code
+        return caller !== Object &&
+            typeof caller !== "undefined";
+    }
+    if (exports.isArrayLike(a))
+        return exports.array.eq(
+            a, b,
+            stack.concat([a.constructor])
+        );
+    if (typeof a === 'object')
+        return exports.object.eq(
+            a, b,
+            stack.concat([a.constructor])
+        );
+    return false;
+});
+
+exports.ne = exports.operator('ne', 2, function (a, b) {
+    return !exports.eq(a, b);
+});
+
+exports.lt = exports.operator('lt', 2, function (a, b) {
+    if (exports.no(a) != exports.no(b))
+        return exports.no(a) > exports.no(b);
+    if (exports.isArrayLike(a) && exports.isArrayLike(b))
+        return exports.array.lt(a, b);
+    return a < b;
+});
+
+exports.gt = exports.operator('gt', 2, function (a, b) {
+    return !(exports.lt(a, b) || exports.eq(a, b));
+});
+
+exports.le = exports.operator('le', 2, function (a, b) {
+    return exports.lt(a, b) || exports.eq(a, b);
+});
+
+exports.ge = exports.operator('ge', 2, function (a, b) {
+    return !exports.lt(a, b);
+});
+
+exports.mul = exports.operator('mul', 2, function (a, b) {
+    if (typeof a == "string")
+        return exports.string.mul(a, b);
+    return a * b;
+});
+
+/*** by
+    returns a `comparator` that compares
+    values based on the values resultant from
+    a given `relation`.
+    accepts a `relation` and an optional comparator.
+
+    To sort a list of objects based on their
+    "a" key::
+
+        objects.sort(by(get("a")))
+
+    To get those in descending order::
+
+        objects.sort(by(get("a")), desc)
+
+    `by` returns a comparison function that also tracks
+    the arguments you used to construct it.  This permits
+    `sort` and `sorted` to perform a Schwartzian transform
+    which can increase the performance of the sort
+    by a factor of 2.
+*/
+exports.by = function (relation) {
+    var compare = arguments[1];
+    if (exports.no(compare))
+        compare = exports.compare;
+    var comparator = function (a, b) {
+        a = relation(a);
+        b = relation(b);
+        return compare(a, b);
+    };
+    comparator.by = relation;
+    comparator.compare = compare;
+    return comparator;
+};
+
+exports.compare = exports.operator('compare', 2, function (a, b) {
+    if (exports.no(a) !== exports.no(b))
+        return exports.no(b) - exports.no(a);
+    if (typeof a === "number" && typeof b === "number")
+        return a - b;
+    return exports.eq(a, b) ? 0 : exports.lt(a, b) ? -1 : 1;
+});
+
+/*** sort
+    an in-place array sorter that uses a deep comparison
+    function by default (compare), and improves performance if
+    you provide a comparator returned by "by", using a
+    Schwartzian transform.
+*/
+exports.sort = function (array, compare) {
+    if (exports.no(compare))
+        compare = exports.compare;
+    if (compare.by) {
+        /* schwartzian transform */
+        array.splice.apply(
+            array,
+            [0, array.length].concat(
+                array.map(function (value) {
+                    return [compare.by(value), value];
+                }).sort(function (a, b) {
+                    return compare.compare(a[0], b[0]);
+                }).map(function (pair) {
+                    return pair[1];
+                })
+            )
+        );
+    } else {
+        array.sort(compare);
+    }
+    return array;
+};
+
+/*** sorted
+    returns a sorted copy of an array using a deep
+    comparison function by default (compare), and
+    improves performance if you provide a comparator
+    returned by "by", using a Schwartzian transform.
+*/
+exports.sorted = function (array, compare) {
+    return exports.sort(exports.array.copy(array), compare);
+};
+
+exports.reverse = function (array) {
+    return Array.prototype.reverse.call(array);
+};
+
+exports.reversed = function (array) {
+    return exports.reverse(exports.array.copy(array));
+};
+
+exports.hash = exports.operator('hash', 1, function (object) {
+    return '' + object;
+});
+
+exports.unique = exports.operator('unique', 1, function (array, eq, hash) {
+    var visited = {};
+    if (!eq) eq = exports.eq;
+    if (!hash) hash = exports.hash;
+    return array.filter(function (value) {
+        var bucket = exports.getset(visited, hash(value), []);
+        var finds = bucket.filter(function (other) {
+            return eq(value, other);
+        });
+        if (!finds.length)
+            bucket.push(value);
+        return !finds.length;
+    });
+});
+
+// string
+
+exports.string = exports.operator('toString', 1, function (object) {
+    return '' + object;
+});
+
+exports.string.mul = function (string, n) {
+    return exports.range(n).map(function () {
+        return string;
+    }).join('');
+};
+
+/*** escape
+    escapes all characters of a string that are
+    special to JavaScript and many other languages.
+    Recognizes all of the relevant
+    control characters and formats all other
+    non-printable characters as Hex byte escape
+    sequences or Unicode escape sequences depending
+    on their size.
+
+    Pass ``true`` as an optional second argument and
+    ``escape`` produces valid contents for escaped
+    JSON strings, wherein non-printable-characters are
+    all escaped with the Unicode ``\u`` notation.
+*/
+/* more Steve Levithan flagrence */
+var escapeExpression = /[^ !#-[\]-~]/g;
+/* from Doug Crockford's JSON library */
+var escapePatterns = {
+    '\b': '\\b',    '\t': '\\t',
+    '\n': '\\n',    '\f': '\\f',    '\r': '\\r',
+    '"' : '\\"',    '\\': '\\\\'
+};
+exports.escape = function (value, strictJson) {
+    if (typeof value != "string")
+        throw new Error(
+            module.path +
+            "#escape: requires a string.  got " +
+            exports.repr(value)
+        );
+    return value.replace(
+        escapeExpression,
+        function (match) {
+            if (escapePatterns[match])
+                return escapePatterns[match];
+            match = match.charCodeAt();
+            if (!strictJson && match < 256)
+                return "\\x" + exports.padBegin(match.toString(16), 2);
+            return '\\u' + exports.padBegin(match.toString(16), 4);
+        }
+    );
+};
+
+/*** enquote
+    transforms a string into a string literal, escaping
+    all characters of a string that are special to
+    JavaScript and and some other languages.
+
+    ``enquote`` uses double quotes to be JSON compatible.
+
+    Pass ``true`` as an optional second argument to
+    be strictly JSON compliant, wherein all
+    non-printable-characters are represented with
+    Unicode escape sequences.
+*/
+exports.enquote = function (value, strictJson) {
+    return '"' + exports.escape(value, strictJson) + '"';
+};
+
+/**
+ * remove adjacent characters
+ * todo: i'm not sure if this works correctly without the second argument
+ */
+exports.squeeze = function (s) {
+    var set = arguments.length > 0 ? "["+Array.prototype.slice.call(arguments, 1).join('')+"]" : ".|\\n",
+        regex = new RegExp("("+set+")\\1+", "g");
+
+    return s.replace(regex, "$1");
+};
+
+/*** expand
+    transforms tabs to an equivalent number of spaces.
+*/
+// TODO special case for \r if it ever matters
+exports.expand = function (str, tabLength) {
+    str = String(str);
+    tabLength = tabLength || 4;
+    var output = [],
+        tabLf = /[\t\n]/g,
+        lastLastIndex = 0,
+        lastLfIndex = 0,
+        charsAddedThisLine = 0,
+        tabOffset, match;
+    while (match = tabLf.exec(str)) {
+        if (match[0] == "\t") {
+            tabOffset = (
+                tabLength - 1 -
+                (
+                    (match.index - lastLfIndex) +
+                    charsAddedThisLine
+                ) % tabLength
+            );
+            charsAddedThisLine += tabOffset;
+            output.push(
+                str.slice(lastLastIndex, match.index) +
+                exports.mul(" ", tabOffset + 1)
+            );
+        } else if (match[0] === "\n") {
+            output.push(str.slice(lastLastIndex, tabLf.lastIndex));
+            lastLfIndex = tabLf.lastIndex;
+            charsAddedThisLine = 0;
+        }
+        lastLastIndex = tabLf.lastIndex;
+    }
+    return output.join("") + str.slice(lastLastIndex);
+};
+
+var trimBeginExpression = /^\s\s*/g;
+exports.trimBegin = function (value) {
+    return String(value).replace(trimBeginExpression, "");
+};
+
+var trimEndExpression = /\s\s*$/g;
+exports.trimEnd = function (value) {
+    return String(value).replace(trimEndExpression, "");
+};
+
+exports.trim = function (value) {
+    return String(value).replace(trimBeginExpression, "").replace(trimEndExpression, "");
+};
+
+/* generates padBegin and padEnd */
+var augmentor = function (augment) {
+    return function (value, length, pad) {
+        if (exports.no(pad)) pad = '0';
+        if (exports.no(length)) length = 2;
+        value = String(value);
+        while (value.length < length) {
+            value = augment(value, pad);
+        }
+        return value;
+    };
+};
+
+/*** padBegin
+
+    accepts:
+     - a `String` or `Number` value
+     - a minimum length of the resultant `String`:
+       by default, 2
+     - a pad string: by default, ``'0'``.
+
+    returns a `String` of the value padded up to at least
+    the minimum length.  adds the padding to the begining
+    side of the `String`.
+
+*/
+exports.padBegin = augmentor(function (value, pad) {
+    return pad + value;
+});
+
+/*** padEnd
+
+    accepts:
+     - a `String` or `Number` value
+     - a minimum length of the resultant `String`:
+       by default, 2
+     - a pad string: by default, ``'0'``.
+
+    returns a `String` of the value padded up to at least
+    the minimum length.  adds the padding to the end
+    side of the `String`.
+
+*/
+exports.padEnd = augmentor(function (value, pad) {
+    return value + pad;
+});
+
+/*** splitName
+    splits a string into an array of words from an original
+    string.
+*/
+// thanks go to Steve Levithan for this regular expression
+// that, in addition to splitting any normal-form identifier
+// in any case convention, splits XMLHttpRequest into
+// "XML", "Http", and "Request"
+var splitNameExpression = /[a-z]+|[A-Z](?:[a-z]+|[A-Z]*(?![a-z]))|[.\d]+/g;
+exports.splitName = function (value) {
+    return String(value).match(splitNameExpression);
+};
+
+/*** joinName
+    joins a list of words with a given delimiter
+    between alphanumeric words.
+*/
+exports.joinName = function (delimiter, parts) {
+    if (exports.no(delimiter)) delimiter = '_';
+    parts.unshift([]);
+    return parts.reduce(function (parts, part) {
+        if (
+            part.match(/\d/) &&
+            exports.len(parts) && parts[parts.length-1].match(/\d/)
+        ) {
+            return parts.concat([delimiter + part]);
+        } else {
+            return parts.concat([part]);
+        }
+    }).join('');
+};
+
+/*** upper
+    converts a name to ``UPPER CASE`` using
+    a given delimiter between numeric words.
+
+    see:
+     - `lower`
+     - `camel`
+     - `title`
+
+*/
+exports.upper = function (value, delimiter) {
+    if (exports.no(delimiter))
+        return value.toUpperCase();
+    return exports.splitName(value).map(function (part) {
+        return part.toUpperCase();
+    }).join(delimiter);
+};
+
+/*** lower
+    converts a name to a ``lower case`` using
+    a given delimiter between numeric words.
+
+    see:
+     - `upper`
+     - `camel`
+     - `title`
+
+*/
+exports.lower = function (value, delimiter) {
+    if (exports.no(delimiter))
+        return String(value).toLowerCase();
+    return exports.splitName(value).map(function (part) {
+        return part.toLowerCase();
+    }).join(delimiter);
+};
+
+/*** camel
+    converts a name to ``camel Case`` using
+    a given delimiter between numeric words.
+
+    see:
+     - `lower`
+     - `upper`
+     - `title`
+
+*/
+exports.camel = function (value, delimiter) {
+    return exports.joinName(
+        delimiter,
+        exports.mapApply(
+            exports.enumerate(exports.splitName(value)),
+            function (n, part) {
+                if (n) {
+                    return (
+                        part.substring(0, 1).toUpperCase() +
+                        part.substring(1).toLowerCase()
+                    );
+                } else {
+                    return part.toLowerCase();
+                }
+            }
+        )
+    );
+};
+
+/*** title
+    converts a name to ``Title Case`` using
+    a given delimiter between numeric words.
+
+    see:
+     - `lower`
+     - `upper`
+     - `camel`
+
+*/
+exports.title = function (value, delimiter) {
+    return exports.joinName(
+        delimiter,
+        exports.splitName(value).map(function (part) {
+            return (
+                part.substring(0, 1).toUpperCase() +
+                part.substring(1).toLowerCase()
+            );
+        })
+    );
+};
+
 
 });
 __pinf_loader_scope__.boot = __loader__.__require__('loader').boot;
