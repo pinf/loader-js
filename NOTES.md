@@ -20,6 +20,7 @@ Looking for:
   * Adapter authors for other CommonJS platforms
   * Critical reviewers for specifications
   * Feedback in all areas
+  * Contributions in any area
 
 
 TODO
@@ -28,18 +29,20 @@ TODO
 General
 -------
 
+  * `npm` package for loader
+  * OS distro packages for loader
+
   * Replace `./lib/optparse.js` with narwhal's `args` module.
 
-  * Author: Initial ./docs/
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
 
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
 
-  * Build and publish commands to provide versioned releases
-
   * Loader plugins? See: http://wiki.commonjs.org/wiki/Modules/LoaderPlugin
+
+  * Build and publish commands to provide versioned releases (This will be part of PINF/CLI)
 
 NodeJS
 -------
@@ -102,6 +105,8 @@ Additions:
     If `true` as second argument to `.id()` the ID is returned unsanitized (context delimiters stay in tact)
 
   * There may not be any delimiters in the pathIDs given by `module.id`, `module.pkgId`
+
+  * Need facility to get command line arguments
 
 
 Changes:

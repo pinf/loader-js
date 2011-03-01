@@ -1,14 +1,24 @@
 
-*PINF: __Good software just works__*
+  * [PINF](http://www.christophdorn.com/Research/#PINF): __Good software just works__ ~ PINF Toolchain Automation Platform
+  * PINF/**Loader**: _The one loader to load them all_ (Language Specific Loaders: `JavaScript` **70% done**, `PHP` 0%)
+  * PINF/Insight: _Intelligence served on a platter_ (Language Specific Libraries: `JavaScript` 40% done, `PHP` 90+%)
+  * PINF/Wildfire: _Amazing communication above all_ (Language Specific Libraries: `JavaScript` 90+% done, `PHP` 90+%)
 
 Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
 ========================================================================================
+
+The PINF JavaScript Loader combines what you would traditionally call a __package installer__ and __class loader__ and is
+intended to be used instead of tools such as [npm](http://npmjs.org/), [RequireJS](http://requirejs.org/) and [tusk](http://narwhaljs.org/).
+
+The loader allows for bootstrapping a consistent and state-of-the-art CommonJS environment
+for any supported platform (on server & in browser) and thus is ideally suited to be used as the target for the `commonjs` command and the
+development of cross-platform JavaScript applications and libraries.
 
 Version: v0.1dev
 
 Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
-![Overview Image](https://github.com/pinf/loader-js/raw/master/docs/images/Overview_v1.png)
+![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v1.png)
 
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
@@ -45,139 +55,49 @@ with the following additions:
 
 The loader can be used:
 
-  * By `require()`ing it from any CommonJS module to load a sub-program
   * By calling it from the command line to run a program
+  * By `require()`ing it from any CommonJS module to load a sub-program
   * By setting it up as a package server to load programs into a browser
 
-The loader aims to be __complete and fully specification compliant__ where possible.
+The loader:
 
-The loader can provision complex applications (programs) composed of hundreds of packages by contacting an open network of public registry and repository servers. (__Not Yet Implemented__)
+  * Aims to be __complete and fully specification compliant__ where possible.
+  * Aims to validate the _CommonJS Program and Mappings_ approaches and inform CommonJS specifications.
+  * Provisions and executes programs by downloading and linking dependencies on first use.
+  * By default isolates the dependencies for each program.
+  * Can provision complex applications (programs) composed of hundreds of packages by contacting an open network of public registry and repository servers. (__Not Yet Implemented__)
+  * Can load complex applications (programs) composed of hundreds of packages from __Content Delivery Networks__ fed by a simple program server. (__Not Yet Implemented__)
+  * Supports REMOTE LIVE application DEBUGGING and EDITING for DEPLOYED applications running on any ANY PLATFORM (`eval()` or equivalent required). (__Not Yet Implemented__)
 
-The loader can load complex applications (programs) composed of hundreds of packages from __Content Delivery Networks__ fed by a simple program server. (__Not Yet Implemented__)
+The loader is a sub-project of the [PINF Toolchain Automation Platform](http://www.christophdorn.com/Research/) where an *application*
+(program) is a *view into the toolchain* that statically links package-based dependencies.
 
-**The loader supports REMOTE LIVE application DEBUGGING and EDITING for DEPLOYED applications running on any ANY PLATFORM. (`eval()` or equivalent required)**  (__Not Yet Implemented__)
+The toolchain is an organized body of code & services maintained collectively for the purpose of
+automating software production and system operation. Any CommonJS package may be used as part of the toolchain.
 
-To learn how to use this loader see [here](https://github.com/pinf/loader-js/blob/master/docs/Learn.md). (__Not Yet Documented__)
-
-
-Requirements
-============
-
-The loader should work on any CommonJS platform for which there is an adapter (see _Usage_ below).
-
-UNIX file paths are expected and no testing has been done on Windows.
-
-
-Example Program
-===============
-
-Taken from: [https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/](https://github.com/pinf/loader-js/blob/master/demos/HelloWorld/)
-
-    program.json ~ {
-        "boot": "github.com/pinf/loader-js/demos/HelloWorld/",
-        "packages": {
-            "github.com/pinf/loader-js/demos/HelloWorld/": {
-                "locator": {
-                    "location": "./"
-                }
-            }
-        }
-    }
-
-    package.json ~ {
-        "uid": "http://github.com/pinf/loader-js/demos/HelloWorld/",
-        "main": "main.js"
-    }
-
-    main.js ~ module.declare([], function(require, exports, module)
-    {
-        exports.main = function()
-        {
-            module.print("Hello World!\n");
-        }
-    });
+![Platform overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFPlatformOverview_v1.png)
 
 
-Usage
-=====
+Demo: Hello World
+=================
 
-If you have the `commonjs` command linked to a supported CommonJS platform binary (`node` recommended):
+Assumes NodeJS is installed. See [./docs/Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md) for instructions.
 
-    ./pinf-loader [.../[program.json]]    // `$PWD/program.json` implied if not provided
+    git clone git://github.com/pinf/loader-js.git
+    cd ./loader-js
+    node ./pinf-loader -v ./demos/HelloWorld
 
-    ./pinf-loader -h
-
-To run via a specific supported CommonJS platform binary see below.
-
-The following demos are available:
-
-    # Portable (NodeJS, Narwhal)
-    ./pinf-loader -v ./demos/HelloWorld
-    ./pinf-loader -v ./demos/Mappings
-    ./pinf-loader -v ./demos/CommonJSModules1
-    ./pinf-loader -v ./demos/CommonJSModules2
-    ./pinf-loader -v ./demos/LoadExtraCode
-    ./pinf-loader -v ./demos/PINFCatalog
-    
-    # NodeJS
-    node ./pinf-loader -v ./demos/BravoJS
-    node ./pinf-loader -v ./demos/NodeUnit
-    node ./pinf-loader -v ./demos/ReloadingJSGI
-    node ./pinf-loader -v ./demos/PreloadCoffeeScript
-    node ./pinf-loader -v ./demos/GithubArchiveDependency
-    node ./pinf-loader -v https://gist.github.com/823078
-    node ./pinf-loader -v https://gist.github.com/823315
-    
-    # NodeJS -> Browser
-    node ./pinf-loader -v ./demos/ProgramServer
-    
-    # Narwhal
-    narwhal ./pinf-loader -v ./demos/Narwhal
-    
-    # Jetpack (assuming SDK activated & FF 4 installed)
-    cfx --pkgdir=./demos/JetpackExtension/extension run
-
-The following tests are available:
-
-    # NodeJS
-    node ./pinf-loader ./tests/demos
-    
-    # Jetpack (assuming SDK activated & FF 4 installed)
-    cfx --pkgdir=./demos/JetpackExtension/extension test
-
-To learn how to write programs see [here](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md). (__Not Yet Documented__)
+For more demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md)
 
 
-NodeJS
-------
+Documentation
+=============
 
-Homepage: [http://nodejs.org/](http://nodejs.org/)
-
-    node ./pinf-loader [.../[program.json]]
-
-Narwhal
--------
-
-Homepage: [Narwhal](http://narwhaljs.org/)
-
-    narwhal ./pinf-loader [.../[program.json]]
-
-See [./demos/Narwhal/README.md](https://github.com/pinf/loader-js/blob/master/demos/Narwhal/README.md) for notes.
-
-Browser
--------
-
-Requires [NodeJS](http://nodejs.org/) on server. This will be platform independent in future.
-
-    node ./pinf-loader -v ./demos/ProgramServer
-    open http://localhost:8003/ 
-
-Jetpack
--------
-
-Homepage: [https://jetpack.mozillalabs.com/](https://jetpack.mozillalabs.com/)
-
-    cd ./demos/JetpackExtension
+  * [Setup](https://github.com/pinf/loader-js/blob/master/docs/Setup.md) - Setup your `commonjs` command.
+  * [Demos](https://github.com/pinf/loader-js/blob/master/docs/Demos.md) - Looking at the source code of the demos is a good place to start.
+  * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
+  * [Use Cases](https://github.com/pinf/loader-js/blob/master/docs/UseCases.md) - The loader can be used in various ways.
+  * [Writing Programs](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md) - A quick introduction.
 
 
 Support & Feedback
@@ -189,7 +109,7 @@ Developer mailing list: [http://groups.google.com/group/pinf-dev/](http://groups
 Contribute
 ==========
 
-You can find a list of things to get involved with here: [https://github.com/pinf/loader-js/blob/master/NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
+You can find a list of things to get involved with here: [./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 Collaboration Platform: [https://github.com/pinf/loader-js/](https://github.com/pinf/loader-js/)
 
@@ -204,6 +124,7 @@ You must explicitly license your patch by adding the following to the top of any
 in order for your patch to be accepted:
 
     //  - <GithubUsername>, First Last <Email>, Copyright YYYY, MIT License
+
 
 Author
 ======
@@ -233,7 +154,6 @@ This project uses code from:
 
   * [http://code.google.com/p/bravojs/](http://code.google.com/p/bravojs/)
   * [http://narwhaljs.org/](http://narwhaljs.org/)
-  * [https://github.com/jfd/optparse-js](https://github.com/jfd/optparse-js)
   * [https://github.com/Gozala/light-traits/](https://github.com/Gozala/light-traits/)
   * [https://github.com/Gozala/jetpack-protocol/](https://github.com/Gozala/jetpack-protocol/)
   * [http://pajhome.org.uk/crypt/md5/sha1.html](http://pajhome.org.uk/crypt/md5/sha1.html)
