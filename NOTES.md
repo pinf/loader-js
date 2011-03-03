@@ -31,6 +31,7 @@ General
 
   * `npm` package for loader
   * OS distro packages for loader
+  * Limit number of parallel downloads when provisioning
 
   * Replace `./lib/optparse.js` with narwhal's `args` module.
 
@@ -79,7 +80,9 @@ BravoJS Comments
       require("http://registry/hostname/path/package1/@/").resolve("main");
     Where '@/' is used to signify that we want to load a special object that can resolve IDs for the specified package ID.
   * Relative dependency IDs for module.declare() were resolved based on bravojs.mainModuleDir whereas they should be resolved based on the path of the module.
-  * The spec could use more wording as to whether functions accept relative and/or absolute module identifiers only
+  * The spec could use more wording as to whether functions accept relative and/or absolute module identifiers only.
+
+  * The `modules` property for `package.json` is only partially supported and module IDs (keys) must be normalized on server prior to loading.
 
 
 Specification Comments
@@ -148,12 +151,13 @@ Additions:
 Additions:
 
   * Mapping labels may not begin with '_' which is reserved for loaders to map special namespaces.
-  
   * Catalog URLs (and any other descriptor URLs) must end in `.json` to be able to distinguish from `<packageUID>`
 
 Verify alternate mapping locators:
 
     locator: "/<packagePath>"
+    locator: "<archiveURL>"
+    locator: "jar:<archiveURL>!/path/to/package"
     locator: {
         location: "/<packagePath>"
     }
@@ -167,9 +171,30 @@ Verify alternate mapping locators:
     }
 
     // `archive`-based locators are URLs that must point to a ZIP archive
-
+    
     locator: {
         archive: "<archiveURL>"
+    }
+    locator: {
+        archive: "jar:<archiveURL>!/path/to/package"
+    }
+
+    // specifying modules
+    
+    locator: {
+        module: "<moduleId>"
+    }
+    locator: {
+        module: "./<modulePathId>"
+    }
+    locator: {
+        module: "/<modulePathId>"
+    }
+
+    // indicate that a mapping (or module) is not available
+    // causes require() to throw
+    locator: {
+        available: false
     }
 
 Top-level ID lookup rules when deriving IDs from mapping properties:
@@ -179,6 +204,23 @@ Top-level ID lookup rules when deriving IDs from mapping properties:
   * Check for matching `uid` + `version`
   * Check for matching `uid` + `revision`
   * Check for matching `location`
+
+New: Module Mappings
+
+    package.json ~ {
+        "modules": {
+            "module3": {
+                "id": "github.com/pinf/loader-js/demos/MapModule/",
+                "module": "new-module3"
+            }
+            "/lib/module3": {},
+            "./lib/module3": {}
+        }
+    }
+
+  * Before module IDs are finalized they are matched against the `modules` property.
+  * The keys are prepended with `directories.lib` (if not prefixed with './' or '/') and matched against the final module IDs for the package.
+  * If a match is found the mapped module is used instead.
 
 
 CommonJS Programs/A

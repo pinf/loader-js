@@ -1,0 +1,20 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/NotAvailable/",
+    "main": "main.js",
+    "modules": {
+        "module1": {
+            "available": false
+        },
+        "./lib/module2": {
+            "available": false
+        },
+        "/lib/module3": {
+            "available": false
+        }
+    },
+    "mappings": {
+        "amd": {
+            "location": "../AMD"
+        }
+    }
+}

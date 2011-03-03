@@ -1,0 +1,160 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/PersevereExampleWiki/",
+    "engine": [
+        "node"
+    ],
+    "packages": {
+        "github.com/pinf/loader-js/demos/PersevereExampleWiki/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/kriszyp/commonjs-utils/zipball/master": {
+            "locator": {
+                "path": ""
+            }
+        },
+        "github.com/christkv/node-mongodb-native/zipball/master": {
+            "locator": {
+                "path": "",
+                "descriptor": {
+                    "directories": {
+                        "lib": "lib/mongodb"
+                    }
+                }
+            }
+        },
+        "github.com/kriszyp/promised-io/zipball/master": {
+            "locator": {
+                "path": ""
+            }
+        },
+        "github.com/kriszyp/persevere-example-wiki/zipball/master": {},
+        "github.com/kriszyp/tunguska/zipball/v0.2.2": {
+            "locator": {
+                "descriptor": {
+                    "mappings": {
+                        "promised-io": "http://github.com/kriszyp/promised-io/zipball/v0.2.1",
+                        "event-loop": {
+                            "available": false
+                        },
+                        "worker": {
+                            "available": false
+                        }
+                    }
+                }
+            }
+        },
+        "github.com/kriszyp/patr/zipball/v0.2.1": {},
+        "github.com/kriszyp/rql/zipball/v0.2.2": {},
+        "github.com/kriszyp/patr/zipball/v0.2.2": {},
+        "github.com/kriszyp/promised-io/zipball/v0.2.1": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/promised-io/zipball/v0.2.2": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/commonjs-utils/zipball/v0.2.2": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/pintura/zipball/v0.2.5": {
+            "locator": {
+                "descriptor": {
+                    "mappings": {
+                        "promised-io": "http://github.com/kriszyp/promised-io/zipball/v0.2.1",
+                        "jsgi-node": {
+                            "archive": "http://github.com/kriszyp/jsgi-node/zipball/v0.2.3",
+                            "module": "/lib/jsgi-node.js"
+                        }
+                    }
+                }
+            }
+        },
+        "github.com/kriszyp/perstore/zipball/v0.2.4": {
+            "locator": {
+                "descriptor": {
+                    "mappings": {
+                        "pintura": "http://github.com/kriszyp/pintura/zipball/v0.2.5"
+                    }
+                }
+            }
+        },
+        "github.com/kriszyp/perstore/zipball/v0.2.3": {
+            "locator": {
+                "descriptor": {
+                    "mappings": {
+                        "pintura": "http://github.com/kriszyp/pintura/zipball/v0.2.5"
+                    }
+                }
+            }
+        },
+        "github.com/dmachi/templify/zipball/master": {},
+        "github.com/kriszyp/patr/zipball/v0.2.5": {},
+        "github.com/kriszyp/promised-io/zipball/v0.2.3": {},
+        "github.com/kriszyp/jsgi-node/zipball/v0.2.3": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/persevere/zipball/master": {
+            "locator": {
+                "path": "",
+                "descriptor": {
+                    "directories": {
+                        "lib": "public"
+                    }
+                }
+            }
+        },
+        "github.com/kriskowal/wiky/zipball/master": {},
+        "github.com/kriszyp/jack/zipball/master": {
+            "locator": {
+                "path": "",
+                "descriptor": {
+                    "directories": {
+                        "lib": "lib/jack"
+                    }
+                }
+            }
+        },
+        "github.com/kriszyp/transporter/zipball/v0.2.2": {},
+        "github.com/kriszyp/jsgi-node/zipball/v0.2.2": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/multi-node/zipball/v0.2.2": {},
+        "github.com/kriszyp/tunguska/zipball/v0.2.3": {},
+        "github.com/miksago/node-websocket-server/zipball/v1.4.01": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/felixge/node-formidable/zipball/v0.9.8": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "github.com/kriszyp/narwhal/zipball/master": {}
+    }
+}

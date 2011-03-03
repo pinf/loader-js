@@ -323,7 +323,7 @@ SYSTEM.parseArgs = function(args)
     SYSTEM.args = false;
     args.forEach(function (val, index, array)
     {
-        if (SYSTEM.args === false)
+        if (SYSTEM.args === false || (SYSTEM.args.length ==0 && /\/?pinf-loader(\.js)?$/.test(val)))
             SYSTEM.preArgs.push(val);
         else
             SYSTEM.args.push(val);
@@ -1923,7 +1923,7 @@ var Assembler = exports.Assembler = function(downloader)
     this.cleaned = [];
 }
 
-Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, callback)
+Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, callback, options)
 {
     var self = this;
     if (typeof callback == "undefined")
@@ -1962,15 +1962,32 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
         {
             program.resolveLocator(self, locator, function(locator)
             {
-                if (typeof locator.location != "undefined" && !FILE.exists(locator.location))
-                    throw new Error("This should not happen");
+                if (typeof locator.available != "undefined" && locator.available === false)
+                {
+                    callback(null);
+                }
+                else
+                if (typeof locator.id != "undefined")
+                {
+                    callback(sandbox.ensurePackageForLocator(locator, options));
+                }
+                else
+                if (typeof locator.location == "undefined")
+                {
+                    throw new Error("No location property found in locator: " + UTIL.locatorToString(locator));
+                }
+                else
+                if (!FILE.exists(locator.location))
+                {
+                    throw new Error("Directory for location property not found in locator: " + UTIL.locatorToString(locator));
+                }
 //                else
                 // We do not need to follow locators (in order to discover requires()) that map to providers.
 //                if (typeof locator.provider != "undefined")
 //                    callback(null);
                 else
-                    callback(sandbox.ensurePackageForLocator(locator));
-            });
+                    callback(sandbox.ensurePackageForLocator(locator, options));
+            }, options);
         }, function assembler_assembleProgram_lambda_discoverPackages_done()
         {
             DEBUG.indent(di);
@@ -1997,6 +2014,9 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
 /**
  * Load an extra package for the program.
  * 
+ * NOTE: The 'locator' argument gets modified!
+ * TODO: Refactor so 'locator' argument does not get modified.
+ * 
  * @throws If package is not listed (by UID) in program's descriptor
  */
 Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, callback)
@@ -2007,37 +2027,41 @@ Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, ca
     DEBUG.print("Load additional package into program:").indent(di+1);
     DEBUG.print("Locator(original): " + UTIL.locatorToString(locator));
 
-    program.resolveLocator(self, locator, function(locator)
+    program.resolveLocator(self, locator, function(resolvedLocator)
     {
-        DEBUG.print("Locator(resolved): " + UTIL.locatorToString(locator));
+        DEBUG.print("Locator(resolved): " + UTIL.locatorToString(resolvedLocator));
 
-        var pkg = sandbox.ensurePackageForLocator(locator);
+        var pkg = sandbox.ensurePackageForLocator(resolvedLocator);
 
         if (pkg.discovering)
         {
             DEBUG.indent(di+1).print("... skip second pass ...");
             DEBUG.indent(di);
+            for (var key in resolvedLocator)
+                locator[key] = resolvedLocator[key];
             callback(pkg);
             return;
         }
 
         pkg.discoverMappings(function assembler_assembleProgram_lambda_addPackageToProgram_packageForLocator(locator, callback)
         {
-            program.resolveLocator(self, locator, function(locator)
+            program.resolveLocator(self, locator, function(resolvedLocator)
             {
-                if (!FILE.exists(locator.location))
+                if (!FILE.exists(resolvedLocator.location))
                 {
                     throw new Error("This should not happen");
                 }
                 else
                 {
-                    callback(sandbox.ensurePackageForLocator(locator));
+                    callback(sandbox.ensurePackageForLocator(resolvedLocator));
                 }
             });
             
         }, function assembler_assembleProgram_lambda_addPackageToProgram_done()
         {
             DEBUG.indent(di);
+            for (var key in resolvedLocator)
+                locator[key] = resolvedLocator[key];
             callback(pkg);
         });
     });
@@ -2379,6 +2403,9 @@ bravojs.normalizeDependencyArray = function bravojs_normalizeDependencyArray(dep
 
     if (typeof id != "string" || id.charAt(0) != "/")
       id = bravojs.contextForId(relativeModuleDir, true).resolveId(id, relativeModuleDir);
+
+    if (id === null)
+      return;
 
     if (bravojs.requireMemo[id] || bravojs.pendingModuleDeclarations[id])
       return;
@@ -3983,15 +4010,15 @@ Plugin.prototype.init = function()
         if (typeof ret != "undefined")
             moduleIdentifier = ret;
 
-        if (moduleIdentifier === "" | moduleIdentifier.charAt(0) == "/")
+        if (moduleIdentifier === null || moduleIdentifier === "" || moduleIdentifier.charAt(0) == "/")
             return moduleIdentifier;
-        
+
         if (moduleIdentifier.charAt(0) == ".")
             return bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier);
-      
+
         if (this.id == "_")
             return bravojs.realpath(bravojs.mainModuleDir + "/" + moduleIdentifier);
-    
+
         return bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier);
     }
 
@@ -4147,14 +4174,38 @@ Plugin.prototype.normalizeLocator = function(locator, context)
 Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relativeModuleDir, context)
 {
     if (moduleIdentifier === '')  /* Special case for main module */
-    {
         return '';
+
+    var self = this,
+        bravojs = this.bravojs;
+
+    function finalNormalization(moduleIdentifier)
+    {
+        var parts = moduleIdentifier.replace(/\.js$/, "").split("@/");
+
+        if (parts.length == 1)
+            return moduleIdentifier;
+
+        var context = bravojs.contextForId(parts[0]);
+        // Resolve mapped modules
+        if (typeof context.descriptor.modules != "undefined" && typeof context.descriptor.modules["/" + parts[1]] != "undefined")
+        {
+            var locator = self.normalizeLocator(context.descriptor.modules["/" + parts[1]], context);
+
+            if (typeof locator.available != "undefined" && locator.available === false)
+                return null;
+
+            if (typeof locator.module != "undefined")
+                moduleIdentifier = bravojs.contextForId(locator.location).resolveId("./" + locator.module);
+        }
+        return moduleIdentifier;
     }
+
     if (moduleIdentifier === null)
     {
         if (typeof context.descriptor == "undefined" || typeof context.descriptor.main == "undefined")
             throw new Error("'main' property not set in package descriptor for: " + this.id);
-        return context.id + "@/" + context.descriptor.main;
+        return finalNormalization(context.id + "@/" + context.descriptor.main);
     }
     else
     if (typeof moduleIdentifier === "object")
@@ -4176,17 +4227,49 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
             throw new Error("Invalid mapping: " + moduleIdentifier);
 
         if (typeof moduleIdentifier.descriptor != "undefined" && typeof moduleIdentifier.descriptor.main != "undefined")
-            return this.bravojs.realpath(id + "@/" + moduleIdentifier.descriptor.main, false);
+            return finalNormalization(this.bravojs.realpath(id + "@/" + moduleIdentifier.descriptor.main, false));
 
         var context = this.bravojs.contextForId(id);
         if (typeof context.descriptor == "undefined" || typeof context.descriptor.main == "undefined")
             throw new Error("'main' property not set in package descriptor for: " + context.id);
 
-        return this.bravojs.realpath(context.id + "@/" + context.descriptor.main, false);
+        return finalNormalization(this.bravojs.realpath(context.id + "@/" + context.descriptor.main, false));
+    }
+
+    // See if moduleIdentifier matches a mapping alias exactly
+    if (typeof context.descriptor != "undefined" &&
+        typeof context.descriptor.mappings != "undefined" &&
+        typeof context.descriptor.mappings[moduleIdentifier] != "undefined")
+    {
+        if (typeof context.descriptor.mappings[moduleIdentifier].available != "undefined" && context.descriptor.mappings[moduleIdentifier].available === false)
+        {
+            // If mapping is not available we return a null ID
+            return null;
+        }
+        else
+        if (typeof context.descriptor.mappings[moduleIdentifier].module != "undefined")
+        {
+            var mappedContextId = this.normalizeLocator(context.descriptor.mappings[moduleIdentifier], context).location,
+                mappedContext = this.bravojs.contextForId(mappedContextId),
+                mappedModule = context.descriptor.mappings[moduleIdentifier].module;
+
+            mappedModule = mappedModule.replace(/^\./, "");
+
+            if (mappedModule.charAt(0) == "/")
+            {
+                return finalNormalization(mappedContext.id + "@" + mappedModule);
+            }
+            else
+            {
+                return mappedContext.resolveId("./" + context.descriptor.mappings[moduleIdentifier].module, null);
+            }
+        }
+        else
+            throw new Error("Unable to resolve ID '" + moduleIdentifier + "' for matching mapping as 'module' property not defined in mapping locator!");
     }
 
     var moduleIdentifierParts = moduleIdentifier.split("@/");
-    
+
     // If module ID is absolute we get appropriate context
     if (moduleIdentifierParts.length == 2)
         context = this.bravojs.contextForId(moduleIdentifierParts[0]);
@@ -4197,20 +4280,20 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
         context.descriptor["native"] === true &&
         relativeModuleDir)
     {
-        return moduleIdentifierParts.pop();
+        return finalNormalization(moduleIdentifierParts.pop());
     }
     else
     if (moduleIdentifier.charAt(0) == "/")
-        return moduleIdentifier;
+        return finalNormalization(moduleIdentifier);
 
     // From now on we only deal with the relative (relative to context) ID
     moduleIdentifier = moduleIdentifierParts.pop();
 
     if (moduleIdentifier.charAt(0) == "." && relativeModuleDir)
-        return this.bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier, false);
+        return finalNormalization(this.bravojs.realpath(relativeModuleDir + "/" + moduleIdentifier, false));
     else
     if (context && context.id == "_")
-        return this.bravojs.realpath(this.bravojs.mainModuleDir + "/" + moduleIdentifier, false);
+        return finalNormalization(this.bravojs.realpath(this.bravojs.mainModuleDir + "/" + moduleIdentifier, false));
 
     var parts;
     if (typeof context.descriptor != "undefined" &&
@@ -4226,7 +4309,7 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
         return mappedContext.resolveId(parts.join("/"), null);
     }
 
-    return this.bravojs.realpath(context.id + "@/" + ((context.libDir)?context.libDir+"/":"") + moduleIdentifier, false);
+    return finalNormalization(this.bravojs.realpath(context.id + "@/" + ((context.libDir)?context.libDir+"/":"") + moduleIdentifier, false));
 }
 
 if (typeof bravojs != "undefined")
@@ -4301,6 +4384,20 @@ Descriptor.prototype.load = function(path)
     }
 }
 
+Descriptor.prototype.save = function()
+{
+    if (!FILE.exists(this.path))
+        throw new Error("Error saving descriptor. File does not exist: " + this.path);
+    try
+    {
+        FILE.write(this.path, JSON.stringify(this.json, null, 4));
+    }
+    catch(e)
+    {
+        throw new Error("Error writing JSON file '" + this.path + "': " + e);
+    }
+}
+
 Descriptor.prototype.validationError = function(message)
 {
     return new Error("Validation Error (in " + this.path + "): " + message);
@@ -4310,11 +4407,29 @@ Descriptor.prototype._normalizeLocator = function(locator)
 {
     if (typeof locator == "string")
     {
-        locator = {
-            "id": locator
-        };
+        // If a mapping locator is a simple string we need to determine if it is a
+        // path, archive or ID
+        if (/^(jar:)?https?:\/\//.test(locator))
+        {
+            locator = {
+                "archive": locator
+            };
+        }
+        else
+        if (/^\.?\//.test(locator))
+        {
+            locator = {
+                "location": locator
+            };
+        }
+        else
+        {
+            locator = {
+                "id": locator
+            };
+        }
     }
-    else
+
     if (typeof locator.location != "undefined")
     {
         if (locator.location.charAt(0) == ".")
@@ -4371,7 +4486,7 @@ Program.prototype.walkPackages = function(callback)
     if (typeof this.json.packages != "object")
         throw this.validationError("Property 'packages' must be an object");
     for (var id in this.json.packages)
-        callback(id, this.json.packages[id]);
+        callback(id, UTIL.deepCopy(this.json.packages[id]));
 }
 
 Program.prototype._validateBoot = function(id)
@@ -4391,16 +4506,21 @@ Program.prototype.locatorForId = function(id)
         throw this.validationError("Value (" + id + ") not found as key in property 'packages'");
     if (typeof this.json.packages[id].locator == "undefined")
         throw this.validationError("Package for id '" + id + "' does not specify a 'locator' property");
-    return this._normalizeLocator(this.json.packages[id].locator);
+    return this._normalizeLocator(UTIL.deepCopy(this.json.packages[id].locator));
 }
 
 /**
  * Given a package locator we add or override any info we find for it.
  */
-Program.prototype.augmentLocator = function(locator)
+Program.prototype.augmentLocator = function(locator, options)
 {
     if (typeof this.json.packages == "undefined")
         throw this.validationError("Property 'packages' is not defined");
+
+    options = options || {};
+
+    locator = UTIL.deepCopy(locator);
+
     var ids = [],
         enforce = false;
 
@@ -4446,7 +4566,17 @@ Program.prototype.augmentLocator = function(locator)
         // We only throw if package not found if we had a locator from which we could derive an ID
         // e.g. If we had a location only based locator we do not throw as we cannot find packages by path only
         if (enforce)
-            throw this.validationError("Derived package IDs '"+ids+"' for locator '"+UTIL.locatorToString(locator)+"' not found as key in property 'packages'");
+        {
+            if (typeof options["discover-packages"] != "undefined" && options["discover-packages"])
+            {
+                // We are being asked to add the package
+                this.json.packages[ids[0]] = {};
+                foundId = ids[0];
+                this.save();
+            }
+            else
+                throw this.validationError("Derived package IDs '"+ids+"' for locator '"+UTIL.locatorToString(locator)+"' not found as key in property 'packages'");
+        }
         else
             return locator;
     }
@@ -4621,18 +4751,28 @@ Downloader.prototype.pathForURL = function(url, type)
         throw new Error("NYI");
 }
 
+// TODO: Limit number of parallel downloads
+
 Downloader.prototype.getForArchive = function(archive, callback)
 {
     var self = this;
     var sourcePath = self.pathForURL(archive, "source");
 
-    if (FILE.exists(sourcePath))
+    if (FILE.exists(sourcePath + "/package.json"))
     {
         callback(sourcePath);
         return;
     }
 
     var archivePath = self.pathForURL(archive, "archive");
+    
+    function cleanup()
+    {
+        if (FILE.exists(archivePath))
+            SYSTEM.exec("rm -f " + archivePath);
+        if (FILE.exists(sourcePath))
+            SYSTEM.exec("rm -Rf " + sourcePath);
+    }
 
     // This is run 2.
     function unzip()
@@ -4652,11 +4792,13 @@ Downloader.prototype.getForArchive = function(archive, callback)
                 {
                     if (/unzip: command not found/.test(stderr))
                     {
+                        cleanup();
                         throw new Error("UNIX Command not found: unzip");
                     }
                     else
                     if (stderr)
                     {
+                        cleanup();
                         throw new Error("Error extracting file '" + archivePath + "': " + stderr);
                     }
                     // See if archive has a directory containing our package
@@ -4665,7 +4807,10 @@ Downloader.prototype.getForArchive = function(archive, callback)
                         SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
                         {
                             if (!FILE.exists(sourcePath + "/package.json"))
+                            {
+                                cleanup();
                                 throw new Error("Cannot find package.json in extracted archive: " + sourcePath + "/package.json");
+                            }
                             callback(sourcePath);
                         });
                     }
@@ -4681,11 +4826,13 @@ Downloader.prototype.getForArchive = function(archive, callback)
                 {
                     if (/tar: command not found/.test(stderr))
                     {
+                        cleanup();
                         throw new Error("UNIX Command not found: tar");
                     }
                     else
                     if (stderr)
                     {
+                        cleanup();
                         throw new Error("Error extracting file '" + archivePath + "': " + stderr);
                     }
                     // See if archive has a directory containing our package
@@ -4694,7 +4841,10 @@ Downloader.prototype.getForArchive = function(archive, callback)
                         SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
                         {
                             if (!FILE.exists(sourcePath + "/package.json"))
+                            {
+                                cleanup();
                                 throw new Error("Cannot find package.json in extracted archive: " + sourcePath + "/package.json");
+                            }
                             callback(sourcePath);
                         });
                     }
@@ -4844,6 +4994,7 @@ var boot = exports.boot = function(options)
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--platform").set().help("The platform to use");
     optParser.option("--test-platform").set().help("Make sure a platform is working properly");
+    optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
     optParser.option("--terminate").bool().help("Asks program to terminate if it was going to deamonize (primarily used for testing)");
     optParser.option("-h", "--help").bool().help("Display usage information");
@@ -5010,7 +5161,7 @@ var boot = exports.boot = function(options)
                 });
             });
             return;
-        }    
+        }
 
         // ######################################################################
         // # Program assembly
@@ -5060,7 +5211,7 @@ var boot = exports.boot = function(options)
             timers.load = new Date().getTime()
 
             var env = options.env || {};
-            env.args = env.args || options.args || [];
+            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
 
             sandbox.declare(dependencies, function(require, exports, module)
             {
@@ -5106,6 +5257,8 @@ var boot = exports.boot = function(options)
                 for (var i=0 ; i<hl ; i++) f += "|";
                 API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
             });
+        }, {
+            "discover-packages": cliOptions["discover-packages"] || false
         });
     } // init()
 
@@ -5900,15 +6053,15 @@ Package.prototype.discoverMappings = function(fetcher, callback)
 
     var self = this;
 
-    self.descriptor.walkMappings(function(alias, locator)
+    self.normalizedDescriptor.walkMappings(function(alias, locator)
     {
         DEBUG.indent(di).print("\0yellow(" + alias + "\0) <- " + UTIL.locatorToString(locator)).indent(di+1);
 
         fetcher(locator, cbt.add(function(pkg)
         {
-            // This should only happen if locator points to a provider
-//            if(!pkg)
-//                return;
+            // This may happen if locator specifies "available" = false
+            if(!pkg)
+                return;
 
             DEBUG.indent(di+1).print("Path: \0cyan(" + pkg.path + "\0)");
 
@@ -5916,6 +6069,11 @@ Package.prototype.discoverMappings = function(fetcher, callback)
             self.normalizedDescriptor.json.mappings[alias] = {
                 "location": pkg.path // + "/"
             };
+
+            if (typeof locator.module != "undefined")
+            {
+                self.normalizedDescriptor.json.mappings[alias].module = locator.module;
+            }
 
             if (pkg.discovering)
             {
@@ -6687,14 +6845,14 @@ Program.prototype.getBootPackages = function()
 /**
  * Given any mappings locator return an absolute path location-based locator.
  */
-Program.prototype.resolveLocator = function(assembler, locator, callback)
+Program.prototype.resolveLocator = function(assembler, locator, callback, options)
 {
     var self = this;
     var descriptor = locator.descriptor;
 
     function finalize(locator)
     {
-        if (typeof locator.provider == "undefined")
+        if ((typeof locator.available == "undefined" || locator.available === true) && typeof locator.provider == "undefined")
         {
             // If we do not have an absolute path location-based locator by now we cannot proceed
             if (typeof locator.location == "undefined" || locator.location.charAt(0) != "/")
@@ -6715,12 +6873,31 @@ Program.prototype.resolveLocator = function(assembler, locator, callback)
     if (typeof locator.archive != "undefined")
     {
         var m;
-        if (!(m = locator.archive.match(/^https?:\/\/(.*)$/)))
+
+        if (m = locator.archive.match(/^jar:(https?):\/\/([^!]*)!\/(.*?)(\/?)$/))
+        {
+            locator.id = m[2];
+            locator.archive = m[1] + "://" + m[2];
+            // Check if we are referring to a module that should be mapped to the alias
+            if (/\.js$/.test(m[3]) && !m[4])
+            {
+                locator.module = "/" + m[3];
+            }
+            else
+                locator.path = m[3]
+
+            locator = this.descriptor.augmentLocator(locator, options);
+        }
+        else
+        if (m = locator.archive.match(/^https?:\/\/(.*)$/))
+        {
+            locator.id = m[1];
+        }
+        else
             throw new Error("Invalid archive URL: "+ locator.archive);
 
         assembler.downloader.getForArchive(locator.archive, function(path)
         {
-            locator.id = m[1];
             locator.location = path + "/";
 
             finalize(locator);
@@ -6730,7 +6907,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback)
     else
     if (typeof locator.catalog != "undefined")
     {
-        locator = this.descriptor.augmentLocator(locator);
+        locator = this.descriptor.augmentLocator(locator, options);
 
         // Only query catalog if program descriptor does not already set a location for the
         // package referenced by the locator.
@@ -6754,10 +6931,15 @@ Program.prototype.resolveLocator = function(assembler, locator, callback)
     else
     if (typeof locator.id != "undefined")
     {
-        locator = this.descriptor.augmentLocator(locator);
+        locator = this.descriptor.augmentLocator(locator, options);
     }
     else
     if (typeof locator.location != "undefined")
+    {
+        // do nothing for now
+    }
+    else
+    if (typeof locator.available != "undefined")
     {
         // do nothing for now
     }
@@ -6951,10 +7133,48 @@ Sandbox.prototype.init = function()
                 // Remove shebang line if present
                 data = data.replace(/^#!(.*?)\n/, "");
 
+                var m;
+                if (m = data.match(/(^|[\r\n])\s*define\(\[([^\]]*)\].*/))
+                {
+                    // AMD
+
+                    var deps = m[2].split(",").map(function(dep)
+                    {
+                        return "'" + dep.replace(/^\s*"|^\s*'|"\s*$|'\s*$/g, "") + "'";
+                    });
+
+                    // strip all data prior to define()
+                    var parts = data.split(m[0]);
+                    if (parts.length != 2)
+                        throw new Error("Unable to fix define() wrapper for module: " + moduleIdentifier);
+                    data = m[0].replace(/^[\r\n]\s*/, "") + parts[1];
+
+                    eval(
+                        "loader.bravojs.module.declare([" +
+                        deps.filter(function(dep)
+                        {
+                            return (!/^'(require|module|exports)'$/.test(dep));
+                        }).join(",") +
+                        "], function(require, exports, module) {\n" + 
+                        "({define:function(deps, factory){module.exports = factory(" +
+                        deps.map(function(dep)
+                        {
+                            if (/^'(require|module|exports)'$/.test(dep))
+                                return dep.substring(1, dep.length-1);
+                            else
+                                return "require(" + dep + ")";
+                        }).join(",") +
+                        ");}})." +
+                        data +
+                        "\n})"
+                    );
+                }
+                else
                 if ((typeof loader.bravojs.module.constructor.prototype.load != "undefined" &&
                      typeof loader.bravojs.module.constructor.prototype.load.modules11 != "undefined" &&
                      loader.bravojs.module.constructor.prototype.load.modules11 === false) || data.match(/(^|[\r\n])\s*module.declare\s*\(/))
                 {
+                    // Modules/2
                     eval("loader.bravojs." + data.replace(/^\s\s*/g, ""));
                 }
                 else
@@ -7023,17 +7243,34 @@ Sandbox.prototype.init = function()
 
 /**
  * Create or get existing package for path
+ * 
+ * NOTE: The 'locator' argument gets modified!
+ * TODO: Refactor so 'locator' argument does not get modified.
  */
-Sandbox.prototype.ensurePackageForLocator = function(locator)
+Sandbox.prototype.ensurePackageForLocator = function(locator, options)
 {
+    var self = this;
+    function finalize(packageId, newLocator)
+    {
+        if (typeof newLocator == "undefined")
+        {
+            if (typeof self.packages[packageId].uid != "undefined")
+                locator.uid = self.packages[packageId].uid;
+            newLocator = self.program.descriptor.augmentLocator(locator, options);
+        }
+        for (var key in newLocator)
+            locator[key] = newLocator[key];
+        return self.packages[packageId];
+    }
+
     if (typeof locator.id != "undefined" && typeof this.packages[locator.id] != "undefined")
     {
-        return this.packages[locator.id];
+        return finalize(locator.id);
     }
     else
     if (typeof locator.uid != "undefined" && typeof this.packages[locator.uid] != "undefined")
     {
-        return this.packages[locator.uid];
+        return finalize(locator.uid);
     }
     var path = locator.location;
     if (typeof this.packages[path] == "undefined")
@@ -7054,14 +7291,34 @@ Sandbox.prototype.ensurePackageForLocator = function(locator)
 
         // Merge descriptor information from the locator onto the package descriptor if applicable
         // We first ask the program descriptor to augment the locator with any additional info
-        locator = this.program.descriptor.augmentLocator(locator);
+        var newLocator = this.program.descriptor.augmentLocator(locator, options);
 
-        if (typeof locator.descriptor != "undefined")
+        if (typeof newLocator.descriptor != "undefined")
         {
-            API.UTIL.deepMerge(this.packages[path].normalizedDescriptor.json, locator.descriptor);
+            API.UTIL.deepMerge(this.packages[path].normalizedDescriptor.json, newLocator.descriptor);
         }
+
+        // Convert mapped module IDs to paths
+        if (typeof this.packages[path].normalizedDescriptor.json.modules != "undefined")
+        {
+            var libDir = this.packages[path].normalizedDescriptor.json.directories && this.packages[path].normalizedDescriptor.json.directories.lib;
+            if (typeof this.libDir != "string")
+                libDir = "lib";
+
+            var modules = {};
+            for (var id in this.packages[path].normalizedDescriptor.json.modules)
+            {
+                if (id.charAt(0) == "." || id.charAt(0) == "/")
+                    modules[id.replace(/^\./, "")] = this.program.descriptor.augmentLocator(this.packages[path].normalizedDescriptor.json.modules[id], options);
+                else
+                    modules["/" + libDir + "/" + id] = this.program.descriptor.augmentLocator(this.packages[path].normalizedDescriptor.json.modules[id], options);
+            }
+            this.packages[path].normalizedDescriptor.json.modules = modules;
+        }
+        return finalize(path, newLocator);
     }
-    return this.packages[path];
+    else
+        return finalize(path);
 }
 
 /**

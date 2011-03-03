@@ -20,7 +20,7 @@ module.declare(["nodejs/path", "nodejs/fs", "pinf/loader"], function(require, ex
                     FS.statSync(basePath + "/" + filename + "/program.json");
                 } catch(e) { exists = false; }
                 
-                if (!exists || filename == "Narwhal")
+                if (!exists || filename == "Narwhal" || filename == "PersevereExampleWiki")
                 {
                     module.print("Skipping demo: " + basePath + "/" + filename + " (you need to run manually for now)\n");
                     return;

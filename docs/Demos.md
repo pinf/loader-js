@@ -12,6 +12,7 @@ These demos work on the following platforms:
 To use a specific platform specify `--platform <alias>`. `node` is used by default.
 
     commonjs -v ./demos/HelloWorld
+    commonjs -v ./demos/AMD
     commonjs -v ./demos/Mappings
     commonjs -v ./demos/CommonJSModules1
     commonjs -v ./demos/CommonJSModules1Script/script
@@ -19,6 +20,8 @@ To use a specific platform specify `--platform <alias>`. `node` is used by defau
     commonjs -v ./demos/CommonJSModules2Script/script
     commonjs -v ./demos/LoadExtraCode
     commonjs -v ./demos/PINFCatalog
+    commonjs -v ./demos/MapModule
+    commonjs -v ./demos/NotAvailable
     commonjs -v https://gist.github.com/823078
 
 

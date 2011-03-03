@@ -1,0 +1,22 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/MapModule/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/MapModule/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/AMD/": {
+            "locator": {
+                "descriptor": {
+                    "modules": {
+                        "module3": {
+                            "id": "github.com/pinf/loader-js/demos/MapModule/",
+                            "module": "new-module3"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

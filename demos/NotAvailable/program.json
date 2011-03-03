@@ -1,0 +1,11 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/NotAvailable/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/NotAvailable/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/AMD/": {}
+    }
+}

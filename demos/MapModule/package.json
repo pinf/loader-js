@@ -1,0 +1,18 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/MapModule/",
+    "main": "main.js",
+    "mappings": {
+        "amd1": {
+            "location": "../AMD",
+            "module": "/lib/module1.js"
+        },
+        "amd2": {
+            "location": "../AMD",
+            "module": "./lib/module1.js"
+        },
+        "amd3": {
+            "location": "../AMD",
+            "module": "module1"
+        }
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/AMD/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/AMD/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}
