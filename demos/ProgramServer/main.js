@@ -27,8 +27,7 @@ module.declare([
         {
             module.print("Starting program server at: http://localhost:" + port + "/\n");
 
-            // NOTE: This is not intended for production use as-is but fine for single-user development.
-            //       If used in production the different URIs (program and extra module and package load)
+            // NOTE: If used in production the different URIs (program and extra module and package load)
             //       must be primed in the correct order and response stored for a proxy server to send.
             //       This is important as the server keeps a representation of the program it sends to the
             //       client and will only send what the client does not have when extra modules are requested.

@@ -33,8 +33,6 @@ General
   * OS distro packages for loader
   * Limit number of parallel downloads when provisioning
 
-  * Replace `./lib/optparse.js` with narwhal's `args` module.
-
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
 

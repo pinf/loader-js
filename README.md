@@ -39,6 +39,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __Services__
     * __[Duostack](http://www.duostack.com/)__ - No npm & hassle free deployment with secret configuration (__Not Yet Implemented__)
     * __[no.de](https://no.de/)__ (__Not Yet Implemented__)
+    * __[NodeSocket](www.nodesocket.com)__ (__Not Yet Implemented__)
     * __[Google App Engine](http://code.google.com/appengine/)__ Use it to run JavaScript on the Java stack (__Not Yet Implemented__)
 
 The loader implements or is compatible with the following specs:
