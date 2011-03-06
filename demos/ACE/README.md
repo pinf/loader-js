@@ -24,15 +24,16 @@ TODO
 
 Overall:
 
+  * Configurable path for worker code. See [./editor/modules/ace/worker/worker_client.js](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/editor/modules/ace/worker/worker_client.js#L19)
   * Hierarchical transport file declarations in `program.json` to exclude already loaded modules from additional transport files.
 
 Development workflow:
 
-  * Reduce browser wait times by streamlining __Program Server__
+  * Reduce browser wait times by streamlining _Program Server_
     * Faster loading and module collection
     * Caching
     * Proactive payload generation on file change
-  * Reduce browser receiving times by zipping response in __Program Server__
+  * Reduce browser receiving times by zipping response in _Program Server_
   * Splice in source repositories if available locally
 
 Build workflow:
