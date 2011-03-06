@@ -40,6 +40,7 @@ Server-based programs:
 Browser-based programs:
 
     commonjs -v ./demos/ProgramServer
+    commonjs -v ./demos/ACE
 
 
 Platform: Narwhal
