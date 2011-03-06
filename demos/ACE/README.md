@@ -6,6 +6,7 @@ Run the ACE editor in the browser:
     node ../../pinf-loader -v
     open http://localhost:8003/
 
+
 Status
 ------
 
@@ -18,6 +19,16 @@ Possible causes:
     to call the worker class before it is initialized.
     * **FIX: The worker_client must wait until the client is fully initilized.**
   * There may be other reasons that should be troubleshooted by someone who knows the init process well.
+
+
+Developing
+----------
+
+The loader downloads archives from Github to provision ACE and stores these in `./.pinf-packages/downloads/**/*~sources/`.
+
+You should be able to link cloned source repositories to these directories to hack on ACE. This process will be improved via
+a `sources.json` file shortly (see TODO below).
+
 
 TODO
 ----
