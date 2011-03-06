@@ -2,6 +2,7 @@
 module.declare([
     "jsgi/jsgi-node",
     "jsgi/promise",
+    "promised-io/fs",
     "paperboy/paperboy",
     "pinf/loader",
     "nodejs/path",
@@ -11,6 +12,7 @@ module.declare([
 {
     var JSGI = require("jsgi/jsgi-node"),
         PROMISE = require("jsgi/promise"),
+        PROMISE_FS = require("promised-io/fs"),
         PAPERBOY = require("paperboy/paperboy"),
         PINF_LOADER = require("pinf/loader"),
         PATH = require("nodejs/path"),
@@ -21,7 +23,7 @@ module.declare([
 
     exports.main = function()
     {
-        module.print("Hello World from ProgramServer!\n");
+        module.print("Hello World from ACE!\n");
 
         if (!PINF_LOADER.mustTerminate())
         {
@@ -32,53 +34,49 @@ module.declare([
                     PROMISE: PROMISE
                 },
                 map: {
-                    "/HelloWorld.js": {
-                        programPath: PATH.dirname(PATH.dirname(module.id)) + "/HelloWorld/program.json"
+                    // replace boot request to load bundled editor
+                    "/demo/boot.js": {
+                        programPath: PATH.dirname(module.id) + "/editor/program.json"
                     },
-                    "/LoadExtraCode.js": {
-                        programPath: PATH.dirname(PATH.dirname(module.id)) + "/LoadExtraCode/program.json",
-                        // Fix paths that go above program directory
-                        // NOTE: If mapped path above is only one segment we can only go up 1 segment!
-                        rewritePaths: [
-                            [PATH.dirname(PATH.dirname(module.id)) + "/CommonJSModules2/", "/../CommonJSModules2/"]
-                        ]
-                    },
-                    "/WebWorker.js": {
-                        programPath: PATH.dirname(module.id) + "/programs/WebWorker/program.json"
-                    },
-                    "/Worker.js": {
-                        programPath: PATH.dirname(module.id) + "/programs/Worker/program.json",
-                        basePath: PATH.dirname(module.id),
-                        rewritePaths: [
-                            [PATH.dirname(PATH.dirname(module.id)) + "/CommonJSModules2/", "/../CommonJSModules2/"]
-                        ]
+                    "/worker.js": {
+                        programPath: PATH.dirname(module.id) + "/worker/program.json"
                     }
                 }
             });
 
             var staticApp = function(request)
             {
-                var path = PATH.dirname(module.id) + "/www" + request.pathInfo;
-                
+                // RequireJS is not needed
+                if (request.pathInfo == "/demo/require.js")
+                {
+                    return {
+                        status: 200,
+                        headers: {
+                            "content-type": "application/x-javascript",
+                            "content-length": 0
+                        },
+                        body: [""]
+                    };
+                }
+
+                var path = module.mappings["ace"] + request.pathInfo;
+
                 if (path.charAt(path.length-1) == "/")
                     path += "index.html";
-                
+
                 try
                 {
-                    // NOTE: This could be more efficient and ASYNC but fine for this demo
+                    // ensure file exists
+                    FS.statSync(path);
 
-                    var contents = FS.readFileSync(path, "utf-8"),
-                        ext = PATH.extname(path).substring(1);
+                    var ext = PATH.extname(path).substring(1);
 
                     return {
                         status: 200,
                         headers: {
-                            "content-type": PAPERBOY.contentTypes[ext] || "text/plain",
-                            "content-length": contents.length
+                            "content-type": PAPERBOY.contentTypes[ext] || "text/plain"
                         },
-                        body: [
-                            contents
-                        ]
+                        body: PROMISE_FS.open(path, "r")
                     };
                 }
                 catch(e)

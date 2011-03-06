@@ -55,9 +55,9 @@ Examples:
 In-Browser
 ==========
 
-The loader includes a _Program Server_ used to make programs available for browser loading. The program server automatically combines
-the core program and all its dependencies into one file and can make additional sets of modules available for loading
-on demand by the browser.
+The loader includes a _Program Server_ used to make programs available for browser and [WebWorker](http://www.whatwg.org/specs/web-workers/current-work/)
+loading. The program server automatically combines the core program and all its dependencies into one file and can make additional
+sets of modules available for loading on demand by the browser.
 
     commonjs -v --platform node ./demos/ProgramServer
     open http://localhost:8003/ 

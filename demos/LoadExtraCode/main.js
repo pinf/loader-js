@@ -8,7 +8,7 @@ module.declare([], function(require, exports, module)
         module.print("Hello World from LoadExtraCode!\n");
 
         module.print("Now loading extra code:\n");
-        
+
         var count = 2;
         
         function checkFinished()

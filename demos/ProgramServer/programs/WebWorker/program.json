@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/ProgramServer/programs/WebWorker/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/ProgramServer/programs/WebWorker/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

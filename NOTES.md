@@ -31,15 +31,12 @@ General
 
   * `npm` package for loader
   * OS distro packages for loader
-  * Limit number of parallel downloads when provisioning
 
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
 
   * Enforce reserved names for mapping labels based on default modules provided by platform
   * Enforce `os` from package descriptor
-
-  * Loader plugins? See: http://wiki.commonjs.org/wiki/Modules/LoaderPlugin
 
   * Build and publish commands to provide versioned releases (This will be part of PINF/CLI)
 

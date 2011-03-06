@@ -1,0 +1,12 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/ProgramServer/programs/Worker/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/ProgramServer/programs/Worker/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/LoadExtraCode/": {},
+        "github.com/pinf/loader-js/demos/HelloWorld/": {}
+    }
+}

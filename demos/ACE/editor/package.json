@@ -1,0 +1,26 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/ACE/editor/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "demo": {
+            "id": "github.com/ajaxorg/ace/",
+            "descriptor": {
+                "directories": {
+                    "lib": "demo"
+                }
+            }
+        },
+        "ace": {
+            "id": "github.com/ajaxorg/ace/"
+        },
+        "cockpit": {
+            "id": "github.com/ajaxorg/cockpit/"
+        },
+        "pilot": {
+            "id": "github.com/ajaxorg/pilot/"
+        }
+    }
+}
