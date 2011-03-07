@@ -1,0 +1,37 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/NPMPackage/",
+    "name": "pinf-loader-js-demos-npmpackage",
+    "version": "0.0.1",
+    "label": "PINF JavaScript Loader - Demo - NPMPackage",
+    "description": "Sample package that depends on pinf-loader-js and loads a program.",
+    "homepage": "https://github.com/pinf/loader-js/tree/master/demos/NPMPackage/",
+    "repositories": [
+        {
+            "type": "git",
+            "url": "git://github.com/pinf/loader-js.git",
+            "path": "demos/NPMPackage"
+        }
+    ],
+    "maintainers": [
+        {
+            "name": "Christoph Dorn",
+            "email": "christoph@christophdorn.com",
+            "web": "http://www.christophdorn.com/"
+        }
+    ],
+    "licenses": [
+        {
+            "type": "MIT",
+            "url": "http://www.opensource.org/licenses/mit-license.php"
+        }
+    ],
+    "engines": {
+        "node": ">= 0.4"
+    },
+    "dependencies": {
+        "pinf-loader-js": ">=0.0.1"
+    },
+    "scripts": {
+        "start": "node server.js"
+    }
+}

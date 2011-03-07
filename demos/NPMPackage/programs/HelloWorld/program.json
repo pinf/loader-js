@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/NPMPackage/programs/HelloWorld/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/NPMPackage/programs/HelloWorld/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

@@ -1,0 +1,11 @@
+#! /usr/bin/env commonjs
+
+exports.main = function(env)
+{
+    var parts = module.id.split("/");
+
+    env.bootProgram({
+        program: parts.slice(0, parts.length-2).join("/") + "/programs/publish-to-npm/program.json",
+        args: env.args
+    });
+}

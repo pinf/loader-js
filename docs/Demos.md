@@ -42,6 +42,11 @@ Browser-based programs:
     commonjs -v ./demos/ProgramServer
     commonjs -v ./demos/ACE
 
+Via NPM:
+
+    npm install pinf-loader-js-demos-npmpackage
+    npm start pinf-loader-js-demos-npmpackage
+
 
 Platform: Narwhal
 =================

@@ -63,6 +63,17 @@ sets of modules available for loading on demand by the browser.
     open http://localhost:8003/ 
 
 
+NPM
+===
+
+The loader can be used as an [NPM](http://npmjs.org/) package to boot a program.
+
+    npm install pinf-loader-js-demos-npmpackage
+    npm start pinf-loader-js-demos-npmpackage
+
+See: [../demos/NPMPackage](https://github.com/pinf/loader-js/tree/master/demos/NPMPackage)
+
+
 Cloud-based Services
 ====================
 

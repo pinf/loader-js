@@ -1,0 +1,16 @@
+{
+    "boot": "github.com/pinf/loader-js/programs/publish-to-npm/",
+    "engine": [
+        "node"
+    ],
+    "packages": {
+        "github.com/pinf/loader-js/programs/publish-to-npm/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "nodejs.org": {
+            "provider": "nodejs.org"
+        }
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "uid": "http://github.com/pinf/loader-js/programs/publish-to-npm/",
+    "main": "main.js",
+    "engine": [
+        "node"
+    ],
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "nodejs": {
+            "id": "nodejs.org"
+        }
+    }
+}
