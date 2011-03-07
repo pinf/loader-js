@@ -2,7 +2,7 @@
 Status
 ======
 
-__Stability:__ Alpha
+__Stability:__ Beta
 
 Summary
 -------

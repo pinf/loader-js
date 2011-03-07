@@ -14,8 +14,6 @@ The loader allows for bootstrapping a consistent and state-of-the-art CommonJS e
 for any supported platform (on server & in browser) and thus is ideally suited to be used as the target for the `commonjs` command and the
 development of cross-platform JavaScript applications and libraries.
 
-Version: v0.1dev
-
 Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 ![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v1.png)
