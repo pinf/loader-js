@@ -12,7 +12,7 @@
             "id": "pinf.org/loader"
         },
         "jsgi": {
-            "archive": "https://github.com/kriszyp/jsgi-node/zipball/v0.2.3"
+            "archive": "https://github.com/kriszyp/jsgi-node/zipball/master"
         },
         "paperboy": {
             "archive": "https://github.com/felixge/node-paperboy/zipball/master"

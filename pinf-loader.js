@@ -1,2 +1,2 @@
 
-require("./lib/loader").boot();
+require("./lib/pinf-loader-js/loader").boot();

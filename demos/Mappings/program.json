@@ -3,12 +3,12 @@
     "packages": {
         "registry/hostname/path/package1/": {
             "locator": {
-                "location": "../../lib/bravojs/demos/mappings/package1-dir/"
+                "location": "../../lib/pinf-loader-js/bravojs/demos/mappings/package1-dir/"
             }
         },
         "registry/hostname/path/package4/": {
             "locator": {
-                "location": "../../lib/bravojs/demos/mappings/package4-dir/",
+                "location": "../../lib/pinf-loader-js/bravojs/demos/mappings/package4-dir/",
                 "descriptor": {
                     "uid": "http://registry/hostname/path/package4/"
                 }
@@ -21,7 +21,7 @@
         },
         "registry/hostname/path/catalog.json/package3/": {
             "locator": {
-                "location": "../../lib/bravojs/demos/mappings/package3-dir/"
+                "location": "../../lib/pinf-loader-js/bravojs/demos/mappings/package3-dir/"
             }
         }
     }

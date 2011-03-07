@@ -6075,16 +6075,16 @@ JSGI.prototype.respond = function(request, callback)
 
                 // Pull in BravoJS and plugins
 
-                path = API.ENV.loaderRoot + "/lib/bravojs/global-es5.js";
+                path = API.ENV.loaderRoot + "/lib/pinf-loader-js/bravojs/global-es5.js";
                 body.push(API.FILE.read(path));
 
-                path = API.ENV.loaderRoot + "/lib/bravojs/bravo.js";
+                path = API.ENV.loaderRoot + "/lib/pinf-loader-js/bravojs/bravo.js";
                 body.push(API.FILE.read(path));
 
-                path = API.ENV.loaderRoot + "/lib/bravojs/plugins/packages/packages.js";
+                path = API.ENV.loaderRoot + "/lib/pinf-loader-js/bravojs/plugins/packages/packages.js";
                 body.push(API.FILE.read(path));
 
-                path = API.ENV.loaderRoot + "/lib/bravojs/plugins/packages/loader.js";
+                path = API.ENV.loaderRoot + "/lib/pinf-loader-js/bravojs/plugins/packages/loader.js";
                 body.push(API.FILE.read(path));
 
                 // Memoize modules

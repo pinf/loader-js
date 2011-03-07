@@ -9,7 +9,7 @@ module.declare(["paperboy/paperboy", "nodejs/path", "nodejs/http", "pinf/loader"
     // Config options
 
     var port = 8003,
-        docroot = PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib/bravojs";
+        docroot = PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib/pinf-loader-js/bravojs";
 
     exports.main = function()
     {
