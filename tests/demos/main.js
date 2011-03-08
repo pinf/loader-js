@@ -5,6 +5,15 @@ module.declare(["nodejs/path", "nodejs/fs", "pinf/loader"], function(require, ex
         FS = require("nodejs/fs"),
         PINF_LOADER = require("pinf/loader");
 
+    var exclude = [
+        "ACE",
+        "JetpackExtension",
+        "Narwhal",
+        "NPMPackage",
+        "PersevereExampleWiki",
+        "PostCommitProgramReload"
+    ];
+
     exports.main = function()
     {
         var basePath = PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/demos";
@@ -20,7 +29,7 @@ module.declare(["nodejs/path", "nodejs/fs", "pinf/loader"], function(require, ex
                     FS.statSync(basePath + "/" + filename + "/program.json");
                 } catch(e) { exists = false; }
 
-                if (!exists || filename == "Narwhal" || filename == "PersevereExampleWiki" || filename == "ACE")
+                if (!exists || exclude.indexOf(filename) > -1)
                 {
                     module.print("Skipping demo: " + basePath + "/" + filename + " (you need to run manually for now)\n");
                     return;

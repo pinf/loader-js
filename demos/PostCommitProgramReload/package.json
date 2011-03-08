@@ -1,0 +1,18 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/PostCommitProgramReload/",
+    "main": "server.js",
+    "engine": [
+        "node"
+    ],
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "jsgi": {
+            "archive": "https://github.com/kriszyp/jsgi-node/zipball/master"
+        },
+        "pinf": {
+            "id": "pinf.org/loader"
+        }
+    }
+}

@@ -36,6 +36,7 @@ Server-based programs:
     commonjs -v ./demos/PreloadCoffeeScript
     commonjs -v ./demos/GithubArchiveDependency
     commonjs -v https://gist.github.com/823315
+    commonjs -v ./demos/PostCommitProgramReload
 
 Browser-based programs:
 

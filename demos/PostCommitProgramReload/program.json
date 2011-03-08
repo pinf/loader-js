@@ -1,0 +1,20 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/PostCommitProgramReload/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/PostCommitProgramReload/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/kriszyp/jsgi-node/zipball/master": {
+            "locator": {
+                "descriptor": {
+                    "native": true
+                }
+            }
+        },
+        "pinf.org/loader": {
+            "provider": "pinf.org/loader"
+        }
+    }
+}
