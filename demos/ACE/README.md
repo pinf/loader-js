@@ -10,15 +10,12 @@ Run the ACE editor in the browser:
 Status
 ------
 
-The editor and plugins load but it does not initialize properly.
-
-Possible causes:
+TODO:
 
   * The [worker](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/worker/worker.js#L56-60) has changed
     to load the worker class **ASYNC**. This may be causing the [modified worker_client](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/editor/modules/ace/worker/worker_client.js)
     to call the worker class before it is initialized.
     * **FIX: The worker_client must wait until the client is fully initilized.**
-  * There may be other reasons that should be troubleshooted by someone who knows the init process well.
 
 
 Developing
