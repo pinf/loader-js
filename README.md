@@ -30,7 +30,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[CouchApp](http://couchapp.org/page/index)__ (__Not Yet Implemented__)
   * __[Titanium](http://www.appcelerator.com/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
-    * __Standalone__ - Just include one small file in your page (**< 8 KB zipped maybe < ~4 KB**)
+    * __Standalone__ - Just include one small file in your page (**6.2 KB minified & gziped**)
     * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
     * __[RequireJS](http://requirejs.org/)__ (__Not Yet Implemented__)
     * __[Dojo](http://dojotoolkit.org/)__ (__Not Yet Implemented__)
@@ -100,6 +100,8 @@ Documentation
   * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
   * [Use Cases](https://github.com/pinf/loader-js/blob/master/docs/UseCases.md) - The loader can be used in various ways.
   * [Writing Programs](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md) - A quick introduction.
+
+  * [Compare to other loaders](https://spreadsheets.google.com/lv?key=tDdcrv9wNQRCNCRCflWxhYQ&toomany=true#gid=0) (third party link)
 
 
 Support & Feedback
