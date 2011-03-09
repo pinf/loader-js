@@ -95,11 +95,14 @@ For more demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/mas
 Documentation
 =============
 
+  * [High-level Introduction](https://github.com/pinf/loader-js/blob/master/docs/Presentations/Introduction.md) (presentation slides)
+
   * [Setup](https://github.com/pinf/loader-js/blob/master/docs/Setup.md) - Setup your `commonjs` command.
   * [Demos](https://github.com/pinf/loader-js/blob/master/docs/Demos.md) - Looking at the source code of the demos is a good place to start.
-  * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
   * [Use Cases](https://github.com/pinf/loader-js/blob/master/docs/UseCases.md) - The loader can be used in various ways.
   * [Writing Programs](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md) - A quick introduction.
+
+  * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
 
   * [Compare to other loaders](https://spreadsheets.google.com/lv?key=tDdcrv9wNQRCNCRCflWxhYQ&toomany=true#gid=0) (third party link)
 
