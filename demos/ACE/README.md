@@ -21,10 +21,30 @@ TODO:
 Developing
 ----------
 
-The loader downloads archives from Github to provision ACE and stores these in `./.pinf-packages/downloads/**/*~sources/`.
+When the demo runs it downloads archives from github to provision ACE locally.
 
-You should be able to link cloned source repositories to these directories to hack on ACE. This process will be improved via
-a `sources.json` file shortly (see TODO below).
+If you want to make changes to ACE you need to overlay a source repository that is used instead of the downloaded one.
+
+Place the following code into a file at `./sources.local.json`:
+
+    {
+        "packages": {
+            "github.com/ajaxorg/ace/": {
+                "source": {
+                    "location": "/path/to/cloned/ace"
+                }
+            }
+        }
+    }
+
+Where:
+
+  * The `packages` keys are the `UID`s (minus protocol) from `program.json`
+  * The `location` property pointes to a cloned version of [https://github.com/ajaxorg/ace](https://github.com/ajaxorg/ace)
+
+To make changes to other packages clone the appropriate source repository and add it to the `sources.json` file. Restart the demo server.
+
+Source overlays can be added in various ways. See [../../docs/SourceOverlays.md](https://github.com/pinf/loader-js/blob/master/docs/SourceOverlays.md)
 
 
 TODO
@@ -42,7 +62,6 @@ Development workflow:
     * Caching
     * Proactive payload generation on file change
   * Reduce browser receiving times by zipping response in _Program Server_
-  * Splice in source repositories if available locally
 
 Build workflow:
 

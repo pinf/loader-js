@@ -6,7 +6,7 @@
     ],
     "mappings": {
         "ace": {
-            "archive": "https://github.com/ajaxorg/ace/zipball/master"
+            "id": "github.com/ajaxorg/ace/"
         },
         "nodejs": {
             "id": "nodejs.org"

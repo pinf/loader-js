@@ -9,7 +9,13 @@
                 "location": "./"
             }
         },
-        "github.com/ajaxorg/ace/zipball/master": {
+        "github.com/ajaxorg/ace/": {
+            "locator": {
+                "archive": "https://github.com/ajaxorg/ace/zipball/master",
+                "descriptor": {
+                    "uid": "https://github.com/ajaxorg/ace/"
+                }
+            }
         },
         "github.com/kriszyp/jsgi-node/zipball/master": {
             "locator": {

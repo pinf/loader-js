@@ -57,7 +57,8 @@ exports.init = function(api)
     api.SYSTEM.pwd = "__PWD__";
 
     api.SYSTEM.env = {
-        TERM: ""
+        TERM: "",
+        HOME: ""
     };
 
     if (typeof api.SYSTEM.print == "undefined")
@@ -1954,6 +1955,7 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
         }
 
         sandbox.setProgram(program);
+        sandbox.sourceDescriptors = options.sourceDescriptors || void 0;
 
         program.assembler = self;
 
@@ -2021,7 +2023,7 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
  * 
  * @throws If package is not listed (by UID) in program's descriptor
  */
-Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, callback)
+Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, callback, options)
 {
     var self = this;
 
@@ -2033,7 +2035,7 @@ Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, ca
     {
         DEBUG.print("Locator(resolved): " + UTIL.locatorToString(resolvedLocator));
 
-        var pkg = sandbox.ensurePackageForLocator(resolvedLocator);
+        var pkg = sandbox.ensurePackageForLocator(resolvedLocator, options);
 
         if (pkg.discovering)
         {
@@ -2056,7 +2058,7 @@ Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, ca
                 }
                 else
                 {
-                    callback(sandbox.ensurePackageForLocator(resolvedLocator), resolvedLocator);
+                    callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
                 }
             });
             
@@ -4140,6 +4142,24 @@ Plugin.prototype.init = function()
     bravojs.reset(null, bravojs.plugins);
 }
 
+Plugin.prototype.requireModule = function(id)
+{
+    if (!id)
+        return;
+    
+    // The text plugins need special handeling
+    if (id.match(/^text!/))
+    {
+        if (!bravojs.requireMemo[id] && bravojs.pendingModuleDeclarations[id])
+        {
+            bravojs.requireMemo[id] = bravojs.pendingModuleDeclarations[id].moduleFactory();
+        }
+        if (!bravojs.requireMemo[id])
+            throw new Error("Module " + id + " is not available.");
+        return true;
+    }
+}
+
 Plugin.prototype.newRequire = function(helpers)
 {
     var bravojs = this.bravojs;
@@ -4147,7 +4167,7 @@ Plugin.prototype.newRequire = function(helpers)
     var newRequire = function packages_require(moduleIdentifier) 
     {
         // RequireJS compatibility. Convert require([], callback) to module.load([], callback).
-        if (Array.isArray(moduleIdentifier) && arguments.length == 2)
+        if (Object.prototype.toString.call(moduleIdentifier) == "[object Array]" && arguments.length == 2)
         {
             if (moduleIdentifier.length > 1)
                throw new Error("require([], callback) with more than one module in [] is not supported yet!");
@@ -4542,7 +4562,7 @@ Descriptor.prototype.clone = function()
 
 Descriptor.prototype.load = function(path)
 {
-    if (FILE.basename(path) != this.filename)
+    if (this.filename && FILE.basename(path) != this.filename)
         path += this.filename;
 
     if (!/\.json$/.test(path))
@@ -4699,6 +4719,22 @@ Program.prototype.augmentLocator = function(locator, options)
     var ids = [],
         enforce = false;
 
+    function finalize(locator)
+    {
+        if (typeof options.sourceDescriptors != "undefined" && options.sourceDescriptors.length > 0)
+        {
+            for (var i=0, ic=options.sourceDescriptors.length, ret ; i<ic ; i++)
+            {
+                if (ret = options.sourceDescriptors[i].augmentLocator(locator))
+                {
+                    locator = ret;
+                    break;
+                }
+            }
+        }
+        return locator;
+    }        
+
     // First check if an ID matches exactly
     if (typeof locator.id != "undefined")
     {
@@ -4755,7 +4791,7 @@ Program.prototype.augmentLocator = function(locator, options)
                 throw this.validationError("Derived package IDs '"+ids+"' for locator '"+UTIL.locatorToString(locator)+"' not found as key in property 'packages'");
         }
         else
-            return locator;
+            return finalize(locator);
     }
 
     if (typeof locator.id == "undefined")
@@ -4763,14 +4799,14 @@ Program.prototype.augmentLocator = function(locator, options)
 
     if (typeof found.provider != "undefined")
     {
-        return UTIL.deepMerge(locator, {"provider": found.provider});
+        return finalize(UTIL.deepMerge(locator, {"provider": found.provider}));
     }
     else
     {
         if (typeof found.locator == "undefined")
-            return locator;
+            return finalize(locator);
 
-        return this._normalizeLocator(UTIL.deepMerge(locator, found.locator));
+        return finalize(this._normalizeLocator(UTIL.deepMerge(locator, found.locator)));
     }
 }
 
@@ -4876,6 +4912,39 @@ Catalog.prototype.packageLocatorForLocator = function(locator)
     }
     else
         throw new Error("NYI");
+}
+
+
+// ######################################################################
+// # Sources Descriptor
+// ######################################################################
+
+var Sources = exports.Sources = function(path)
+{
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Sources;
+    this.load(path);
+}
+Sources.prototype = new Descriptor();
+
+Sources.prototype.augmentLocator = function(locator)
+{
+    if (typeof this.json.packages != "object" ||
+        typeof locator.id == "undefined" ||
+        typeof this.json.packages[locator.id] == "undefined" ||
+        typeof this.json.packages[locator.id].source == "undefined")
+        return false;
+    if (typeof this.json.packages[locator.id].source.location == "undefined")
+        throw new Error("Source locator for package '" + locator.id + "' must specify 'location' property in: " + this.path);
+    if (this.json.packages[locator.id].source.location.charAt(0) != "/")
+        throw new Error("'location' property for source locator for package '" + locator.id + "' must be an absolute path (start with '/') in: " + this.path);
+
+    locator = API.UTIL.deepCopy(locator);
+    locator.location = this.json.packages[locator.id].source.location;
+    if (!/\/$/.test(locator.location))
+        locator.location += "/";
+    return locator;
 }
 
 });
@@ -5199,7 +5268,7 @@ __loader__.memoize('loader', function(__require__, module, exports) {
 
 var boot = exports.boot = function(options)
 {
-    const VERSION = "v0.1dev";
+    const VERSION = "0.0.2";
     var timers = {
         start: new Date().getTime(),
         loadAdditional: 0
@@ -5271,6 +5340,7 @@ var boot = exports.boot = function(options)
     API.DEBUG.enabled = options.debug || void 0;
     API.SYSTEM.print = options.print || void 0;
     API.ENV.platformRequire = options.platformRequire || void 0;
+    API.ENV.mustClean = options.clean || false;
 
     // NOTE: If you modify this line you need to update: ../programs/bundle-loader/lib/bundler.js
     __require__("adapter/" + adapter).init(API);
@@ -5294,6 +5364,7 @@ var boot = exports.boot = function(options)
     optParser.help("Runs the PINF JavaScript Loader.");
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--platform").set().help("The platform to use");
+    optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
     optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
@@ -5373,7 +5444,7 @@ var boot = exports.boot = function(options)
     }
 
     API.DEBUG.print("\0magenta(----------------------------------------------------------------------------");
-    API.DEBUG.print("\0bold(|  PINF Loader " + VERSION + "  ~  https://github.com/pinf/loader-js/\0)");
+    API.DEBUG.print("\0bold(|  PINF Loader v" + VERSION + "  ~  https://github.com/pinf/loader-js/\0)");
     API.DEBUG.print("----------------------------------------------------------------------------\0)");
 
     API.DEBUG.print("Loaded adapter: " + API.ENV.platform);
@@ -5403,16 +5474,58 @@ var boot = exports.boot = function(options)
         }
         if (!path[path.length-1] || path[path.length-1] != "program.json")
         {
-            API.DEBUG.print("No descriptor URI argument. Assuming: './program.json'");
+            API.DEBUG.print("No descriptor URI argument. Assuming: '[./]program.json'");
             path.push("program.json");
         }
         path = API.FILE.realpath(path.join("/"));
     
         API.DEBUG.print("Loading program descriptor from: " + path);
-    
+
         downloader.basePath = path.substring(0, path.length-13) + "/.pinf-packages";
     
         API.DEBUG.print("Using program cache directory: " + downloader.basePath);
+
+
+        // ######################################################################
+        // # Source overlays
+        // ######################################################################
+
+        API.ENV.loadSourceDescriptorsForProgram = function(path)
+        {
+            var DESCRIPTORS = __require__('descriptors');
+            var sourceDescriptors = [],
+                files = [];
+            if (cliOptions.sources)
+            {
+                if (!API.FILE.exists(cliOptions.sources))
+                    throw new Error("Source repository overlay file specified via --sources not found at: " + cliOptions.sources);
+                files.push(cliOptions.sources);
+            }
+            files.push(API.FILE.dirname(path) + "/sources.local.json");
+            if (typeof API.SYSTEM.env.HOME != "undefined" && API.SYSTEM.env.HOME)
+                files.push(API.SYSTEM.env.HOME + "/.pinf/config/sources.json");
+            files.push(API.FILE.dirname(path) + "/sources.json");
+            files.forEach(function(sourcesPath)
+            {
+                if (API.FILE.exists(sourcesPath))
+                    sourceDescriptors.push(new DESCRIPTORS.Sources(sourcesPath));
+            });
+            if (API.DEBUG.enabled)
+            {
+                if (sourceDescriptors.length > 0)
+                {
+                    API.DEBUG.print("Using source overlay files:");
+                    sourceDescriptors.forEach(function(sourceDescriptor)
+                    {
+                        API.DEBUG.print("  \0cyan(" + sourceDescriptor.path + "\0)");
+                    });
+                }
+                else
+                    API.DEBUG.print("Not using any source overlay files.");
+            }
+            return sourceDescriptors;
+        }
+
 
         // ######################################################################
         // # Sandbox
@@ -5438,7 +5551,13 @@ var boot = exports.boot = function(options)
             }
 
             if (!API.FILE.exists(scriptPath))
-                throw new Error("Script not found at: " + scriptPath);
+            {
+                if (/\.js$/.test(scriptPath))
+                    scriptPath = scriptPath.substring(0, scriptPath.length-3);
+
+                if (!API.FILE.exists(scriptPath))
+                    throw new Error("Script not found at: " + scriptPath);
+            }
 
             sandbox.init();
             sandbox.declare([ scriptPath ], function(require, exports, module)
@@ -5467,6 +5586,12 @@ var boot = exports.boot = function(options)
         // ######################################################################
         // # Program assembly
         // ######################################################################
+
+        if (!API.FILE.exists(path))
+        {
+            API.SYSTEM.print("\0red(No program descriptor found at: " + path + "\0)\n");
+            return;
+        }
 
         // Assemble the program (making all code available on disk) by downloading all it's dependencies
 
@@ -5497,7 +5622,7 @@ var boot = exports.boot = function(options)
             // ######################################################################
     
             API.ENV.booting = true;
-    
+
             var dependencies = program.getBootPackages();
     
             if (API.DEBUG.enabled) {
@@ -5508,7 +5633,7 @@ var boot = exports.boot = function(options)
                         API.DEBUG.print("  " + dependencies[i]["_package-" + i].location);
                 }
             }
-    
+
             timers.load = new Date().getTime()
 
             var env = options.env || {};
@@ -5548,18 +5673,24 @@ var boot = exports.boot = function(options)
                         API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
                     }
                 }
-    
+
                 API.ENV.booting = false;
-    
+
                 timers.end = new Date().getTime()
 
                 API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
                 var f = "";
                 for (var i=0 ; i<hl ; i++) f += "|";
                 API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
+
+                if (typeof options.callback != "undefined")
+                {
+                    options.callback(sandbox, require);
+                }
             });
         }, {
-            "discover-packages": cliOptions["discover-packages"] || false
+            "discover-packages": cliOptions["discover-packages"] || false,
+            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
         });
     } // init()
 
@@ -5597,7 +5728,8 @@ __loader__.memoize('modules/pinf/loader', function(__require__, module, exports)
 // Authors:
 //  - cadorn, Christoph Dorn <christoph@christophdorn.com>, Copyright 2011, MIT License
 
-var API = __require__('api');
+var API = __require__('api'),
+    LOADER = __require__('loader');
 
 exports.getPlatformRequire = function()
 {
@@ -5628,12 +5760,23 @@ exports.runProgram = function(options, callback)
 
 var Sandbox = exports.Sandbox = function Sandbox(options, callback)
 {
+    var self = this;
+
     options = options || {};
-    
+
+    if (typeof options.program != "undefined")
+    {
+        options.callback = function(sandbox, require)
+        {
+            callback(self, require);
+        }
+        LOADER.boot(options);
+    }
+    else
     if (typeof options.programPath != "undefined")
     {
         // Create a fresh sandbox for the program
-        
+
         if (typeof callback == "undefined")
             throw new Error("Callback must be supplied when creating sandbox for program!");
 
@@ -5646,8 +5789,6 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
         var sandbox = new API.SANDBOX.Sandbox({
             mainModuleDir: API.FILE.dirname(options.programPath) + "/"
         });
-
-        var self = this;
 
         self.getMainModuleDir = function()
         {
@@ -5699,17 +5840,24 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
             return sandbox.loader.bravojs.module.load(moduleIdentifier, callback);
         }
 
-        API.ENV.assembler.assembleProgram(sandbox, options.programPath, function(program)
+        // Inherit source descriptors from program
+        var sourceDescriptors = API.ENV.sandbox.sourceDescriptors || [];
+        sourceDescriptors = sourceDescriptors.concat(API.ENV.loadSourceDescriptorsForProgram(options.programPath));
+
+        API.ENV.assembler.assembleProgram(sandbox, options.programPath, function() {}, function(program)
         {
             self.program = program;
 
             var dependencies = program.getBootPackages();
-            
+
             // Declare program boot packages but do not call main() on them
             sandbox.declare(dependencies, function(require, exports, module)
             {            
-                callback(self);
+                callback(self, require);
             });
+        },        
+        {
+            sourceDescriptors: sourceDescriptors
         });
     }
     else
@@ -5717,7 +5865,7 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
         // Create a child sandbox by cloning our existing sandbox.
         // The child sandbox will hold all existing modules initially and allow
         // for loading of extra modules that are memoized only to the child sandbox.
-        
+
         // TODO: Do not get our sandbox from API.ENV.sandbox as it will have the wrong
         //       one if we are running in a sandboxed program (see above).
         var sandbox = API.ENV.sandbox.clone();
@@ -5729,7 +5877,9 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
                 sandbox.declare(dependencies, moduleFactory);
             });
             for (var i=0,ic=dependencies.length ; i<ic ; i++)
-                API.ENV.assembler.addPackageToProgram(sandbox, sandbox.program, dependencies[i][Object.keys(dependencies[i])[0]], cbt.add());
+                API.ENV.assembler.addPackageToProgram(sandbox, sandbox.program, dependencies[i][Object.keys(dependencies[i])[0]], cbt.add(), {
+                    sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(sandbox.program.descriptor.path)
+                });
             
             cbt.done();
         }
@@ -6453,7 +6603,8 @@ Package.prototype.discoverMappings = function(fetcher, callback)
             if(!pkg)
                 return;
 
-            DEBUG.indent(di+1).print("Path: \0cyan(" + pkg.path + "\0)");
+            DEBUG.indent(di+1).print("ID: \0cyan(" + locator.id + "\0)");
+            DEBUG.indent(di+1).print("Path: \0cyan(" + (locator.location || pkg.path) + "\0)");
 
             // Update the mapping locator to be absolute path location-based
             if (typeof self.normalizedDescriptor.json.mappings[alias] != "object")
@@ -7206,13 +7357,14 @@ Program.prototype.discoverPackages = function(fetcher, callback)
     {
         DEBUG.indent(di).print("ID: " + id).indent(di+1);
 
-        fetcher(self.descriptor.locatorForId(id), cbt.add(function(pkg)
+        fetcher(self.descriptor.locatorForId(id), cbt.add(function(pkg, locator)
         {
             // This should only happen if locator points to a provider
 //            if(!pkg)
 //                return;
 
-            DEBUG.indent(di+1).print("Path: \0cyan(" + pkg.path + "\0)");
+            DEBUG.indent(di+1).print("ID: \0cyan(" + locator.id + "\0)");
+            DEBUG.indent(di+1).print("Path: \0cyan(" + (locator.location || pkg.path) + "\0)");
             if (pkg.discovering)
             {
                 DEBUG.indent(di+1).print("... skip second pass ...");

@@ -101,6 +101,7 @@ Documentation
   * [Demos](https://github.com/pinf/loader-js/blob/master/docs/Demos.md) - Looking at the source code of the demos is a good place to start.
   * [Use Cases](https://github.com/pinf/loader-js/blob/master/docs/UseCases.md) - The loader can be used in various ways.
   * [Writing Programs](https://github.com/pinf/loader-js/blob/master/docs/WritingPrograms.md) - A quick introduction.
+  * [Source Overlays](https://github.com/pinf/loader-js/blob/master/docs/SourceOverlays.md) - Use cloned source code instead of downloaded archive for a package.
 
   * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
 
