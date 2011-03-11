@@ -1,0 +1,24 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/SystemDependencies/",
+    "engine": [
+        "node"
+    ],
+    "packages": {
+        "github.com/pinf/loader-js/demos/SystemDependencies/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/SystemDependencies/packages/main/": {},
+        "github.com/bentomas/node-mime/zipball/master": {
+            "locator": {
+                "descriptor": {
+                    "native": true,
+                    "directories": {
+                        "lib": ""
+                    }
+                }
+            }
+        }
+    }
+}

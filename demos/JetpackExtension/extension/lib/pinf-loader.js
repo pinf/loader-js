@@ -405,6 +405,9 @@ UTIL.deepMerge = function(target, source) {
     var key;
     for (key in source) {
         if(Object.prototype.hasOwnProperty.call(source, key)) {
+            if(Array.isArray(source[key])) {
+                target[key] = source[key];
+            } else
             if(typeof source[key] == "object" && Object.prototype.hasOwnProperty.call(target, key) &&
                typeof target[key] == "object" && !Array.isArray(target[key])) {
                 UTIL.deepMerge(target[key], source[key]);
@@ -2048,7 +2051,7 @@ Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, ca
             return;
         }
 
-        pkg.discoverMappings(function assembler_assembleProgram_lambda_addPackageToProgram_packageForLocator(locator, callback)
+        pkg.discoverPackages(function assembler_assembleProgram_lambda_addPackageToProgram_packageForLocator(locator, callback)
         {
             program.resolveLocator(self, locator, function(resolvedLocator)
             {
@@ -4370,12 +4373,13 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
         }
 
         // Give opportunity to verify resolved ID to discover missing mappings for example
-        bravojs.callPlugins("verifyModuleIdentifier", [moduleIdentifier, {
+        var ret = bravojs.callPlugins("verifyModuleIdentifier", [moduleIdentifier, {
             moduleIdentifier: originalModuleIdentifier,
             relativeModuleDir: relativeModuleDir,
             context: context
         }]);
-
+        if (typeof ret != "undefined")
+            return ret;
         return moduleIdentifier;
     }
 
@@ -4845,6 +4849,30 @@ Package.prototype.walkMappings = function(callback)
         throw this.validationError("Property 'mappings' must be an object");
     for (var alias in this.json.mappings)
         callback(alias, this._normalizeLocator(this.json.mappings[alias]));
+}
+
+Package.prototype.hasDependencies = function()
+{
+    if (typeof this.json.dependencies == "undefined" ||
+        !Array.isArray(this.json.dependencies) ||
+        this.json.dependencies.length == 0)
+        return false;
+    return true;
+}
+
+Package.prototype.walkDependencies = function(callback)
+{
+    if (typeof this.json.dependencies == "undefined")
+        return;
+    if (!Array.isArray(this.json.dependencies))
+        throw this.validationError("Property 'dependencies' must be an array");
+    if (this.json.dependencies.length == 0)
+        return;
+    for (var i=0,ic=this.json.dependencies.length ; i<ic ; i++)
+    {
+        if (typeof this.json.dependencies[i] == "object")
+            callback(i, this._normalizeLocator(this.json.dependencies[i]));
+    }
 }
 
 Package.prototype.moduleIdToLibPath = function(moduleId)
@@ -6574,71 +6602,147 @@ Package.prototype.getHashId = function()
     return this.hashId;
 }
 
-Package.prototype.discoverMappings = function(fetcher, callback)
+Package.prototype.discoverPackages = function(fetcher, callback)
 {
     this.discovering = true;
     var self = this;
 
-    if (!this.normalizedDescriptor.hasMappings())
-    {
-        DEBUG.print("Mappings: None");
-        callback();
-        return;
-    }
-    
-    DEBUG.print("Mappings:");
-    var di = DEBUG.indent() + 1;
-
     var cbt = new UTIL.CallbackTracker(callback);
 
-    var self = this;
+    var di = DEBUG.indent() + 1;
 
-    self.normalizedDescriptor.walkMappings(function(alias, locator)
+    if (!this.normalizedDescriptor.hasMappings())
     {
-        DEBUG.indent(di).print("\0yellow(" + alias + "\0) <- " + UTIL.locatorToString(locator)).indent(di+1);
-
-        fetcher(locator, cbt.add(function(pkg, locator)
+        DEBUG.indent(di-1).print("Mappings: None");
+    }
+    else
+    {
+        DEBUG.indent(di-1).print("Mappings:");
+        
+        self.normalizedDescriptor.walkMappings(function(alias, locator)
         {
-            // This may happen if locator specifies "available" = false
-            if(!pkg)
-                return;
-
-            DEBUG.indent(di+1).print("ID: \0cyan(" + locator.id + "\0)");
-            DEBUG.indent(di+1).print("Path: \0cyan(" + (locator.location || pkg.path) + "\0)");
-
-            // Update the mapping locator to be absolute path location-based
-            if (typeof self.normalizedDescriptor.json.mappings[alias] != "object")
-                self.normalizedDescriptor.json.mappings[alias] = {};
-
-            self.normalizedDescriptor.json.mappings[alias].location = pkg.path;
-
-            if (typeof locator.module != "undefined")
+            DEBUG.indent(di).print("\0yellow(" + alias + "\0) <- " + UTIL.locatorToString(locator)).indent(di+1);
+    
+            fetcher(locator, cbt.add(function(pkg, locator)
             {
-                self.normalizedDescriptor.json.mappings[alias].module = locator.module;
-            }
+                // This may happen if locator specifies "available" = false
+                if(!pkg)
+                    return;
+    
+                DEBUG.indent(di+1).print("ID: \0cyan(" + locator.id + "\0)");
+                DEBUG.indent(di+1).print("Path: \0cyan(" + (locator.location || pkg.path) + "\0)");
 
-            if (pkg.discovering)
+                if (typeof self.normalizedDescriptor.json.mappings[alias] != "object")
+                    self.normalizedDescriptor.json.mappings[alias] = {};
+
+                // Update the mapping locator to be absolute path location-based
+                self.normalizedDescriptor.json.mappings[alias].location = pkg.path;
+    
+                if (typeof locator.module != "undefined")
+                {
+                    self.normalizedDescriptor.json.mappings[alias].module = locator.module;
+                }
+    
+                if (pkg.discovering)
+                {
+                    DEBUG.indent(di+1).print("... skip second pass ...");
+                    return;
+                }
+    
+                pkg.discoverPackages(fetcher, cbt.add());
+            }));
+        });
+    }
+
+    if (!this.normalizedDescriptor.hasDependencies())
+    {
+        DEBUG.indent(di-1).print("Dependencies: None");
+    }
+    else
+    {
+        DEBUG.indent(di-1).print("Dependencies:");
+
+        self.normalizedDescriptor.walkDependencies(function(index, locator)
+        {
+            DEBUG.indent(di).print("\0yellow([" + index + "]\0) <- " + UTIL.locatorToString(locator)).indent(di+1);
+
+            fetcher(locator, cbt.add(function(pkg, locator)
             {
-                DEBUG.indent(di+1).print("... skip second pass ...");
-                return;
-            }
+                // This may happen if locator specifies "available" = false
+                if(!pkg)
+                    return;
+    
+                DEBUG.indent(di+1).print("ID: \0cyan(" + locator.id + "\0)");
+                DEBUG.indent(di+1).print("Path: \0cyan(" + (locator.location || pkg.path) + "\0)");
 
-            pkg.discoverMappings(fetcher, cbt.add());
-        }));
-    });
+                if (typeof self.normalizedDescriptor.json.dependencies[index] != "object")
+                    self.normalizedDescriptor.json.dependencies[index] = {};
+
+                // Update the mapping locator to be absolute path location-based
+                self.normalizedDescriptor.json.dependencies[index].location = pkg.path;
+
+                if (pkg.discovering)
+                {
+                    DEBUG.indent(di+1).print("... skip second pass ...");
+                    return;
+                }
+                pkg.discoverPackages(fetcher, cbt.add());
+            }));
+        });
+    }
 
     cbt.done();
 }
 
-Package.prototype.getMainId = function(locator)
+Package.prototype.getMainId = function(locator, silent)
 {
+    var id;
     if (typeof locator != "undefined" && typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
     {
-        return this.path + "/@/" + locator.descriptor.main;
+        id = this.path + "@/" + locator.descriptor.main;
     }
+    else
     if (typeof this.normalizedDescriptor.json.main == "undefined")
+    {
+        if (silent)
+            return false;
         throw new Error("Package at path '" + this.path + "' does not have the 'main' property set in its package descriptor.");
-    return this.path + "/@/" + this.normalizedDescriptor.json.main;
+    }
+    id = this.path + "@/" + this.normalizedDescriptor.json.main;
+    if (!/\.js$/.test(id))
+        id += ".js";
+    return API.FILE.realpath(id);
+}
+
+/**
+ * For dependencies that have a main module set and are accessed by name
+ * 
+ * NOTE: This assumes packages are extracted on a writable filesystem
+ * @param {Object} locator
+ */
+Package.prototype.ensureMainIdModule = function(locator)
+{
+    var mainId = this.getMainId(locator, true);
+    if (!mainId)
+        return;
+    var mainPath = mainId.replace("@/", "/");
+    if (!API.FILE.exists(mainPath))
+        throw new Error("Main module not found at: " + mainPath);
+    if (typeof this.normalizedDescriptor.json.name != "string")
+        throw new Error("No package name specified (needed for determining package module) for package: " + this.path);
+    var pkgModulePath = API.FILE.realpath(this.path + "/" + this.normalizedDescriptor.json.name + ".js");
+    if (API.FILE.exists(pkgModulePath))
+        return true;
+    var relMainPath = "." + mainPath.substring(API.FILE.dirname(pkgModulePath).length),
+        relPkgModulePath = "." + pkgModulePath.substring(API.FILE.dirname(pkgModulePath).length);
+    // TODO: Write file instead of linking?
+    API.SYSTEM.exec("cd " + API.FILE.dirname(pkgModulePath) + "; ln -s " + relMainPath + " " + pkgModulePath, function(stdout, stderr)
+    {
+        if (stderr)
+            throw new Error("Error linking '"+pkgModulePath+"' to '"+mainPath+"': " + stderr);
+    });
+    // NOTE: We should really wait until SYSTEM.exec has finished.
+    return true;
 }
 
 Package.prototype.getIsNative = function(locator)
@@ -6650,6 +6754,20 @@ Package.prototype.getIsNative = function(locator)
     if (typeof this.normalizedDescriptor.json["native"] != "undefined")
         return this.normalizedDescriptor.json["native"];
     return false;
+}
+
+Package.prototype.getLibDir = function(locator)
+{
+    if (typeof locator != "undefined" &&
+        typeof locator.descriptor != "undefined" &&
+        typeof locator.descriptor.directories != "undefined" &&
+        typeof locator.descriptor.directories.lib != "undefined")
+    {
+        return locator.descriptor.directories.lib;
+    }
+    if (this.normalizedDescriptor.json.directories && this.normalizedDescriptor.json.directories.lib)
+        return this.normalizedDescriptor.json.directories.lib;
+    return "lib";
 }
 
 Package.prototype.moduleSourceExists = function(resourceURI)
@@ -7371,7 +7489,7 @@ Program.prototype.discoverPackages = function(fetcher, callback)
                 return;
             }
 
-            pkg.discoverMappings(fetcher, cbt.add());
+            pkg.discoverPackages(fetcher, cbt.add());
         }));
     });
 
@@ -7618,7 +7736,32 @@ Sandbox.prototype.init = function()
 
         // If it is a native package we let the platform's require handle it
         if (pkg && pkg.getIsNative() === true)
-            return API.ENV.platformRequire(id.replace(/@\//g, "\/"));
+        {
+            // Update platfrom's lookup paths before calling the module based on the
+            // dependencies registered for the package if applicable
+            if (pkg.normalizedDescriptor.hasDependencies())
+            {
+                var oldLength = API.ENV.platformRequire.paths.length;
+                pkg.normalizedDescriptor.walkDependencies(function(index, locator)
+                {
+                    var depPkg = self.packageForId(locator.id, true),
+                        depLibDir = depPkg.getLibDir(locator);
+                    // ensure package main module can be required by package name
+                    if (depPkg.ensureMainIdModule(locator))
+                    {
+                        // package has a module that should be accessible by package name
+                        // add the package root to the search path as that is where the package module is stored
+                        API.ENV.platformRequire.paths.unshift(depPkg.path);
+                    }
+                    API.ENV.platformRequire.paths.unshift(depPkg.path + "/" + ((depLibDir)?depLibDir+"/":""));
+                });
+                var exports = API.ENV.platformRequire(id.replace(/@\//g, "\/"));
+                API.ENV.platformRequire.paths.splice(0, (API.ENV.platformRequire.paths.length - oldLength));                
+                return exports;
+            }
+            else
+                return API.ENV.platformRequire(id.replace(/@\//g, "\/"));
+        }
     }
     Plugin.prototype.contextForId = function(id)
     {
@@ -7667,7 +7810,29 @@ Sandbox.prototype.init = function()
         {
             if (!pkg.moduleSourceExists(moduleIdentifier))
             {
-                throw new Error("Incorrectly resolved (file does not exist) moduleIdentifier '" + API.UTIL.locatorToString(args.moduleIdentifier) + "' to '" + API.UTIL.locatorToString(moduleIdentifier) + "' against context '" + args.context.id + "' and relativeModuleDir '" + args.relativeModuleDir + "'.");
+                var parts = moduleIdentifier.split("@/"),
+                    found = false;
+                // Before we throw we check the ID against the package's system packages
+                if (parts.length == 2 && pkg.normalizedDescriptor.hasDependencies())
+                {
+                    var libDir = pkg.getLibDir();
+                    if (parts[1].substring(0, libDir.length+1) == libDir+"/")
+                    {
+                        pkg.normalizedDescriptor.walkDependencies(function(index, locator)
+                        {
+                            if (found)
+                                return;
+                            var depPkg = self.packageForId(locator.id, true),
+                                depLibDir = depPkg.getLibDir(locator),
+                                modulePath = ((depLibDir)?depLibDir+"/":"") + parts[1].substring(libDir.length+1);
+                            if (depPkg.moduleSourceExists(modulePath))
+                                found = depPkg.path + "@/" + modulePath;
+                        });
+                    }
+                }
+                if (!found)
+                    throw new Error("Incorrectly resolved (file does not exist) moduleIdentifier '" + API.UTIL.locatorToString(args.moduleIdentifier) + "' to '" + API.UTIL.locatorToString(moduleIdentifier) + "' against context '" + args.context.id + "' and relativeModuleDir '" + args.relativeModuleDir + "'.");
+                return found;
             }
         }
     }
@@ -7939,9 +8104,7 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
         // Convert mapped module IDs to paths
         if (typeof this.packages[path].normalizedDescriptor.json.modules != "undefined")
         {
-            var libDir = this.packages[path].normalizedDescriptor.json.directories && this.packages[path].normalizedDescriptor.json.directories.lib;
-            if (typeof this.libDir != "string")
-                libDir = "lib";
+            var libDir = this.packages[path].getLibDir();
 
             var modules = {};
             for (var id in this.packages[path].normalizedDescriptor.json.modules)

@@ -1,0 +1,16 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/SystemDependencies/packages/main/",
+    "main": "main.js",
+    "engine": [
+        "node"
+    ],
+    "native": true,
+    "directories": {
+        "lib": ""
+    },
+    "dependencies": [
+        {
+            "archive": "https://github.com/bentomas/node-mime/zipball/master"
+        }
+    ]
+}
