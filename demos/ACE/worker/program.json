@@ -54,7 +54,7 @@
                     },
                     "mappings": {
                         "pilot": {
-                            "location": "./"
+                            "id": "github.com/ajaxorg/pilot/"
                         }
                     }
                 }
