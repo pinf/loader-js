@@ -16,6 +16,7 @@ TODO:
     to load the worker class **ASYNC**. This may be causing the [modified worker_client](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/editor/modules/ace/worker/worker_client.js)
     to call the worker class before it is initialized.
     * **FIX: The worker_client must wait until the client is fully initilized.**
+  * The worker seems to be loaded twice for some reason. Likely related to issue above.
 
 
 Developing
@@ -49,11 +50,6 @@ Source overlays can be added in various ways. See [../../docs/SourceOverlays.md]
 
 TODO
 ----
-
-Overall:
-
-  * Configurable path for worker code. See [./editor/modules/ace/worker/worker_client.js](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/editor/modules/ace/worker/worker_client.js#L19)
-  * Hierarchical transport file declarations in `program.json` to exclude already loaded modules from additional transport files.
 
 Development workflow:
 

@@ -29,16 +29,15 @@ TODO
 General
 -------
 
-  * `npm` package for loader
   * OS distro packages for loader
 
   * Author: CommonJS Programs/A (strawman)
   * Author: PINF Workspace/A (strawman)
 
   * Enforce reserved names for mapping labels based on default modules provided by platform
-  * Enforce `os` from package descriptor
 
   * Build and publish commands to provide versioned releases (This will be part of PINF/CLI)
+
 
 NodeJS
 -------
@@ -52,7 +51,6 @@ Jetpack
   * CLI variables and arguments
   * Package parsing to find widgets etc... for security policy stuff
 
-  * ChromeURL to JSGI
   * Downloading program archives based on mappings
   * Resource path resolving for packages
   * Hook package testing into `cfx test`
@@ -221,13 +219,30 @@ New: Module Mappings
 CommonJS Programs/A
 -------------------
 
-  * A program is booted by calling all packages listed by id in `boot`
-  * `boot` may also be a string package id if only one package is used to boot
+  * A program is booted by calling the package listed for `boot`
+    * __NOTE:__ Multiple `boot` packages (specified as array) are partially supported but will likely be phased out as there are too many side-effects
   * All packages listed in `boot` must have matching keys in `packages`
   * Only packages listed in `packages` may be loaded into the program
   * Only packages listed in `boot` (and associated dependencies) are loaded into the program at boot time
   * Additional packages may be loaded into program if listed in `packages`
 
+  * Load contexts to avoid adding already loaded modules to transport files. E.g.:
+    "contexts": {
+        "top": {
+            "github.com/pinf/loader-js/demos/ACE/editor/@/main": {
+                "include": {
+                    "github.com/ajaxorg/pilot/@/lib/pilot/index": {},
+                    "github.com/ajaxorg/ace/@/lib/ace/defaults": {},
+                    "github.com/ajaxorg/cockpit/@/lib/cockpit/index": {}
+                },
+                "load": {
+                    "github.com/ajaxorg/ace/": {}
+                }
+            },
+            "github.com/pinf/loader-js/demos/ACE/worker/@/worker": {
+            }
+        }
+    }
 
 
 Top-level ID formats

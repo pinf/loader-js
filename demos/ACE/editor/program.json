@@ -1,9 +1,30 @@
 {
     "boot": "github.com/pinf/loader-js/demos/ACE/editor/",
+    "contexts": {
+        "top": {
+            "github.com/pinf/loader-js/demos/ACE/editor/@/main": {
+                "include": {
+                    "github.com/ajaxorg/pilot/@/lib/pilot/index": {},
+                    "github.com/ajaxorg/ace/@/lib/ace/defaults": {},
+                    "github.com/ajaxorg/cockpit/@/lib/cockpit/index": {}
+                },
+                "load": {
+                    "github.com/ajaxorg/ace/": {}
+                }
+            },
+            "github.com/pinf/loader-js/demos/ACE/worker/@/worker": {
+            }
+        }
+    },
     "packages": {
         "github.com/pinf/loader-js/demos/ACE/editor/": {
             "locator": {
                 "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/ACE/worker/": {
+            "locator": {
+                "location": "../worker"
             }
         },
         "github.com/ajaxorg/ace/": {

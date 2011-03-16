@@ -13,6 +13,9 @@
                 }
             }
         },
+        "worker": {
+            "id": "github.com/pinf/loader-js/demos/ACE/worker/"
+        },
         "ace": {
             "id": "github.com/ajaxorg/ace/"
         },

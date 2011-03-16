@@ -34,14 +34,12 @@ module.declare([
                     PROMISE: PROMISE
                 },
                 map: {
-                    // replace boot request to load bundled editor
+                    // replace boot request to let program server handle it
                     "/demo/boot.js": {
                         programPath: PATH.dirname(module.id) + "/editor/program.json"
-                    },
-                    "/worker.js": {
-                        programPath: PATH.dirname(module.id) + "/worker/program.json"
                     }
-                }
+                },
+                trackRoutes: true
             });
 
             var staticApp = function(request)

@@ -16,7 +16,7 @@ var WorkerClient = function(topLevelNamespaces, packagedJs, module, classname) {
 
     this.callbacks = [];
 
-    this.$worker = new Worker("/worker.js");
+    this.$worker = new Worker(require.uri("worker/worker.js"));
 
     this.$worker.postMessage({
         init : true,
