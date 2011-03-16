@@ -12,7 +12,7 @@ Status
 
 TODO:
 
-  * The [worker](https://github.com/pinf/loader-js/blob/060749329dbaa395f7a55e0f8e979ca2707c5459/demos/ACE/worker/worker.js#L56-60) has changed
+  * The [worker](https://github.com/pinf/loader-js/blob/6740bd1fd8bb49974c145ca98fde92d67458786c/demos/ACE/worker/worker.js#L56-60) has changed
     to load the worker class **ASYNC**. This may be causing the [modified worker_client](https://github.com/pinf/loader-js/blob/060749329dbaa395f7a55e0f8e979ca2707c5459/demos/ACE/editor/modules/ace/worker/worker_client.js)
     to call the worker class before it is initialized.
     * **FIX: The worker_client must wait until the client is fully initilized.**
