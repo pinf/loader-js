@@ -2,15 +2,7 @@
     "boot": "github.com/pinf/loader-js/demos/ACE/editor/",
     "contexts": {
         "top": {
-            "github.com/pinf/loader-js/demos/ACE/editor/@/main": {
-                "include": {
-                    "github.com/ajaxorg/pilot/@/lib/pilot/index": {},
-                    "github.com/ajaxorg/ace/@/lib/ace/defaults": {},
-                    "github.com/ajaxorg/cockpit/@/lib/cockpit/index": {}
-                },
-                "load": {
-                    "github.com/ajaxorg/ace/": {}
-                }
+            "github.com/pinf/loader-js/demos/ACE/editor/": {
             },
             "github.com/pinf/loader-js/demos/ACE/worker/@/worker": {
             }
@@ -34,6 +26,16 @@
                     "uid": "https://github.com/ajaxorg/ace/",
                     "directories": {
                         "lib": "lib/ace"
+                    },
+                    "contexts": {
+                        "top": {
+                            "/lib/ace": {
+                                "load": {
+                                    "/lib/ace/mode/*": {},
+                                    "/lib/ace/theme/*": {}
+                                }
+                            }
+                        }
                     },
                     "modules": {
                         "/lib/ace/worker/worker_client": {
