@@ -87,7 +87,9 @@ More information about this will be available in time.
 Development
 ===========
 
-The loader facilitates an efficient development workflow by supporting dynamic code reloading and remote debugging.
+The loader facilitates an efficient development workflow by supporting project workspaces, dynamic code reloading and remote debugging.
+
+An example of a project that uses the loader to provide a development environment: [https://github.com/cadorn/ace-extjs](https://github.com/cadorn/ace-extjs)
 
 More information about this will be available in time.
 
