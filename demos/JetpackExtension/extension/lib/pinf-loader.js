@@ -604,6 +604,10 @@ FILE.realpath = function(path)
     return newPath.join('/');
 }
 
+FILE.readdir = function(path)
+{
+    throw new Error("NYI - FILE.readdir");
+}
 
 // ######################################################################
 // # ARCHIVE
@@ -2118,16 +2122,21 @@ Assembler.prototype.provisonProgramForURL = function(url, callback)
 
     function provisonProgram()
     {
-        // Fix some URL
+        // Fix some URLs
         // TODO: Put this into a plugin
-        var m = url.match(/^https?:\/\/gist.github.com\/(\d*).*$/);
-        if (m)
+        var m;
+        if (m = url.match(/^https?:\/\/gist.github.com\/(\d*).*$/))
         {
             url = "https://gist.github.com/gists/" + m[1] + "/download";
         }
-    
+        else
+        if (m = url.match(/^https?:\/\/github.com\/([^\/]*)\/([^\/]*)\/?$/))
+        {
+            url = "https://github.com/" + m[1] + "/" + m[2] + "/zipball/master";
+        }
+
         DEBUG.print("URL: " + url);
-    
+
         self.downloader.getForArchive(url, function(path)
         {
             DEBUG.print("Path: " + path);
@@ -2152,13 +2161,15 @@ Assembler.prototype.provisonProgramForURL = function(url, callback)
                         "location": "./"
                     }
                 };
-    
+
                 API.FILE.write(descriptorPath, API.JSON.stringify(descriptor));
             }
 
             DEBUG.indent(di);
 
             callback(descriptorPath);
+        }, {
+            verifyPackageDescriptor: false
         });
     }
 
@@ -2211,7 +2222,8 @@ if (!bravojs.hasOwnProperty("errorReporter"))
 {
   bravojs.errorReporter = function bravojs_defaultDrrorReporter(e)
   {
-    alert(" * BravoJS: " + e + "\n" + e.stack);
+    if (typeof alert != "undefined")
+        alert(" * BravoJS: " + e + "\n" + e.stack);
     throw(e);
   }
 }
@@ -2694,7 +2706,12 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
 
   newRequire.uri = function require_uri(moduleIdentifierPath)
   {
-    throw new Error("NYI - require.uri(moduleIdentifierPath)");
+    var basename = bravojs.basename(moduleIdentifierPath),
+        parts = basename.split(".");
+    var uri = window.location.protocol + "/" + newRequire.id(moduleIdentifierPath, true);
+    if (parts.length > 1)
+        uri += "." + parts.slice(1).join(".");
+    return uri;
   }
 
   newRequire.canonicalize = function require_canonicalize(moduleIdentifier)
@@ -3846,12 +3863,18 @@ __loader__.memoize('bravojs/plugins/packages/loader', function(__require__, modu
 bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)
 {
     var uri;
-
+    
     if (typeof moduleIdentifier == "object")
     {
+        if (typeof moduleIdentifier.id != "undefined")
+        {
+            var pkg = bravojs.contextForId(moduleIdentifier.id);
+            uri = pkg.resolveId(null);
+        }
+        else
         if (typeof moduleIdentifier.location != "undefined")
         {
-            uri = bravojs.mainModuleDir + "/package" + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);
+            uri = bravojs.mainModuleDir + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);
         }
         else
             throw new Error("NYI");
@@ -3859,12 +3882,31 @@ bravojs.module.constructor.prototype.load = function packages_loader_load(module
     else
     if (moduleIdentifier.charAt(0) != "/")
     {
-        throw new Error("Cannot load module by relative ID: " + moduleIdentifier);
+        if (moduleIdentifier.charAt(0) != ".")
+        {
+            // resolve mapped ID
+            uri = bravojs.contextForId(this._id).resolveId(moduleIdentifier).replace(bravojs.mainModuleDir, bravojs.mainModuleDir);
+        }
+        else
+            throw new Error("Cannot load module by relative ID: " + moduleIdentifier);
     }
     else
     {
-        uri = bravojs.mainModuleDir + "/module" + moduleIdentifier.substring(bravojs.mainModuleDir.length);
+        uri = bravojs.mainModuleDir + moduleIdentifier.substring(bravojs.mainModuleDir.length);
     }
+
+    var lookupURI = uri;
+    if (/\.js$/.test(lookupURI))
+        lookupURI = lookupURI.substring(0, lookupURI.length-3);
+
+    if (bravojs.require.isMemoized(lookupURI))
+    {
+        callback(lookupURI);
+        return;
+    }
+
+    if (!/\.js$/.test(uri) && !/\/$/.test(uri))
+        uri += ".js";
 
     // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)
     uri = uri.replace(/\.{2}\//g, "__/");
@@ -4104,7 +4146,7 @@ Plugin.prototype.init = function()
         }
         catch(e)
         {
-            var mappings = (typeof this.descriptor.mappings != "undefined")?JSON.stringify(this.descriptor.mappings):"{}";            
+            var mappings = (typeof this.descriptor != "undefined" && typeof this.descriptor.mappings != "undefined")?JSON.stringify(this.descriptor.mappings):"{}";            
             throw new Error(e.stack + "\nUnable to resolve moduleIdentifier '" + JSON.stringify(moduleIdentifier) + "' against context '" + this.id + "' (mappings: " + mappings + ") and relativeModuleDir '" + relativeModuleDir + "'.");
         }
 
@@ -4379,7 +4421,9 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
             context: context
         }]);
         if (typeof ret != "undefined")
-            return ret;
+            moduleIdentifier = ret;
+        if (/\.js$/.test(moduleIdentifier))
+            moduleIdentifier = moduleIdentifier.substring(0, moduleIdentifier.length-3);
         return moduleIdentifier;
     }
 
@@ -4564,15 +4608,24 @@ Descriptor.prototype.clone = function()
     return descriptor;
 }
 
-Descriptor.prototype.load = function(path)
+Descriptor.prototype.load = function(path, create)
 {
     if (this.filename && FILE.basename(path) != this.filename)
+    {
+        if (!/\/$/.test(path))
+            path += "/";
         path += this.filename;
+    }
 
     if (!/\.json$/.test(path))
         throw new Error("Descriptor file path does not end in '.json': " + path);
 
     this.path = path;
+    if (create === true && !API.FILE.exists(this.path))
+    {
+        this.json = {};
+        this.save(true);
+    }
     try
     {
         this.json = JSON.parse(FILE.read(this.path));
@@ -4583,9 +4636,9 @@ Descriptor.prototype.load = function(path)
     }
 }
 
-Descriptor.prototype.save = function()
+Descriptor.prototype.save = function(create)
 {
-    if (!FILE.exists(this.path))
+    if (!(create === true) && !FILE.exists(this.path))
         throw new Error("Error saving descriptor. File does not exist: " + this.path);
     try
     {
@@ -4641,6 +4694,7 @@ Descriptor.prototype.toJSONObject = function()
 {
     return this.json;
 }
+
 
 
 // ######################################################################
@@ -4807,11 +4861,237 @@ Program.prototype.augmentLocator = function(locator, options)
     }
     else
     {
+        if (typeof found.descriptor != "undefined")
+        {
+            if (typeof found.locator == "undefined")
+                found.locator = {};
+            found.locator.descriptor = found.descriptor;
+        }
         if (typeof found.locator == "undefined")
             return finalize(locator);
 
         return finalize(this._normalizeLocator(UTIL.deepMerge(locator, found.locator)));
     }
+}
+
+function walkContexts(contexts, contextId, context, options, addToContexts)
+{
+    if (typeof addToContexts == "undefined")
+        addToContexts = true;
+    if (addToContexts)
+        contexts[contextId] = context;
+    [
+        "load",
+        "include"
+    ].forEach(function(type)
+    {
+        if (typeof context[type] != "undefined")
+        {
+            if (Array.isArray(context[type]))
+            {
+                var items = context[type];
+                context[type] = {};
+                items.forEach(function (item)
+                {
+                    context[type][item] = {};
+                });
+            }
+            for (var id in context[type])
+            {
+                context[type][id].parent = contextId;
+    
+                if (id.split("@").length == 1 && id.charAt(0) != "/")
+                {
+                    var ctx = options.contextFor(id, contexts);
+                    delete ctx.top;
+                    ctx.parent = contextId;
+    
+                    if (typeof ctx.include != "undefined")
+                    {
+                        if (!Array.isArray(ctx.include))
+                            ctx.include = Object.keys(ctx.include);
+
+                        ctx.include = ctx.include.map(function(id2)
+                        {
+                            if (id2.charAt(0) == "/")
+                                return id + "@" + id2;
+                            return id2;
+                        });
+                    }
+    
+                    if (typeof ctx.load != "undefined")
+                    {
+                        var normalizedLoad = {};
+                        for (var id2 in ctx.load)
+                        {
+                            if (id2.charAt(0) == "/")
+                            {
+                                contexts[id + "@" + id2] = normalizedLoad[id + "@" + id2] = ctx.load[id2];
+                            }
+                            else
+                            {
+                                contexts[id2] = normalizedLoad[id2] = ctx.load[id2];
+                            }
+                        }
+                        ctx.load = normalizedLoad;
+                    }
+                    context[type][id] = API.UTIL.deepMerge(context[type][id], ctx);
+                    if (type == "load")
+                    {
+                        contexts[ctx.id] = context[type][id];
+                    }
+                }
+                else
+                {
+                    var targetId = id;
+                    if (targetId.charAt(0) == "/")
+                        targetId = contextId.split("@")[0] + "@" + targetId;
+                    walkContexts(contexts, targetId, context[type][id], options, (type == "load")?true:false);
+                }
+           }
+        }        
+    });
+}
+
+function populateParents(contexts, topId)
+{
+    var ctx = contexts[topId];
+
+    if (typeof ctx.include != "undefined" && Array.isArray(ctx.include))
+    {
+        var includes = ctx.include;
+        ctx.include = {};
+        includes.forEach(function(include)
+        {
+            ctx.include[include] = true;
+        });
+    }
+
+    function resolveIncludes(includes)
+    {
+        if (!Array.isArray(includes))
+            includes = Object.keys(includes);
+        
+        var finalIncludes = [];
+        for (var i=0, ic=includes.length ; i<ic ; i++)
+        {
+            var parts = includes[i].split("@");
+            if (parts.length == 1)
+            {
+                var ctx = contexts[parts[0]];
+                if (ctx && typeof ctx.include != "undefined")
+                {
+                    var subIncludes = resolveIncludes(ctx.include);
+                    if (subIncludes.length > 0)
+                        finalIncludes = finalIncludes.concat(subIncludes);
+                }
+            }
+            else
+                finalIncludes.push(includes[i]);
+        }
+        return finalIncludes;
+    }
+
+    ctx.parents = {};
+    if (typeof ctx.parent != "undefined")
+    {
+        var parent = ctx.parent;
+        while(true)
+        {
+            ctx.parents[parent] = {};
+            
+            if (typeof contexts[parent].include != "undefined")
+            {
+                var includes = contexts[parent].include;
+                if (!Array.isArray(includes))
+                {
+                    includes = [];
+                    for (var include in contexts[parent].include)
+                        includes.push(include);
+                }
+                includes.forEach(function(include)
+                {
+                    ctx.parents[parent][include] = true;
+                });
+            }
+            ctx.parents[parent] = resolveIncludes(Object.keys(ctx.parents[parent]));
+
+
+            if (typeof contexts[parent].parent == "undefined")
+                break;
+            parent = contexts[parent].parent;
+        }
+    }
+    if (typeof ctx.include != "undefined")
+        ctx.include = resolveIncludes(Object.keys(ctx.include));
+    return ctx;
+}
+
+function contextFor(descriptor, pkgId, moduleId, options, contexts, finalizeContexts)
+{
+    if (!ensureContexts(descriptor, pkgId, options, contexts, finalizeContexts))
+        return false;
+    var ids = [
+        pkgId + "@" + moduleId,
+        pkgId + "@" + API.FILE.dirname(moduleId) + "/*",
+        moduleId
+    ];
+    [0, 2].forEach(function(offset)
+    {
+        if (!/\.js$/.test(ids[offset]))
+            ids.push(ids[offset] + ".js");
+        else
+            ids.push(ids[offset].substring(0, ids[offset].length-3));
+    });
+    for (var i=0,ic=ids.length ; i<ic ; i++ )
+    {
+        if (typeof descriptor.contexts[ids[i]] != "undefined")
+            return descriptor.contexts[ids[i]];
+    }
+    return false;
+}
+
+function ensureContexts(descriptor, pkgId, options, contexts, finalizeContexts)
+{
+    if (typeof descriptor.json.contexts == "undefined" || typeof descriptor.json.contexts.top == "undefined")
+        return false;
+    if (typeof descriptor.contexts == "undefined")
+    {
+        descriptor.contexts = contexts || {};
+        for (var id in descriptor.json.contexts.top)
+        {
+            if (id.charAt(0) != "/" && id.split("@").length == 1)
+            {
+                var ctx = options.contextFor(id, descriptor.contexts);
+                delete ctx.top;
+                descriptor.json.contexts.top[id] = API.UTIL.deepMerge(descriptor.json.contexts.top[id], ctx);
+            }
+            var targetId = id;
+            if (targetId.charAt(0) == "/")
+                targetId = pkgId + "@" + targetId;
+            walkContexts(descriptor.contexts, targetId, descriptor.json.contexts.top[id], options);
+            descriptor.contexts[targetId].top = true;
+            descriptor.contexts[targetId].id = targetId;
+            if (/\/@\/$/.test(targetId))
+                descriptor.contexts[targetId].ignore = true;
+        }
+        if (finalizeContexts)
+            for (var id in descriptor.contexts)
+                populateParents(descriptor.contexts, id);
+    }
+    return true;
+}
+
+Program.prototype.getContexts = function(options)
+{
+    if (!ensureContexts(this, null, options, null, true))
+        return false;
+    return this.contexts;
+}
+
+Program.prototype.contextFor = function(pkgId, moduleId, options)
+{
+    return contextFor(this, pkgId, moduleId, options, null, true);
 }
 
 
@@ -4882,6 +5162,27 @@ Package.prototype.moduleIdToLibPath = function(moduleId)
         libDir = "lib";
     return ((libDir)?libDir+"/":"") + moduleId;
 }
+
+Package.prototype.contextFor = function(pkgId, moduleId, options, contexts)
+{
+    return contextFor(this, pkgId, moduleId, options, contexts);
+}
+
+
+// ######################################################################
+// # Dummy Descriptor - used for resource packages that are not CommonJS packages
+// ######################################################################
+
+var Dummy = exports.Dummy = function(path)
+{
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Dummy;
+    this.path = path;
+    this.json = {};
+}
+Dummy.prototype = new Package();
+
 
 
 // ######################################################################
@@ -4975,6 +5276,33 @@ Sources.prototype.augmentLocator = function(locator)
     return locator;
 }
 
+
+
+// ######################################################################
+// # Routes Descriptor
+// ######################################################################
+
+var Routes = exports.Routes = function(path)
+{
+    if (typeof path == "undefined")
+        return;
+    this.cloneConstructor = exports.Routes;
+    this.filename = ".pinf-routes.json";
+    this.load(path, true);
+}
+Routes.prototype = new Descriptor();
+
+Routes.prototype.ensureRoute = function(uri, info)
+{
+    if (typeof this.json.routes == "undefined")
+        this.json.routes = {};
+    this.json.routes[uri] = {
+        locator: info.locator,
+        modules: info.modules
+    };
+    this.save();
+}
+
 });
 __loader__.memoize('downloader', function(__require__, module, exports) {
 // ######################################################################
@@ -5036,12 +5364,17 @@ Downloader.prototype.pathForURL = function(url, type)
 var unzipping = false,
     unzipQueue = [];
 
-Downloader.prototype.getForArchive = function(archive, callback)
+Downloader.prototype.getForArchive = function(archive, callback, options)
 {
+    options = options || {};
     var self = this;
     var sourcePath = self.pathForURL(archive, "source");
+    
+    var packageTestFilepath = "/package.json";
+    if (options.verifyPackageDescriptor!==true)
+        packageTestFilepath = "";
 
-    if (FILE.exists(sourcePath + "/package.json"))
+    if (FILE.exists(sourcePath + packageTestFilepath))
     {
         callback(sourcePath);
         return;
@@ -5055,15 +5388,15 @@ Downloader.prototype.getForArchive = function(archive, callback)
             SYSTEM.exec("rm -Rf " + sourcePath);
     }
 
-    function serialUnzip(archive, callback)
+    function serialUnzip(archive, callback, options)
     {
         if (unzipping)
         {
-            unzipQueue.push([archive, callback]);
+            unzipQueue.push([archive, callback, options]);
             return;
         }
         var self = this;
-        function unzip(archive, callback)
+        function unzip(archive, callback, options)
         {
             unzipping = true;
     
@@ -5078,19 +5411,24 @@ Downloader.prototype.getForArchive = function(archive, callback)
                     return;
                 }
                 info = unzipQueue.shift();
-                unzip(info[0], info[1]);
-            });
+                unzip(info[0], info[1], info[2]);
+            },
+            options);
         }
-        unzip(archive, callback);
+        unzip(archive, callback, options);
     }
 
-    function doUnzip(archive, callback)
+    function doUnzip(archive, callback, options)
     {
         var sourcePath = self.pathForURL(archive, "source");
         var archivePath = self.pathForURL(archive, "archive");
 
+        var packageTestFilepath = "/package.json";
+        if (options.verifyPackageDescriptor!==true)
+            packageTestFilepath = "";
+
         // In case archive was queued multiple times for download
-        if (FILE.exists(sourcePath + "/package.json"))
+        if (FILE.exists(sourcePath + packageTestFilepath))
         {
             callback(sourcePath);
             return;
@@ -5106,7 +5444,7 @@ Downloader.prototype.getForArchive = function(archive, callback)
             if (stderr)
             {
                 // ZIP File
-                SYSTEM.exec("unzip " + archivePath + " -d " + sourcePath, function(stdout, stderr)
+                SYSTEM.exec("unzip -qq -o " + archivePath + " -d " + sourcePath, function(stdout, stderr)
                 {
                     if (/unzip: command not found/.test(stderr))
                     {
@@ -5119,15 +5457,23 @@ Downloader.prototype.getForArchive = function(archive, callback)
                         cleanup();
                         throw new Error("Error extracting file '" + archivePath + "': " + stderr);
                     }
+                    else
+                    if (!FILE.exists(sourcePath))
+                    {
+                        cleanup();
+                        throw new Error("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+                    }
+
                     // See if archive has a directory containing our package
-                    if (!FILE.exists(sourcePath + "/package.json"))
+                    var list = FILE.readdir(sourcePath);
+                    if (list.length == 1)
                     {
                         SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
                         {
-                            if (!FILE.exists(sourcePath + "/package.json"))
+                            if (!FILE.exists(sourcePath + packageTestFilepath))
                             {
                                 cleanup();
-                                throw new Error("Cannot find package.json in extracted archive: " + sourcePath + "/package.json");
+                                throw new Error("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
                             }
                             callback(sourcePath);
                         });
@@ -5155,15 +5501,23 @@ Downloader.prototype.getForArchive = function(archive, callback)
                         cleanup();
                         throw new Error("Error extracting file '" + archivePath + "': " + stderr);
                     }
+                    else
+                    if (!FILE.exists(sourcePath))
+                    {
+                        cleanup();
+                        throw new Error("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+                    }
+
                     // See if archive has a directory containing our package
-                    if (!FILE.exists(sourcePath + "/package.json"))
+                    var list = FILE.readdir(sourcePath);
+                    if (list.length == 1)
                     {
                         SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
                         {
-                            if (!FILE.exists(sourcePath + "/package.json"))
+                            if (!FILE.exists(sourcePath + packageTestFilepath))
                             {
                                 cleanup();
-                                throw new Error("Cannot find package.json in extracted archive: " + sourcePath + "/package.json");
+                                throw new Error("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
                             }
                             callback(sourcePath);
                         });
@@ -5187,11 +5541,11 @@ Downloader.prototype.getForArchive = function(archive, callback)
         
         this.enqueueDownload(archive, archivePath, function()
         {
-            serialUnzip(archive, callback);
+            serialUnzip(archive, callback, options);
         });
     }
     else
-        serialUnzip(archive, callback);
+        serialUnzip(archive, callback, options);
 }
 
 Downloader.prototype.getCatalogForURL = function(url, callback)
@@ -5393,6 +5747,7 @@ var boot = exports.boot = function(options)
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--platform").set().help("The platform to use");
     optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
+    optParser.option("--script").set().help("Call a script defined in the program boot package");
     optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
@@ -5571,7 +5926,7 @@ var boot = exports.boot = function(options)
         {
             var scriptPath = cliOptions.args[0];
 
-            if (scriptPath.charAt(0) == ".")
+            if (scriptPath.charAt(0) != "/")
             {
                 scriptPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + scriptPath);
                 if (!/\.js$/.test(scriptPath))
@@ -5644,15 +5999,19 @@ var boot = exports.boot = function(options)
             // TODO: Keep these references elsewhere so we can have nested sandboxes
             API.ENV.program = program;
             API.ENV.sandbox = sandbox;
-    
+
+            var dependencies = program.getBootPackages();
+            if (dependencies.length > 1)
+            {
+                throw new Error("Only one program boot package allowed in: " + path);
+            }
+
             // ######################################################################
-            // # Booting
+            // # Program Booting
             // ######################################################################
     
             API.ENV.booting = true;
 
-            var dependencies = program.getBootPackages();
-    
             if (API.DEBUG.enabled) {
                 API.DEBUG.print("Loading program's main packages:");
                 for (var i=0, ic=dependencies.length ; i<ic ; i++ )
@@ -5670,39 +6029,84 @@ var boot = exports.boot = function(options)
             sandbox.declare(dependencies, function(require, exports, module)
             {
                 timers.run = new Date().getTime()
-    
-                API.DEBUG.print("Booting program. Output for each boot package follows in green between ==> ... <==");
-    
-                // Run the program by calling main() on each packages' main module
-                var pkg,
-                    hl;
-                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-                {
-                    var pkg = require("_package-" + i);
-        
-                    if (typeof pkg.main === "undefined")
-                        throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
-                    
-                    if (API.DEBUG.enabled)
-                    {
-                        var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
-                        hl = h.length;
-                        API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
-                        API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
-                    }
-        
-                    pkg.main(env);
-        
-                    if (API.DEBUG.enabled)
-                    {
-                        API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
-                        var f = "";
-                        for (var i=0 ; i<hl-8 ; i++) f += "-";
-                        API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
-                    }
-                }
 
-                API.ENV.booting = false;
+                // ######################################################################
+                // # Program Script
+                // ######################################################################
+        
+                if (cliOptions.script)
+                {
+                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
+                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
+                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
+                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
+                    {
+                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
+                        {
+                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
+                            {
+                                var script = require(id);
+
+                                if (typeof script.main == "undefined")
+                                    throw new Error("Script does not export main() in " + id);
+
+                                API.ENV.booting = false;
+
+                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
+
+                                script.main(env);
+                            });
+                        }, {
+                            "discover-packages": cliOptions["discover-packages"] || false,
+                            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
+                        });
+                    }
+                    else
+                        throw new Error("NYI - Non-locator based script pointers");
+                }
+                else
+
+                // ######################################################################
+                // # Program Boot Packages
+                // ######################################################################
+
+                {
+                    API.DEBUG.print("Booting program. Output for boot package follows in green between ==> ... <==");
+        
+                    // Run the program by calling main() on each packages' main module
+                    var pkg,
+                        hl;
+                    // TODO: Refactor as there is only ever one boot package
+                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+                    {
+                        var pkg = require("_package-" + i);
+            
+                        if (typeof pkg.main === "undefined")
+                            throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
+                        
+                        if (API.DEBUG.enabled)
+                        {
+                            var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
+                            hl = h.length;
+                            API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
+                            API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
+                        }
+            
+                        pkg.main(env);
+            
+                        if (API.DEBUG.enabled)
+                        {
+                            API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
+                            var f = "";
+                            for (var i=0 ; i<hl-8 ; i++) f += "-";
+                            API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
+                        }
+                    }
+
+                    API.ENV.booting = false;
+                }
 
                 timers.end = new Date().getTime()
 
@@ -5920,8 +6324,13 @@ __loader__.memoize('modules/pinf/program-server', function(__require__, module, 
 // # /modules/pinf/program-server.js
 // ######################################################################
 
+// TODO: This whole module needs to be refactored to make logic more easy to follow and performant
+
 var API = __require__('api'),
-    PINF_LOADER = __require__('modules/pinf/loader');
+    PINF_LOADER = __require__('modules/pinf/loader'),
+    DESCRIPTORS = __require__('descriptors');
+
+var routeDescriptors = {};
 
 var JSGI = exports.JSGI = function(options)
 {
@@ -5945,29 +6354,167 @@ var JSGI = exports.JSGI = function(options)
             path: path,
             options: options.map[path]
         }
-        
-        // Add a route to load extra modules
-        this.routes[path + "/module/"] = {
-            expr: new RegExp("^" + path.replace(/(\/|\\)/g, "\\$1") + "\/module\/(.*)$"),
+
+        var basePath = path.substring(0, path.length-3);
+
+        // Add a route to load extra code
+        this.routes[basePath + "-module/"] = {
+            expr: new RegExp("^" + basePath.replace(/(\/|\\)/g, "\\$1") + "\/(.*)$"),
             path: path,
             options: options.map[path],
-            load: "module"
-        }
-        
-        // Add a route to load extra packages
-        this.routes[path + "/package/"] = {
-            expr: new RegExp("^" + path.replace(/(\/|\\)/g, "\\$1") + "\/package\/(.*)$"),
-            path: path,
-            options: options.map[path],
-            load: "package"
+            load: true
         }
     }
+
+    this.trackRoutes = options.trackRoutes || false;
+    this.contexts = {};
+}
+
+JSGI.prototype.spider = function(route, targetPath)
+{
+    if (typeof this.routes[route] == "undefined")
+        throw new Error("Route '" + route + "' not found in routes: " + Object.keys(this.routes));
+    route = this.routes[route];
+
+    if (typeof route.options.programPath != "undefined")
+    {
+        API.SYSTEM.print("Spidering program: " + route.options.programPath + "\n");
+
+        API.SYSTEM.print("Target path: " + targetPath + "\n");
+        
+        if (!API.FILE.exists(API.FILE.dirname(targetPath)))
+            throw new Error("Directory containing target path must exist: " + API.FILE.dirname(targetPath));
+
+        var self = this;
+
+        function spider()
+        {
+            var responder = self.responder(null);
+
+            new PINF_LOADER.Sandbox(
+            {
+                programPath: route.options.programPath
+            },
+            function done(sandbox)
+            {
+                var contextOptions = {
+                    contextFor: function(pkgId, contexts)
+                    {
+                        var pkg = sandbox.packageForId(pkgId),
+                            mainId = pkg.getMainId(null, true);
+                        if (mainId)
+                            mainId = mainId.split("@")[1];
+                        else
+                            mainId = "/";
+                        return pkg.normalizedDescriptor.contextFor(pkgId, mainId, contextOptions, contexts);
+                    }
+                };
+                var contexts = sandbox.program.descriptor.getContexts(contextOptions);
+                if (!contexts)
+                    return;
+
+                API.SYSTEM.print("Routes:\n");
+    
+                var spidering = false,
+                    spiderQueue = [];
+    
+                function spiderForUri(uri)
+                {
+                    if (spidering)
+                    {
+                        spiderQueue.push(uri);
+                        return;
+                    }
+                    spidering = true;
+
+                    API.SYSTEM.print("    URI: " + uri + "\n");
+
+                    var data = responder({
+                        pathInfo: uri
+                    });
+                    data.then(
+                        function handle(data)
+                        {
+                            if (data.status != 200)
+                                throw new Error("Status for uri '" + uri + "' not 200.");
+    
+                            var path = targetPath + uri,
+                                dirname = API.FILE.dirname(path);
+                            if (/\/$/.test(dirname))
+                                dirname = dirname.substring(0, dirname.length-1);
+                            if (!API.FILE.exists(dirname))
+                                API.FILE.mkdirs(dirname, 0775);
+    
+                            API.FILE.write(path, data.body.join(""));
+                            
+                            spidering = false;
+                            if (spiderQueue.length > 0)
+                            {
+                                spiderForUri(spiderQueue.shift());
+                            }
+                        },
+                        function (error)
+                        {
+                            throw new Error("ERROR: " + error.stack);
+                        },
+                        function (data)
+                        {
+                            throw new Error("NYI");
+                            // @see https://github.com/kriszyp/jsgi-node/blob/v0.2.4/lib/jsgi-node.js#L128
+                            // TODO: handle(data, true);
+                        }
+                    );
+                }
+    
+                for (var id in contexts)
+                {
+                    var idParts = id.split("@");
+                    if (idParts.length != 2 || contexts[id].ignore)
+                        continue;
+    
+                    var pkg = sandbox.packageForId(idParts[0]),
+                        uri = route.path.substring(0, route.path.length-3) + "/" + pkg.getHashId() + "@" + idParts[1];
+    
+                    if (pkg.id == sandbox.program.descriptor.json.boot)
+                        uri = route.path;
+    
+                    API.SYSTEM.print("  ID: \0yellow(" + id + "\0)\n");
+    
+                    if (API.FILE.basename(id) == "*")
+                    {
+                        var basePath = pkg.path + API.FILE.dirname(idParts[1]),
+                            files = API.FILE.readdir(basePath);
+                        files.forEach(function (basename)
+                        {
+                            spiderForUri(API.FILE.dirname(uri) + "/" + basename);
+                        });
+                    }
+                    else
+                    {
+                        if (!/\.js$/.test(uri))
+                            uri += ".js";
+                        spiderForUri(uri);
+                    }
+                }
+            });            
+        }
+
+        var command = "rm -f " + targetPath + route.path;
+        API.SYSTEM.exec(command, function() {
+            command = "rm -Rf " + targetPath + route.path.substring(0, route.path.length-3);
+            API.SYSTEM.exec(command, function() {
+                spider();
+            });
+        });
+    }
+    else
+        throw new Error("NYI");
 }
 
 JSGI.prototype.responder = function(app)
 {
     var self = this;
-    
+
     return function(request)
     {
         var deferred = self.API.PROMISE.defer();
@@ -5990,7 +6537,7 @@ JSGI.prototype.responder = function(app)
 
         if (!responding)
         {
-            if (typeof app != "undefined")
+            if (typeof app != "undefined" && app)
                 deferred.resolve(app(request));
             else
                 deferred.resolve({
@@ -6024,6 +6571,8 @@ JSGI.prototype.respond = function(request, callback)
     if (typeof route == "undefined")
         return false;
 
+    var self = this;
+
     function sendResponse(body)
     {
         callback({
@@ -6050,18 +6599,47 @@ JSGI.prototype.respond = function(request, callback)
                 parts,
                 descriptor,
                 pkg,
-                modules,
                 id;
 
-            var port = ((request.port)?request.port:80);
+            var contextId,
+                parentContextsModules = [],
+                memoizedModules = [],
+                loaderInjected = false;
 
             var basePath = route.options.basePath || sandbox.getMainModuleDir();
 
-            var config = {
-                url: "http" + ((port==80)?"":"s") + "://" + request.host + ":" + port + request.pathInfo,
-                mainModuleDir: "/" + request.host + ":" + port + route.path
+            var routesDescriptor;
+            if (self.trackRoutes === true)
+            {
+                var routesPath = API.FILE.dirname(sandbox.program.descriptor.path);
+                if (!routeDescriptors[routesPath])
+                    routeDescriptors[routesPath] = new DESCRIPTORS.Routes(routesPath);
+                routesDescriptor = routeDescriptors[routesPath];
+
+                function recordRoute(info)
+                {
+                    var uri;
+                    if (info.load === true)
+                        uri = request.pathInfo.substring(route.path.length-3);
+                    else
+                        uri = "/";
+                    var finalInfo = {
+                        locator: {
+                            location: info.path
+                        },
+                        modules: memoizedModules
+                    };
+                    if (typeof info.pkg != "undefined")
+                    {
+                        finalInfo.locator.id = info.pkg.id;
+                        finalInfo.locator.module = uri.split("@").pop();
+                    }
+                    routesDescriptor.ensureRoute(uri, finalInfo);
+
+                    if (contextId)
+                        self.contexts[contextId] = memoizedModules;
+                }
             }
-            config.mainContext = config.mainModuleDir + "/" + sandbox.packageForId(sandbox.program.getBootPackages()[0]["_package-0"].location).getHashId();
 
             function rewritePath(path, packageIDOnly)
             {
@@ -6072,9 +6650,6 @@ JSGI.prototype.respond = function(request, callback)
                     if (pkg)
                         return pkg.getHashId() + "@/" + parts[1];
                 }
-                
-                if (path.substring(0, basePath.length) == basePath)
-                    return path.substring(basePath.length);
 
                 var pkg = sandbox.packageForId(path);
                 if (pkg)
@@ -6084,6 +6659,9 @@ JSGI.prototype.respond = function(request, callback)
                     else
                         return rewritePath(pkg.getMainId());
                 }
+
+                if (path.substring(0, basePath.length) == basePath)
+                    return path.substring(basePath.length);
 
                 if (typeof route.options.rewritePaths == "undefined")
                     throw new Error("Path '" + path + "' must be rewritten via 'rewritePaths' map property. Property is not set!");
@@ -6106,6 +6684,11 @@ JSGI.prototype.respond = function(request, callback)
 
             function memoizeModule(moduleIdentifier, dependencies, moduleFactory)
             {
+                if(memoizedModules.indexOf(moduleIdentifier) > -1 || parentContextsModules.indexOf(moduleIdentifier) > -1)
+                    return;
+
+                memoizedModules.push(moduleIdentifier);
+
                 // Pull out plugin if applicable
                 var plugin;
                 if (typeof moduleIdentifier == "string")
@@ -6136,7 +6719,7 @@ JSGI.prototype.respond = function(request, callback)
                             if (typeof descriptor.modules[path].location == "undefined")
                                 throw new Error("There should be a location property in the mapping locator by now!");
                             packageDescriptors.mapped[rewritePath(descriptor.modules[path].location, true)] = true;
-                            descriptor.modules[path].location = config.mainModuleDir + "/" + rewritePath(descriptor.modules[path].location, true);
+                            descriptor.modules[path].location = "__MAIN_MODULE_DIR__" + "/" + rewritePath(descriptor.modules[path].location, true);
                             delete descriptor.modules[path].id;
                         }
                     }
@@ -6147,29 +6730,34 @@ JSGI.prototype.respond = function(request, callback)
                             if (typeof descriptor.mappings[alias].location == "undefined")
                                 throw new Error("There should be a location property in the mapping locator by now!");
                             packageDescriptors.mapped[rewritePath(descriptor.mappings[alias].location, true)] = true;
-                            descriptor.mappings[alias].location = config.mainModuleDir + "/" + rewritePath(descriptor.mappings[alias].location, true);
+                            descriptor.mappings[alias].location = "__MAIN_MODULE_DIR__" + "/" + rewritePath(descriptor.mappings[alias].location, true);
                             delete descriptor.mappings[alias].id;
                         }
                     }
-                    moduleFactory = "function() { return " + API.JSON.stringify(descriptor) + "; }";
+                    descriptor = API.JSON.stringify(descriptor);
+                    descriptor = descriptor.replace(/__MAIN_MODULE_DIR__/g, '" + bravojs.mainModuleDir + "');
+                    moduleFactory = "function() { return " + descriptor + "; }";
                 }
 
-                pkg = sandbox.packageForId(parts[0]);
+                var pkg = sandbox.packageForId(parts[0]);
                 if (pkg)
                 {
-                    id = config.mainModuleDir + "/" + pkg.getHashId() + "@/" + parts[1];
+                    id = "/" + pkg.getHashId() + "@/" + parts[1];
                 }
                 else
                 if (parts.length == 1)
                 {
-                    id = config.mainModuleDir + rewritePath(API.FILE.realpath(parts[0]));
+                    id = rewritePath(API.FILE.realpath(parts[0]));
                 }
                 else
                     throw new Error("NYI - " + parts);
 
-                body.push("require.memoize(" + ((typeof plugin != "undefined")?"'"+plugin+"!'+":"") + "bravojs.realpath('" + id + "'), [" + deps + "], " + moduleFactory + ");");
+                if (/\.js$/.test(id))
+                    id = id.substring(0, id.length-3);
+
+                body.push("require.memoize(" + ((typeof plugin != "undefined")?"'"+plugin+"!'+":"") + "bravojs.realpath(bravojs.mainModuleDir + '" + id + "'), [" + deps + "], " + moduleFactory + ");");
             }
-            
+
             function memoizeMissingPackageDescriptors()
             {
                 for (var pkgId in packageDescriptors.mapped)
@@ -6185,71 +6773,27 @@ JSGI.prototype.respond = function(request, callback)
                 }
             }
 
-            if (typeof route.load != "undefined")
+            function injectLoader()
             {
-                // Prepare extra load payload
+                if (loaderInjected)
+                    return;
+                loaderInjected = true;
 
-                var pathInfoParts = route.expr.exec(request.pathInfo),
-                    pathParts = pathInfoParts[1].split("@/");
-                if (pathParts.length == 2 && (pkg = sandbox.packageForHash(pathParts[0])))
-                {
-                    path = pkg.path + "@/" + pathParts[1];
-                }
-                else
-                {
-                    // The client converted ../ to __/ to keep the directory up path segments in tact
-                    path = basePath + pathInfoParts[1].replace(/_{2}\//g, "../");
-                }
+                var path;
 
-                // Collect all existing modules so we can determine new ones
-                modules = {};
-                sandbox.forEachModule(function(moduleIdentifier)
-                {
-                    modules[moduleIdentifier] = true;
-                });
-
-                function sendModules(loadedId)
-                {
-                    // Memoize new modules
-
-                    sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
-                    {
-                        if(!modules[moduleIdentifier])
-                            memoizeModule(moduleIdentifier, dependencies, moduleFactory);
-                    });
-                    memoizeMissingPackageDescriptors();
-
-                    // Set loaded ID if applicable
-                    
-                    if (typeof loadedId != "undefined")
-                        body.push("__bravojs_loaded_moduleIdentifier = bravojs.realpath('" + config.mainModuleDir + "/" + rewritePath(loadedId) + "');");
-
-                    // Send response
-
-                    sendResponse(body);
-                }
-
-                if (route.load === "module")
-                {
-                    sandbox.load(path, sendModules);
-                }
-                else
-                if (route.load === "package")
-                {
-                    sandbox.load({
-                        location: path
-                    }, sendModules);
-                }
-                else
-                    throw new Error("NYI");
-            }
-            else
-            {
-                // Prepare initial program payload
-                
                 // Configure BravoJS
 
-                body.push("bravojs = " + API.JSON.stringify(config) + ";");
+                body.push("if (typeof bravojs == 'undefined') { bravojs = {}; }");
+                body.push("if (typeof window != 'undefined' && typeof bravojs.url == 'undefined') {");
+                // in browser
+                body.push("bravojs.url = window.location.protocol + '//' + window.location.host + '" + request.pathInfo + "';");
+                body.push("} else if(typeof importScripts != 'undefined' && typeof bravojs.url == 'undefined') {");
+                // in worker
+                body.push("bravojs.url = location;");
+                body.push("}");
+                // all
+                body.push("bravojs.mainModuleDir = /^https?:\\/(.*?)\\.js$/.exec(bravojs.url)[1];");
+                body.push("bravojs.mainContext = bravojs.mainModuleDir + '/" + sandbox.packageForId(sandbox.program.getBootPackages()[0]["_package-0"].location).getHashId() + "';");
 
                 // Pull in BravoJS and plugins
 
@@ -6263,40 +6807,244 @@ JSGI.prototype.respond = function(request, callback)
                 body.push(API.FILE.read(path));
 
                 path = API.ENV.loaderRoot + "/lib/pinf-loader-js/bravojs/plugins/packages/loader.js";
-                body.push(API.FILE.read(path));
+                body.push(API.FILE.read(path));                
+            }
 
-                // Memoize modules
-
-                sandbox.forEachModule(memoizeModule);
-                memoizeMissingPackageDescriptors();
-    
-                // Boot the program
-    
-                var dependencies = sandbox.program.getBootPackages();
-                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+            function initContext(pkgId, modulePathId, callback, trackCollectedModules)
+            {
+                if (!pkgId || !modulePathId)
                 {
-                    if (typeof dependencies[i]["_package-" + i].location != "undefined")
+                    callback();
+                    return;
+                }
+
+                trackCollectedModules = trackCollectedModules || true;
+
+                var collectedModules = [];
+
+                var cbt = new API.UTIL.CallbackTracker(function()
+                {
+                    if (trackCollectedModules !== false)
+                        parentContextsModules = collectedModules;
+                    callback(collectedModules);
+                });
+
+                // Check program contexts to see if we are a top-level context and need to inject the loader
+                var info,
+                    contextOptions = {
+                        contextFor: function(pkgId, contexts)
+                        {
+                            var pkg = sandbox.packageForId(pkgId),
+                                mainId = pkg.getMainId(null, true);
+                            if (mainId)
+                                mainId = mainId.split("@")[1];
+                            else
+                                mainId = "/";
+                            return pkg.normalizedDescriptor.contextFor(pkgId, mainId, contextOptions, contexts);
+                        }
+                    };
+                if ((info = sandbox.program.descriptor.contextFor(pkgId, modulePathId, contextOptions)))
+                {
+                    contextId = pkgId + "@" + modulePathId;
+                    var cbt2 = new API.UTIL.CallbackTracker(function()
                     {
-                        pkg = sandbox.packageForId(dependencies[i]["_package-" + i].location);
-                        dependencies[i]["_package-" + i] = {
-                            id: pkg.getHashId()
+                        if (info.top === true)
+                            injectLoader();
+
+                        // 
+                        if (typeof info.include != "undefined")
+                        {
+                            info.include.forEach(function(id)
+                            {
+                                var idParts = id.split("@/");
+                                sandbox.load({
+                                    id: idParts[0],
+                                    module: "/" + idParts[1]
+                                }, cbt.add());
+                            });
+                        }
+                    });
+
+                    if (typeof info.parents != "undefined")
+                    {
+                        for (var parent in info.parents)
+                        {
+                            if (!self.contexts[parent])
+                            {
+                                new PINF_LOADER.Sandbox(
+                                {
+                                    programPath: route.options.programPath
+                                },
+                                cbt2.add(function done(sandbox)
+                                {
+                                    self.contexts[parent] = [];
+                                    
+                                    if (info.parents[parent].length > 0)
+                                    {
+                                        info.parents[parent].forEach(function(id)
+                                        {
+                                            var idParts = id.split("@/");
+                                            sandbox.load({
+                                                id: idParts[0],
+                                                module: "/" + idParts[1]
+                                            }, cbt2.add(function()
+                                            {
+                                                // TODO: Move this up so it is only called once after all sandbox.load() are called 
+                                                sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
+                                                {
+                                                    self.contexts[parent].push(moduleIdentifier);
+                                                    collectedModules.push(moduleIdentifier);
+                                                });
+                                                
+                                            }));
+                                        });
+                                    }
+                                }));
+                            }
+                            else
+                            {
+                                self.contexts[parent].forEach(function(moduleIdentifier)
+                                {
+                                    collectedModules.push(moduleIdentifier);
+                                })
+                            }
                         }
                     }
-                    else
-                        throw new Error("NYI");
+                    
+                    cbt2.done();
                 }
+
+                cbt.done();
+            }
+
+            if (typeof route.load != "undefined" && route.load === true)
+            {
+                // Prepare extra load payload
+
+                pkg = null;
+                var pathInfoParts = route.expr.exec(request.pathInfo),
+                    pathParts = pathInfoParts[1].split("@/");
+                if (pathParts.length == 2 && (pkg = sandbox.packageForHash(pathParts[0])))
+                {
+                    path = pkg.path + "@/" + pathParts[1];
+                }
+                else
+                {
+                    // The client converted ../ to __/ to keep the directory up path segments in tact
+                    path = basePath + pathInfoParts[1].replace(/_{2}\//g, "../");
+                }
+
+                // Collect all existing modules so we can determine new ones
+                function sendModules(loadedId, info)
+                {
+                    // Memoize new modules
+
+                    sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
+                    {
+                        memoizeModule(moduleIdentifier, dependencies, moduleFactory);
+                    });
+                    memoizeMissingPackageDescriptors();
+
+                    // Set loaded ID if applicable
+                    
+                    if (typeof loadedId != "undefined")
+                    {
+                        if (/\.js$/.test(loadedId))
+                            loadedId = loadedId.substring(0, loadedId.length-3);
+                        body.push("__bravojs_loaded_moduleIdentifier = bravojs.realpath(bravojs.mainModuleDir + '/" + rewritePath(loadedId) + "');");
+                    }
+
+                    // Send response
+
+                    if (typeof routesDescriptor != "undefined")
+                        recordRoute(info);
+
+                    sendResponse(body);
+                }
+
+                initContext((pkg)?pkg.id:null, (pkg)?"/"+pathParts[1]:null, function()
+                {
+                    var loadedCallback = function(loadedId)
+                    {
+                        sendModules(loadedId, {
+                            path: path,
+                            pkg: pkg,
+                            load: true
+                        });
+                    };
     
-                body.push("(function() {");
-                    body.push("var env = {};");
-                    body.push("module.declare(" + API.JSON.stringify(dependencies) + ", function(require, exports, module) {");
-                        for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-                            body.push("require('_package-" + i + "').main(env);");
-                    body.push("});");
-                body.push("})();");
+                    pathParts = path.split("@/");
+                    if (pathParts.length == 2)
+                    {
+                        sandbox.load({
+                            location: pathParts[0],
+                            module: "/" + pathParts[1]
+                        }, loadedCallback);
+                    }
+                    else
+                    if (/\/$/.test(path))
+                    {
+                        sandbox.load({
+                            location: path
+                        }, loadedCallback);
+                    }
+                    else
+                    {
+                        sandbox.load(path, loadedCallback);
+                    }                    
+                });
+            }
+            else
+            {
+                var dependencies = sandbox.program.getBootPackages();
+                if (dependencies.length != 1)
+                    throw new Error("Multiple boot packages not supported! Specified in: " + sandbox.program.descriptor.path);
 
-                // Send response
+                var pkg = sandbox.packageForId(sandbox.program.descriptor.json.boot);
 
-                sendResponse(body);
+                initContext(pkg.id, pkg.getMainId().split("@")[1], function(collectedModules)
+                {
+                    // Prepare initial program payload
+                    
+                    injectLoader();
+
+                    // Memoize modules
+    
+                    sandbox.forEachModule(memoizeModule);
+                    memoizeMissingPackageDescriptors();
+        
+                    // Boot the program
+
+                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+                    {
+                        if (typeof dependencies[i]["_package-" + i].location != "undefined")
+                        {
+                            var pkg = sandbox.packageForId(dependencies[i]["_package-" + i].location);
+                            dependencies[i]["_package-" + i] = {
+                                id: pkg.getHashId()
+                            }
+                        }
+                        else
+                            throw new Error("NYI");
+                    }
+    
+                    body.push("(function() {");
+                        body.push("var env = {};");
+                        body.push("module.declare(" + API.JSON.stringify(dependencies) + ", function(require, exports, module) {");
+                            for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+                                body.push("require('_package-" + i + "').main(env);");
+                        body.push("});");
+                    body.push("})();");
+    
+                    // Send response
+    
+                    if (typeof routesDescriptor != "undefined")
+                        recordRoute({
+                            path: sandbox.program.descriptor.path
+                        });
+    
+                    sendResponse(body);
+                }, false);
             }
         }
 
@@ -6593,6 +7341,27 @@ var Package = exports.Package = function(descriptor)
         if (this.normalizedDescriptor.json.engine.indexOf(API.ENV.platform) === -1)
             throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engine+"') on platform '" + API.ENV.platform + "'");
     }
+    if (typeof this.descriptor.json.scripts != "undefined")
+    {
+        this.normalizedDescriptor.json.scripts = {};
+        for (var script in this.descriptor.json.scripts)
+        {
+            if (typeof this.descriptor.json.scripts[script] == "object")
+            {
+                var locator = this.descriptor.json.scripts[script];
+                if (typeof locator.location != "undefined")
+                {
+                    if (locator.location.charAt(0) == ".")
+                    {
+                        locator.location = FILE.realpath(this.path + "/" + locator.location);
+                    }
+                }
+                this.normalizedDescriptor.json.scripts[script] = locator;
+            }
+            else
+                this.normalizedDescriptor.json.scripts[script] = this.descriptor.json.scripts[script];
+        }
+    }
 }
 
 Package.prototype.getHashId = function()
@@ -6697,7 +7466,17 @@ Package.prototype.discoverPackages = function(fetcher, callback)
 Package.prototype.getMainId = function(locator, silent)
 {
     var id;
-    if (typeof locator != "undefined" && typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
+    if (locator && typeof locator != "undefined" && typeof locator.module != "undefined")
+    {
+        if (locator.module.charAt(0) == "/")
+        {
+            id = this.path + "@" + locator.module;
+        }
+        else
+            throw new Error("NYI");
+    }
+    else
+    if (locator && typeof locator != "undefined" && typeof locator.descriptor != "undefined" && typeof locator.descriptor.main != "undefined")
     {
         id = this.path + "@/" + locator.descriptor.main;
     }
@@ -6708,7 +7487,10 @@ Package.prototype.getMainId = function(locator, silent)
             return false;
         throw new Error("Package at path '" + this.path + "' does not have the 'main' property set in its package descriptor.");
     }
-    id = this.path + "@/" + this.normalizedDescriptor.json.main;
+    else
+    {
+        id = this.path + "@/" + this.normalizedDescriptor.json.main;
+    }
     if (!/\.js$/.test(id))
         id += ".js";
     return API.FILE.realpath(id);
@@ -6718,7 +7500,6 @@ Package.prototype.getMainId = function(locator, silent)
  * For dependencies that have a main module set and are accessed by name
  * 
  * NOTE: This assumes packages are extracted on a writable filesystem
- * @param {Object} locator
  */
 Package.prototype.ensureMainIdModule = function(locator)
 {
@@ -6733,15 +7514,9 @@ Package.prototype.ensureMainIdModule = function(locator)
     var pkgModulePath = API.FILE.realpath(this.path + "/" + this.normalizedDescriptor.json.name + ".js");
     if (API.FILE.exists(pkgModulePath))
         return true;
-    var relMainPath = "." + mainPath.substring(API.FILE.dirname(pkgModulePath).length),
-        relPkgModulePath = "." + pkgModulePath.substring(API.FILE.dirname(pkgModulePath).length);
-    // TODO: Write file instead of linking?
-    API.SYSTEM.exec("cd " + API.FILE.dirname(pkgModulePath) + "; ln -s " + relMainPath + " " + pkgModulePath, function(stdout, stderr)
-    {
-        if (stderr)
-            throw new Error("Error linking '"+pkgModulePath+"' to '"+mainPath+"': " + stderr);
-    });
-    // NOTE: We should really wait until SYSTEM.exec has finished.
+    var relMainPath = "." + mainPath.substring(API.FILE.dirname(pkgModulePath).length);
+    // NOTE: This has only been tested with the 'node' platform
+    API.FILE.write(pkgModulePath, 'module.exports = require("' + relMainPath + '");');
     return true;
 }
 
@@ -7558,7 +8333,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             // This is typically needed to get the paths to packages in a multi-package archive
             if (typeof locator.path != "undefined")
                 locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
-    
+
             // Pass through the original descriptor unchanged
             if (typeof descriptor != "undefined")
                 locator.descriptor = descriptor;
@@ -7597,6 +8372,8 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             locator.location = path + "/";
 
             finalize(locator);
+        }, {
+            verifyPackageDescriptor: ((locator.resource===true)?false:true)
         });
         return;
     }
@@ -7632,7 +8409,14 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
         if (typeof locator.location == "undefined" &&
             (typeof locator.archive != "undefined" || typeof locator.catalog != "undefined"))
         {
-            this.resolveLocator(assembler, locator, finalize, options);
+            this.resolveLocator(assembler, locator, function(locator)
+            {
+                // Pass through the original descriptor unchanged
+                if (typeof descriptor != "undefined")
+                    locator.descriptor = descriptor;
+
+                callback(locator);
+            }, options);
             return;
         }
     }
@@ -8004,14 +8788,24 @@ Sandbox.prototype.init = function()
         {
             var URL = loader.bravojs.require.canonicalize(moduleIdentifier),
                 m = URL.match(/^memory:\/(.*)$/),
-                path = m[1];
+                path = m[1],
+                data;
 
             path = path.replace(/^\w*!/, "");
 
             if (/\.js$/.test(path) && !API.FILE.exists(path))
                 path = path.substring(0, path.length-3);
 
-            load(API.FILE.read(path));
+            try
+            {
+                data = API.FILE.read(path);
+            }
+            catch(e)
+            {
+                throw new Error("Error loading file: " + path);
+            }
+
+            load(data);
         }
     }
 
@@ -8063,6 +8857,8 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
             locator[key] = newLocator[key];
         if (typeof locatorDescriptor != "undefined")
             locator.descriptor = locatorDescriptor;
+        if (typeof self.packages[packageId].id == "undefined")
+            self.packages[packageId].id = locator.id || packageId;
         return self.packages[packageId];
     }
 
@@ -8078,7 +8874,10 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
     var path = locator.location;
     if (typeof this.packages[path] == "undefined")
     {
-        this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Package(path));
+        if (locator.resource === true)
+            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Dummy(path));
+        else
+            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Package(path));
 
         // If package has a UID set we also index our packages by it
         // TODO: Add version to key if applicable
