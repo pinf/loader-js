@@ -19,7 +19,7 @@ Clone or download the [pinf/loader-js](https://github.com/pinf/loader-js) reposi
 
 Link the `commonjs` command to the bootstrap script at `./pinf-loader.sh`:
 
-    ln -s /.../loader-js.sh /usr/local/bin/commonjs
+    ln -s /.../pinf-loader.sh /usr/local/bin/commonjs
 
 To update the loader to the latest code at any time:
 
