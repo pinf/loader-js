@@ -88,8 +88,10 @@ Specification Comments
 Additions:
 
   * Need a property to identify the platform in order to load correct platform API modules.
-    See: http://stackoverflow.com/questions/4224606/how-to-check-whether-a-script-is-running-under-node-js
-    Proposed: require.platform
+    * See: http://stackoverflow.com/questions/4224606/how-to-check-whether-a-script-is-running-under-node-js
+    * Proposed: `require.platform`
+
+  * `require("./lib/platform/{platform}/main")` where `{platform}` is replaced with `require.platform`
 
   * Need a way to print to stdout no matter what. Especially important in browser where window.print.
     should not be over-written.
@@ -103,7 +105,6 @@ Additions:
   * There may not be any delimiters in the pathIDs given by `module.id`, `module.pkgId`
 
   * Need facility to get command line arguments
-
 
 Changes:
 
@@ -136,6 +137,9 @@ Additions:
       * [https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/package.json](https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/package.json)
       * [https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/compiler.js](https://github.com/pinf/loader-js/blob/master/demos/PreloadCoffeeScript/compiler.js)
 
+Notes:
+
+  * `overlay` property with keys: `pinf:{platform}`
 
   
 [CommonJS Packages/Mappings/C](http://wiki.commonjs.org/wiki/Packages/Mappings/C)

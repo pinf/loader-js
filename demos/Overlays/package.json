@@ -1,0 +1,20 @@
+{
+    "uid": "http://github.com/pinf/loader-js/demos/Overlays/",
+    "main": "main.js",
+    "overlay": {
+        "pinf:narwhal": {
+            "mappings": {
+                "p": {
+                    "id": "github.com/pinf/loader-js/demos/Overlays/packages/narwhal/"
+                }
+            }
+        },
+        "pinf:node": {
+            "mappings": {
+                "p": {
+                    "id": "github.com/pinf/loader-js/demos/Overlays/packages/node/"
+                }
+            }
+        }
+    }
+}

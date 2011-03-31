@@ -1,0 +1,20 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/Overlays/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/Overlays/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/loader-js/demos/Overlays/packages/narwhal/": {
+            "locator": {
+                "location": "./packages/narwhal"
+            }
+        },
+        "github.com/pinf/loader-js/demos/Overlays/packages/node/": {
+            "locator": {
+                "location": "./packages/node"
+            }
+        }
+    }
+}
