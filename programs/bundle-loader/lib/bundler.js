@@ -33,28 +33,48 @@ Bundler.prototype.writeTo = function(bundlePath)
     for (var path in this.files)
     {
         var file = this.files[path];
+        
+        if (file.plugin == "text")
+        {
+            var id = file.plugin + "!" + file.subpath.substring(1);
+            code.push("__loader__.memoize('"+id+"', function(__require__, module, exports) {");
+    
+            code.push("// ######################################################################");
+            code.push("// # " + file.subpath);
+            code.push("// ######################################################################");
+            code.push();
 
-        var id = path.substring(1, path.length-3);
-        code.push("__loader__.memoize('"+id+"', function(__require__, module, exports) {");
-
-        code.push("// ######################################################################");
-        code.push("// # " + path);
-        code.push("// ######################################################################");
-        code.push();
-
-        var moduleCode = FS.readFileSync(file.path, "utf-8");
-        for (var reqId in file.requires)
-            moduleCode = moduleCode.replace(file.requires[reqId], "__require__('" + reqId + "')");
-
-        if (id == "loader")
-            moduleCode = moduleCode.replace('require("./adapter/"', '__require__("adapter/"');
-
-        code.push(moduleCode);
-
-        code.push();
-        code.push("});");
-        code.push();
-
+            var moduleCode = FS.readFileSync(file.path, "utf-8");
+    
+            code.push('return ["' + moduleCode.replace(/"/g, '\\"').replace(/\n/g, '","') + '"].join("\\n");');
+    
+            code.push();
+            code.push("});");
+            code.push();
+        }
+        else
+        {
+            var id = file.subpath.substring(1, file.subpath.length-3);
+            code.push("__loader__.memoize('"+id+"', function(__require__, module, exports) {");
+    
+            code.push("// ######################################################################");
+            code.push("// # " + file.subpath);
+            code.push("// ######################################################################");
+            code.push();
+    
+            var moduleCode = FS.readFileSync(file.path, "utf-8");
+            for (var reqId in file.requires)
+                moduleCode = moduleCode.replace(file.requires[reqId], "__require__('" + reqId + "')");
+    
+            if (id == "loader")
+                moduleCode = moduleCode.replace('require("./adapter/"', '__require__("adapter/"');
+    
+            code.push(moduleCode);
+    
+            code.push();
+            code.push("});");
+            code.push();
+        }
     }
 
     code.push("__pinf_loader_scope__.boot = __loader__.__require__('loader').boot;");

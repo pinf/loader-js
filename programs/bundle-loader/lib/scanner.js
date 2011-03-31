@@ -20,6 +20,14 @@ exports.scan = function(path, options)
         exclude: exclude,
         platform: options.platform
     }, files, path);
+
+    if (typeof options.textFiles != "undefined")
+    {
+        options.textFiles.forEach(function(subpath)
+        {
+            files["text!" + subpath] = new File(path + subpath, subpath, "text");
+        });
+    }
     return files;
 }
 
@@ -54,11 +62,16 @@ function walk(options, files, path, subpath)
 }
 
 
-var File = function File(path, subpath)
+var File = function File(path, subpath, plugin)
 {
     var self = this;
     self.path = path;
     self.subpath = subpath;
+    self.plugin = plugin;
+
+    if (typeof plugin != "undefined")
+        return;
+
     self.code = FS.readFileSync(self.path, "utf-8");
     self.requires = {};
     self.dependencies = scrapeDeps(self.code).filter(function(dep)

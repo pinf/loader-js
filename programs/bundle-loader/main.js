@@ -22,7 +22,13 @@ exports.main = function(env)
         outputPath = process.cwd() + "/" + outputPath;
 
     var files = SCANNER.scan(PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib/pinf-loader-js", {
-        platform: platform
+        platform: platform,
+        textFiles: [
+            "/bravojs/global-es5.js",
+            "/bravojs/bravo.js",
+            "/bravojs/plugins/packages/packages.js",
+            "/bravojs/plugins/packages/loader.js"
+        ]
     });
 
     var bundler = new BUNDLER.Bundler(files, {
