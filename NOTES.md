@@ -98,6 +98,7 @@ Additions:
     Proposed: module.print
 
   * New `module.pkgId` property
+  * New `module.hashId` property
 
   * New `require.pkg(<packageID>).id(<moduleId>)`. If no argument for `id()` the package ID is returned.
     If `true` as second argument to `.id()` the ID is returned unsanitized (context delimiters stay in tact)
