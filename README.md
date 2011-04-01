@@ -165,6 +165,7 @@ This project uses code from:
   * [https://github.com/Gozala/light-traits/](https://github.com/Gozala/light-traits/)
   * [https://github.com/Gozala/jetpack-protocol/](https://github.com/Gozala/jetpack-protocol/)
   * [http://pajhome.org.uk/crypt/md5/sha1.html](http://pajhome.org.uk/crypt/md5/sha1.html)
+  * [http://membres-liglab.imag.fr/donsez/cours/exemplescourstechnoweb/js_securehash/md5src.html](http://membres-liglab.imag.fr/donsez/cours/exemplescourstechnoweb/js_securehash/md5src.html)
 
 
 Documentation License

@@ -52,6 +52,9 @@ module.declare([
                         rewritePaths: [
                             [PATH.dirname(PATH.dirname(module.id)) + "/CommonJSModules2/", "/../CommonJSModules2/"]
                         ]
+                    },
+                    "/PlatformConditionalRequire.js": {
+                        programPath: PATH.dirname(PATH.dirname(module.id)) + "/PlatformConditionalRequire/program.json"
                     }
                 }
             });
