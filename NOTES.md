@@ -38,6 +38,8 @@ General
 
   * Build and publish commands to provide versioned releases (This will be part of PINF/CLI)
 
+  * Rename ./lib/pinf-loader-js to ./lib/pinf-loader
+
 
 NodeJS
 -------
