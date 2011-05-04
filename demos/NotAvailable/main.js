@@ -1,5 +1,5 @@
 
-module.declare(["amd/module3", "./lib/module1", "./lib/module2", "./lib/module3", "./lib/module4"], function(require, exports, module)
+module.declare(["amd/module3", "./lib/module1", "./lib/module2", "./lib/module3", "./lib/module4", "hello/test"], function(require, exports, module)
 {
     exports.main = function()
     {
@@ -27,7 +27,7 @@ module.declare(["amd/module3", "./lib/module1", "./lib/module2", "./lib/module3"
         
         module.print(msg + "\n");
         
-        if (msg == "HelloWorld from NotAvailable!")
+        if (msg == "HelloWorld from NotAvailable!" && require("hello/test") === null)
             module.print("OK");
         else
             module.print("FAIL");

@@ -15,6 +15,9 @@
     "mappings": {
         "amd": {
             "location": "../AMD"
+        },
+        "hello": {
+            "available": false
         }
     }
 }

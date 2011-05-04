@@ -55,6 +55,9 @@ module.declare([
                     },
                     "/PlatformConditionalRequire.js": {
                         programPath: PATH.dirname(PATH.dirname(module.id)) + "/PlatformConditionalRequire/program.json"
+                    },
+                    "/NotAvailable.js": {
+                        programPath: PATH.dirname(PATH.dirname(module.id)) + "/NotAvailable/program.json"
                     }
                 }
             });
