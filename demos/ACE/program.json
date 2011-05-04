@@ -11,32 +11,26 @@
         },
         "github.com/ajaxorg/ace/": {
             "locator": {
-                "archive": "https://github.com/ajaxorg/ace/zipball/master",
-                "descriptor": {
-                    "uid": "https://github.com/ajaxorg/ace/"
-                }
+                "archive": "https://github.com/ajaxorg/ace/zipball/27bb78a0a86706977f2a1ab3785e3e9a1a30ef8d"
+            },
+            "descriptor": {
+                "uid": "https://github.com/ajaxorg/ace/"
             }
         },
         "github.com/kriszyp/jsgi-node/zipball/master": {
-            "locator": {
-                "descriptor": {
-                    "native": true
-                }
+            "descriptor": {
+                "native": true
             }
         },
         "github.com/kriszyp/promised-io/zipball/v0.2.3": {
-            "locator": {
-                "descriptor": {
-                    "native": true
-                }
+            "descriptor": {
+                "native": true
             }
         },
         "github.com/kriszyp/patr/zipball/v0.2.5": {},
         "github.com/felixge/node-paperboy/zipball/master": {
-            "locator": {
-                "descriptor": {
-                    "native": true
-                }
+            "descriptor": {
+                "native": true
             }
         },
         "nodejs.org": {

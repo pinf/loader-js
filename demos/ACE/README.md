@@ -58,7 +58,3 @@ Development workflow:
     * Caching
     * Proactive payload generation on file change
   * Reduce browser receiving times by zipping response in _Program Server_
-
-Build workflow:
-
-  * Generate static transport files based on hierarchical transport file declarations in `program.json`.
