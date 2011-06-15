@@ -4,6 +4,9 @@
     "mappings": {
         "pinf": {
             "id": "pinf.org/loader"
+        },
+        "jetpack": {
+            "id": "mozilla.org/labs/jetpack"
         }
     }
 }

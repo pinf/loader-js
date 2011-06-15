@@ -1,7 +1,6 @@
 
 module.declare([
     "jsgi/jsgi-node",
-    "jsgi/promise",
     "promised-io/fs",
     "paperboy/paperboy",
     "pinf/loader",
@@ -11,7 +10,6 @@ module.declare([
 ], function(require, exports, module)
 {
     var JSGI = require("jsgi/jsgi-node"),
-        PROMISE = require("jsgi/promise"),
         PROMISE_FS = require("promised-io/fs"),
         PAPERBOY = require("paperboy/paperboy"),
         PINF_LOADER = require("pinf/loader"),
@@ -30,9 +28,6 @@ module.declare([
             module.print("Starting program server at: http://localhost:" + port + "/\n");
 
             var jsgiServer = new PROGRAM_SERVER.JSGI({
-                api: {
-                    PROMISE: PROMISE
-                },
                 map: {
                     // replace boot request to let program server handle it
                     "/demo/boot.js": {
@@ -57,8 +52,7 @@ module.declare([
                     };
                 }
 
-                var path = module.mappings["ace"] + request.pathInfo;
-
+                var path = require.pkg(module.mappings["ace"]).id(null, true) + request.pathInfo;
                 if (path.charAt(path.length-1) == "/")
                     path += "index.html";
 
@@ -79,6 +73,7 @@ module.declare([
                 }
                 catch(e)
                 {
+                    console.error(e);
                     return {
                         status: 404,
                         headers: {

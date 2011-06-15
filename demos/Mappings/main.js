@@ -10,7 +10,8 @@ module.declare(["package1/main", "package4/main"], function(require, exports, mo
         //       as well as modules based on the mainModuleDir.
         //       To make this absolutely generic the package being called should bundle all it's
         //       modules into a package.
-        var mainModuleDir = module.mappings["package1"].split("/");
+
+        var mainModuleDir = require.pkg(module.mappings["package1"]).id(null, true).split("/");
         mainModuleDir.pop();
 
         var options = {

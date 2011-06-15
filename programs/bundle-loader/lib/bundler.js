@@ -64,10 +64,10 @@ Bundler.prototype.writeTo = function(bundlePath)
     
             var moduleCode = FS.readFileSync(file.path, "utf-8");
             for (var reqId in file.requires)
-                moduleCode = moduleCode.replace(file.requires[reqId], "__require__('" + reqId + "')");
+                moduleCode = moduleCode.replace(new RegExp(RegExp.escape(file.requires[reqId]), "g"), "__require__('" + reqId + "')");
     
             if (id == "loader")
-                moduleCode = moduleCode.replace('require("./adapter/"', '__require__("adapter/"');
+                moduleCode = moduleCode.replace(new RegExp(RegExp.escape('require("./adapter/"'), "g"), '__require__("adapter/"');
     
             code.push(moduleCode);
     
@@ -84,5 +84,9 @@ Bundler.prototype.writeTo = function(bundlePath)
     code.push("})();");
 
     FS.writeFileSync(bundlePath, code.join("\n"));
+}
+
+RegExp.escape = function(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
 

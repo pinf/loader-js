@@ -7,6 +7,7 @@ exports.main = function(env)
 {
 
     var widget = WIDGETS.Widget({
+      id: "mozilla-website",
       label: "Mozilla website",
       contentURL: "http://www.mozilla.org/favicon.ico",
       onClick: function() {
