@@ -32,9 +32,13 @@ exports.main = function()
         scheme: "jedi",
         app: function(request)
         {
+            module.print("Got Request:\n");
+
             var html = [];
-            for (var key in request)
+            for (var key in request) {
+                module.print("  " + key + ": " + request[key] + "\n");
                 html.push(key + ": " + request[key] + "\n");
+            }
 
             return {
                 status: 200,
