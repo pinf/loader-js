@@ -35,6 +35,7 @@ Server-based programs:
     commonjs -v ./demos/ReloadingJSGI
     commonjs -v ./demos/PreloadCoffeeScript
     commonjs -v ./demos/GithubArchiveDependency
+    commonjs -v ./demos/SystemDependencies
     commonjs -v https://gist.github.com/823315
     commonjs -v ./demos/PostCommitProgramReload
 
