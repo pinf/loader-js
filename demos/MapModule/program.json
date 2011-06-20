@@ -8,12 +8,13 @@
         },
         "github.com/pinf/loader-js/demos/AMD/": {
             "locator": {
-                "descriptor": {
-                    "modules": {
-                        "module3": {
-                            "id": "github.com/pinf/loader-js/demos/MapModule/",
-                            "module": "new-module3"
-                        }
+                "location": "../AMD"
+            },
+            "descriptor": {
+                "modules": {
+                    "module3": {
+                        "id": "github.com/pinf/loader-js/demos/MapModule/",
+                        "module": "new-module3"
                     }
                 }
             }

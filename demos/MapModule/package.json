@@ -3,15 +3,15 @@
     "main": "main.js",
     "mappings": {
         "amd1": {
-            "location": "../AMD",
+            "id": "github.com/pinf/loader-js/demos/AMD/",
             "module": "/lib/module1.js"
         },
         "amd2": {
-            "location": "../AMD",
+            "id": "github.com/pinf/loader-js/demos/AMD/",
             "module": "./lib/module1.js"
         },
         "amd3": {
-            "location": "../AMD",
+            "id": "github.com/pinf/loader-js/demos/AMD/",
             "module": "module1"
         }
     }
