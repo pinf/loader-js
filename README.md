@@ -1,9 +1,3 @@
-
-  * [PINF](http://www.christophdorn.com/Research/#PINF): __Good software just works__ ~ PINF Toolchain Automation Platform
-  * PINF/**Loader**: _The one loader to load them all_ (Language Specific Loaders: `JavaScript` **70% done**, `PHP` 0%)
-  * PINF/Insight: _Intelligence served on a platter_ (Language Specific Libraries: `JavaScript` 40% done, `PHP` 90+%)
-  * PINF/Wildfire: _Amazing communication above all_ (Language Specific Libraries: `JavaScript` 90+% done, `PHP` 90+%)
-
 Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
 ========================================================================================
 
@@ -173,7 +167,7 @@ Documentation License
 
 [Creative Commons Attribution-NonCommercial-ShareAlike 3.0](http://creativecommons.org/licenses/by-nc-sa/3.0/)
 
-Copyright (c) 2011 [Christoph Dorn](http://www.christophdorn.com/)
+Copyright (c) 2011+ [Christoph Dorn](http://www.christophdorn.com/)
 
 
 Code License
@@ -181,7 +175,7 @@ Code License
 
 [MIT License](http://www.opensource.org/licenses/mit-license.php)
 
-Copyright (c) 2011 [Christoph Dorn](http://www.christophdorn.com/)
+Copyright (c) 2011+ [Christoph Dorn](http://www.christophdorn.com/)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
