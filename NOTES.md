@@ -29,6 +29,10 @@ TODO
 General
 -------
 
+  * Support for: http://www.phantomjs.org/
+
+  * Do not throw if package does not have "main" set and `--script` is used
+
   * OS distro packages for loader
 
   * Author: CommonJS Programs/A (strawman)
