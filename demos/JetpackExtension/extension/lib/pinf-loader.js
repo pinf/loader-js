@@ -2142,66 +2142,68 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
 //        if (uri.charAt(0) == "/")
             path = uri;
 
-        var programDescriptor = new DESCRIPTORS.Program(path, {
+        new DESCRIPTORS.Program(path, {
             extendsProgramDescriptorPath: options.extendsProgramDescriptorPath || false
-        });
-        var program = new PROGRAM.Program(programDescriptor);
-
-        if (typeof programCallback != "undefined")
+        }, function(programDescriptor)
         {
-            if (programCallback(program) === false)
-                return;
-        }
-
-        sandbox.setProgram(program);
-        sandbox.sourceDescriptors = options.sourceDescriptors || void 0;
-
-        program.assembler = self;
-
-        // This will download all packages and make them available on disk
-        program.discoverPackages(function assembler_assembleProgram_lambda_discoverPackages_packageForLocator(locator, callback)
-        {
-            program.resolveLocator(self, locator, function(resolvedLocator)
+            var program = new PROGRAM.Program(programDescriptor);
+    
+            if (typeof programCallback != "undefined")
             {
-                if (resolvedLocator.available === false)
+                if (programCallback(program) === false)
+                    return;
+            }
+    
+            sandbox.setProgram(program);
+            sandbox.sourceDescriptors = options.sourceDescriptors || void 0;
+    
+            program.assembler = self;
+    
+            // This will download all packages and make them available on disk
+            program.discoverPackages(function assembler_assembleProgram_lambda_discoverPackages_packageForLocator(locator, callback)
+            {
+                program.resolveLocator(self, locator, function(resolvedLocator)
                 {
-                    callback(null);
-                }
-                else
-                if (typeof resolvedLocator.available != "undefined" && resolvedLocator.available === false)
-                {
-                    callback(null);
-                }
-                else
-                if (typeof resolvedLocator.id != "undefined")
-                {
-                    callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
-                }
-                else
-                if (typeof resolvedLocator.location == "undefined")
-                {
-                    throw new Error("No location property found in locator: " + UTIL.locatorToString(resolvedLocator));
-                }
-                else
-                if (!FILE.exists(resolvedLocator.location))
-                {
-                    throw new Error("Directory for location property not found in locator: " + UTIL.locatorToString(resolvedLocator));
-                }
-//                else
-                // We do not need to follow locators (in order to discover requires()) that map to providers.
-//                if (typeof locator.provider != "undefined")
-//                    callback(null);
-                else
-                {
-                    callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
-                }
-            }, options);
-        }, function assembler_assembleProgram_lambda_discoverPackages_done()
-        {
-            DEBUG.indent(di);
-            self.finalizeProgram(sandbox, program);
-            callback(program);
-        }, options);
+                    if (resolvedLocator.available === false)
+                    {
+                        callback(null);
+                    }
+                    else
+                    if (typeof resolvedLocator.available != "undefined" && resolvedLocator.available === false)
+                    {
+                        callback(null);
+                    }
+                    else
+                    if (typeof resolvedLocator.id != "undefined")
+                    {
+                        callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
+                    }
+                    else
+                    if (!resolvedLocator.location)
+                    {
+                        throw new Error("No location property found in locator: " + UTIL.locatorToString(resolvedLocator));
+                    }
+                    else
+                    if (!FILE.exists(resolvedLocator.location))
+                    {
+                        throw new Error("Directory for location property not found in locator: " + UTIL.locatorToString(resolvedLocator));
+                    }
+    //                else
+                    // We do not need to follow locators (in order to discover requires()) that map to providers.
+    //                if (typeof locator.provider != "undefined")
+    //                    callback(null);
+                    else
+                    {
+                        callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
+                    }
+                }, options);
+            }, function assembler_assembleProgram_lambda_discoverPackages_done()
+            {
+                DEBUG.indent(di);
+                self.finalizeProgram(sandbox, program);
+                callback(program);
+            }, options);            
+        });
     }
 
     if (ENV.mustClean && !this.cleaned[this.downloader.basePath + "/downloads"])
@@ -5001,6 +5003,63 @@ return function calcMD5(str)
 })();
 
 });
+__loader__.memoize('console', function(__require__, module, exports) {
+// ######################################################################
+// # /console.js
+// ######################################################################
+
+var API = __require__('api');
+
+var consoleAPI = {
+    instance: console || void 0
+};
+var errorLogPath = false;
+
+[
+    "log",
+    "info",
+    "warn",
+    "error",
+    "to"
+].forEach(function(priority)
+{
+    consoleAPI[priority] = function()
+    {
+        if (errorLogPath) {
+            var line = [
+                "[" + new Date() + "]",
+                priority.toUpperCase()
+            ];
+            for (var i=0,ic=arguments.length ; i<ic ; i++) {
+                line.push(arguments[i]);
+            }
+            API.FILE.asyncAppend(errorLogPath, line.join("\t") + "\n");
+        }
+
+        if (typeof consoleAPI.instance != "undefined" && consoleAPI.instance[priority])
+            return consoleAPI.instance[priority].apply(consoleAPI.instance, arguments);
+        else
+            API.DEBUG.print("[console]" + arguments);
+    }
+});
+
+exports.setErrorLogPath = function(path)
+{
+    errorLogPath = path;
+}
+
+exports.setConsole = function(console)
+{
+    API.ENV.console = console;
+    consoleAPI.instance = console;
+}
+
+exports.getAPI = function()
+{
+    return consoleAPI;
+}
+
+});
 __loader__.memoize('contexts', function(__require__, module, exports) {
 // ######################################################################
 // # /contexts.js
@@ -5298,7 +5357,7 @@ Descriptor.prototype.clone = function()
     return descriptor;
 }
 
-Descriptor.prototype.load = function(path, create, options)
+Descriptor.prototype.load = function(path, create, options, callback)
 {
     options = options || {};
 
@@ -5344,22 +5403,29 @@ Descriptor.prototype.load = function(path, create, options)
         }
     }
 
-    try
-    {
+    try {
         this.json = JSON.parse(FILE.read(this.path));
-        canonicalizePaths(this.json, API.FILE.dirname(this.path));
-    }
-    catch(e)
-    {
+    } catch(e) {
         throw new Error("Error parsing JSON file '" + this.path + "': " + e);
     }
     
+    var localPath = this.path.replace(/\.json$/, ".local.json");
+    if (FILE.exists(localPath)) {
+        try {
+            this.json = API.UTIL.deepMerge(this.json, JSON.parse(FILE.read(localPath)));
+        } catch(e) {
+            throw new Error("Error parsing JSON file '" + this.path + "': " + e);
+        }
+    }
+
+    canonicalizePaths(this.json, API.FILE.dirname(this.path));
+    
     var self = this;
 
-    function mergeExtended(extendsLocator)
+    function mergeExtended(extendsLocator, doneMergingCallback)
     {
         // TODO: More generic locator resolving
-        if (typeof extendsLocator.location == "undefined")
+        if (!extendsLocator.location)
             throw new Error("Extends locator must contain 'location' property in: " + self.path);
 
         var path = extendsLocator.location;
@@ -5391,7 +5457,9 @@ Descriptor.prototype.load = function(path, create, options)
             
             if (typeof self.json["extends"] != "undefined")
             {
-                mergeExtended(self.json["extends"]);
+                mergeExtended(self.json["extends"], doneMergingCallback);
+            } else {
+                doneMergingCallback();
             }
         }
 
@@ -5405,22 +5473,42 @@ Descriptor.prototype.load = function(path, create, options)
         }
     }
     
-    if (typeof options.extendsProgramDescriptorPath !== "undefined" && options.extendsProgramDescriptorPath)
+    function mergeFinal()
+    {
+        if (typeof self.json["extends"] != "undefined")
+        {
+            mergeExtended(self.json["extends"], function()
+            {
+                if (typeof callback === "function")
+                    callback();
+            });
+        } else {
+            if (typeof callback === "function")
+                callback();
+        }
+    }
+    
+    if (typeof options.extendsDescriptorJSON === "object") {
+        this.json = API.UTIL.deepMerge(this.json, options.extendsDescriptorJSON);
+    }
+
+    // TODO: Rename options.extendsProgramDescriptorPath to options.extendsDescriptorPath
+    if (options.extendsProgramDescriptorPath)
     {
         var previousExtends = this.json["extends"];
         // NOTE: options.extendsProgramDescriptorPath may NOT be a URL (must be absolute local path)
         //       If it is a URL the mergeExtended for the original "extends" may fails due to a race condition
         mergeExtended({
             location: options.extendsProgramDescriptorPath
+        }, function()
+        {
+            if (typeof previousExtends !== "undefined") {
+                self.json["extends"] = previousExtends;
+            }
+            mergeFinal();
         });
-        if (typeof previousExtends !== "undefined") {
-            this.json["extends"] = previousExtends;
-        }
-    }
-
-    if (typeof this.json["extends"] != "undefined")
-    {
-        mergeExtended(this.json["extends"]);
+    } else {
+        mergeFinal();
     }
 }
 
@@ -5470,7 +5558,7 @@ Descriptor.prototype._normalizeLocator = function(locator)
         }
     }
 
-    if (typeof locator.location != "undefined")
+    if (locator.location)
     {
         if (locator.location.charAt(0) == ".")
             locator.location = FILE.realpath(FILE.dirname(this.path) + "/" + locator.location) + "/";
@@ -5489,18 +5577,23 @@ Descriptor.prototype.toJSONObject = function()
 // # Program Descriptor
 // ######################################################################
 
-var Program = exports.Program = function(path, options)
+var Program = exports.Program = function(path, options, callback)
 {
     if (typeof path == "undefined")
         return;
     this.cloneConstructor = exports.Program;
     this.filename = "program.json";
-    this.load(path, false, options);
-    if (typeof this.json.uid != "undefined")
+    var self = this;
+    this.load(path, false, options, function()
     {
-        if (!this.json.uid.match(/^https?:\/\/(.*)\/$/))
-            throw this.validationError("Value (" + this.json.uid + ") for property 'uid' is not a valid HTTP(s) URL");
-    }
+        if (typeof self.json.uid != "undefined")
+        {
+            if (!self.json.uid.match(/^https?:\/\/(.*)\/$/))
+                throw this.validationError("Value (" + self.json.uid + ") for property 'uid' is not a valid HTTP(s) URL");
+        }
+        if (typeof callback === "function")
+            callback(self);
+    });
 }
 Program.prototype = new Descriptor();
 
@@ -5671,18 +5764,21 @@ Program.prototype.augmentLocator = function(locator, options)
 // # Package Descriptor
 // ######################################################################
 
-var Package = exports.Package = function(path)
+var Package = exports.Package = function(path, options)
 {
     if (typeof path == "undefined")
         return;
     this.cloneConstructor = exports.Package;
     this.filename = "package.json";
-    this.load(path);
-    if (typeof this.json.uid != "undefined")
+    var self = this;
+    this.load(path, false, options, function()
     {
-        if (!this.json.uid.match(/^\w*:\/\/(.*)\/$/))
-            throw this.validationError("Value (" + this.json.uid + ") for property 'uid' is not a valid URI!");
-    }
+        if (typeof self.json.uid != "undefined")
+        {
+            if (!self.json.uid.match(/^\w*:\/\/(.*)\/$/))
+                throw self.validationError("Value (" + self.json.uid + ") for property 'uid' is not a valid URI!");
+        }
+    });
 }
 Package.prototype = new Descriptor();
 
@@ -5740,13 +5836,16 @@ Package.prototype.moduleIdToLibPath = function(moduleId)
 // # Dummy Descriptor - used for resource packages that are not CommonJS packages
 // ######################################################################
 
-var Dummy = exports.Dummy = function(path)
+var Dummy = exports.Dummy = function(path, options)
 {
     if (typeof path == "undefined")
         return;
     this.cloneConstructor = exports.Dummy;
     this.path = path;
     this.json = {};
+    if (typeof options.extendsDescriptorJSON === "object") {
+        this.json = API.UTIL.deepMerge(this.json, options.extendsDescriptorJSON);
+    }
 }
 Dummy.prototype = new Package();
 
@@ -5831,7 +5930,7 @@ Sources.prototype.augmentLocator = function(locator)
         typeof this.json.packages[locator.id] == "undefined" ||
         typeof this.json.packages[locator.id].source == "undefined")
         return false;
-    if (typeof this.json.packages[locator.id].source.location == "undefined")
+    if (!this.json.packages[locator.id].source.location)
         throw new Error("Source locator for package '" + locator.id + "' must specify 'location' property in: " + this.path);
 
     if (this.json.packages[locator.id].source.location.charAt(0) != "/" &&
@@ -5887,39 +5986,60 @@ var API = __require__('api'),
     DEBUG = API.DEBUG;
 
 var MAX_PARALLEL_DOWNLOADS = 2,
-    USE_CACHE = false;
+    USE_CACHE = false,
+    ENABLED = true;
 
 var Downloader = exports.Downloader = function(options)
 {
     this.basePath = options.basePath;
+
+    // this is the case when used in jetpack or other embedded environment with no PWD
+    if (/^__PWD__/.test(this.basePath)) {
+        ENABLED = false;
+        return;
+    }
+
+    FILE.mkdirs(this.basePath + "/downloads/files", 0775);
+    FILE.mkdirs(this.basePath + "/downloads/packages", 0775);
+    FILE.mkdirs(this.basePath + "/downloads/archives", 0775);
+    FILE.mkdirs(this.basePath + "/cache", 0775);
 }
 
 Downloader.prototype.pathForURL = function(url, type)
 {
     type = type || "source";
 
-    var m = url.match(/^https?:\/(.*)$/);
+    var m = url.match(/^https?:\/(.*?)(\?(.*))?$/);
     if (!m)
         throw new Error("Invalid archive URL for mapping: " + archive);
 
     var path = m[1];
+
+    if (m[3]) {
+    	path += "." + encodeURIComponent("?" + m[3]);
+    }
 
     if (path.charAt(path.length-1) == "/")
         path = path.substring(0, path.length-1);
 
     if (type=="file")
     {
-        return this.basePath + "/downloads" + path;
+        return this.basePath + "/downloads/files" + path;
     }
     else
     if (type=="source")
     {
-        return this.basePath + "/downloads" + path + "~sources";
+        return this.basePath + "/downloads/packages" + path + "~pkg";
+    }
+    else
+    if (type=="install")
+    {
+        return this.basePath + "/downloads/packages" + path + "~install";
     }
     else
     if (type=="archive")
     {
-        return this.basePath + "/downloads" + path;
+        return this.basePath + "/downloads/archives" + path;
     }
     else
     if (type=="cache")
@@ -5935,6 +6055,9 @@ var unzipping = false,
 
 Downloader.prototype.getForArchive = function(archive, callback, options)
 {
+    if (!ENABLED)
+        throw new Error("Downloader is not enabled!");
+    
     options = options || {};
     var self = this;
     var sourcePath = self.pathForURL(archive, "source");
@@ -6011,110 +6134,127 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
             callback(sourcePath);
             return;
         }
-        // First check if we have a TGZ archive    
-        SYSTEM.exec("gunzip -t " + archivePath, function(stdout, stderr)
+
+        if (typeof options.extract === "function")
         {
-            if (/gunzip: command not found/.test(stderr))
-            {
-                return throwError("UNIX Command not found: gunzip");
-            }
-            else
-            if (stderr)
-            {
-                // ZIP File
-                SYSTEM.exec("unzip -qq -o " + archivePath + " -d " + sourcePath, function(stdout, stderr)
-                {
-                    if (/unzip: command not found/.test(stderr))
-                    {
-                        cleanup();
-                        return throwError("UNIX Command not found: unzip");
-                    }
-                    else
-                    if (stderr)
-                    {
-                        cleanup();
-                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
-                    }
-                    else
-                    if (!FILE.exists(sourcePath))
-                    {
-                        cleanup();
-                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
-                    }
-
-                    // See if archive has a directory containing our package
-                    var list = FILE.readdir(sourcePath);
-                    if (list.length == 1)
-                    {
-                        SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
-                        {
-                            if (!FILE.exists(sourcePath + packageTestFilepath))
-                            {
-                                cleanup();
-                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
-                            }
-
-                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
-                            {
-                                callback(sourcePath);
-                            });
-                        });
-                    }
-                    else
-                    {
-                        callback(sourcePath);
-                    }
-                });
-            }
-            else
-            {
-                // TGZ file
-                API.FILE.mkdirs(sourcePath, 0775);
-                SYSTEM.exec("tar -zxf  " + archivePath + " -C " + sourcePath, function(stdout, stderr)
-                {
-                    if (/tar: command not found/.test(stderr))
-                    {
-                        cleanup();
-                        return throwError("UNIX Command not found: tar");
-                    }
-                    else
-                    if (stderr)
-                    {
-                        cleanup();
-                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
-                    }
-                    else
-                    if (!FILE.exists(sourcePath))
-                    {
-                        cleanup();
-                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
-                    }
-
-                    // See if archive has a directory containing our package
-                    var list = FILE.readdir(sourcePath);
-                    if (list.length == 1)
-                    {
-                        SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
-                        {
-                            if (!FILE.exists(sourcePath + packageTestFilepath))
-                            {
-                                cleanup();
-                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
-                            }
-
-                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
-                            {
-                                callback(sourcePath);
-                            });
-                        });
-                    }
-                    else
-                    {
-                        callback(sourcePath);
-                    }
-                });
-            }
-        });
+        	try {
+	        	options.extract(archivePath, sourcePath, function()
+	        	{
+	        		callback(sourcePath);
+	        	});
+        	} catch(e) {
+                cleanup();
+                return throwError("Error calling custom extract while extracting file '" + archivePath + "': " + e);
+        	}
+        }
+        else
+        {
+	        // First check if we have a TGZ archive    
+	        SYSTEM.exec("gunzip -t " + archivePath, function(stdout, stderr)
+	        {
+	            if (/gunzip: command not found/.test(stderr))
+	            {
+	                return throwError("UNIX Command not found: gunzip");
+	            }
+	            else
+	            if (stderr)
+	            {
+	                FILE.mkdirs(sourcePath, 0775);
+	                // ZIP File
+	                SYSTEM.exec("unzip -qq -o " + archivePath + " -d " + sourcePath, function(stdout, stderr)
+	                {
+	                    if (/unzip: command not found/.test(stderr))
+	                    {
+	                        cleanup();
+	                        return throwError("UNIX Command not found: unzip");
+	                    }
+	                    else
+	                    if (stderr)
+	                    {
+	                        cleanup();
+	                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                    }
+	                    else
+	                    if (!FILE.exists(sourcePath))
+	                    {
+	                        cleanup();
+	                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                    }
+	
+	                    // See if archive has a directory containing our package
+	                    var list = FILE.readdir(sourcePath);
+	                    if (list.length == 1)
+	                    {
+	                        SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
+	                        {
+	                            if (!FILE.exists(sourcePath + packageTestFilepath))
+	                            {
+	                                cleanup();
+	                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                            }
+	
+	                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
+	                            {
+	                                callback(sourcePath);
+	                            });
+	                        });
+	                    }
+	                    else
+	                    {
+	                        callback(sourcePath);
+	                    }
+	                });
+	            }
+	            else
+	            {
+	                // TGZ file
+	                FILE.mkdirs(sourcePath, 0775);
+	                SYSTEM.exec("tar -zxf  " + archivePath + " -C " + sourcePath, function(stdout, stderr)
+	                {
+	                    if (/tar: command not found/.test(stderr))
+	                    {
+	                        cleanup();
+	                        return throwError("UNIX Command not found: tar");
+	                    }
+	                    else
+	                    if (stderr)
+	                    {
+	                        cleanup();
+	                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                    }
+	                    else
+	                    if (!FILE.exists(sourcePath))
+	                    {
+	                        cleanup();
+	                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                    }
+	
+	                    // See if archive has a directory containing our package
+	                    var list = FILE.readdir(sourcePath);
+	                    if (list.length == 1)
+	                    {
+	                        SYSTEM.exec("mv " + sourcePath + "/*/* " + sourcePath + "/", function(stdout, stderr)
+	                        {
+	                            if (!FILE.exists(sourcePath + packageTestFilepath))
+	                            {
+	                                cleanup();
+	                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                            }
+	
+	                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
+	                            {
+	                                callback(sourcePath);
+	                            });
+	                        });
+	                    }
+	                    else
+	                    {
+	                        callback(sourcePath);
+	                    }
+	                });
+	            }
+	        });
+        }
     }
 
     var archivePath = self.pathForURL(archive, "archive");
@@ -6141,6 +6281,9 @@ Downloader.prototype.getCatalogForURL = function(url, callback)
 
 Downloader.prototype.getFileForURL = function(url, callback)
 {
+    if (!ENABLED)
+        throw new Error("Downloader is not enabled!");
+
     var path = this.pathForURL(url, "file");
 
     if (FILE.exists(path))
@@ -6206,7 +6349,7 @@ Downloader.prototype.enqueueDownload = function(url, path, callback)
 
 Downloader.prototype.doDownload = function(url, path, callback)
 {
-    currentlyDownloading[url + "::" + path] = true;
+	currentlyDownloading[url + "::" + path] = true;
     var cachePath = this.pathForURL(url, "cache");
     if (USE_CACHE)
     {
@@ -6224,6 +6367,7 @@ Downloader.prototype.doDownload = function(url, path, callback)
 
     NET.download(url, path + ".tmp", function()
     {
+        FILE.rename(path + ".tmp", path);
         if (USE_CACHE)
         {
             API.FILE.mkdirs(API.FILE.dirname(cachePath), 0775);
@@ -6234,7 +6378,6 @@ Downloader.prototype.doDownload = function(url, path, callback)
             });
             return;
         }
-        FILE.rename(path + ".tmp", path);
         delete currentlyDownloading[url + "::" + path];
         callback();
     });
@@ -6317,6 +6460,7 @@ var boot = exports.boot = function(options)
 
     var API = __require__('api');
     API.SANDBOX = __require__('sandbox');
+    API.CONSOLE = __require__('console');
 
     API.ENV.timers = timers;
     API.DEBUG.enabled = options.debug || void 0;
@@ -6346,6 +6490,8 @@ var boot = exports.boot = function(options)
     optParser.arg(".../[program.json]").optional();
     optParser.help("Runs the PINF JavaScript Loader.");
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
+    optParser.option("--pidfile").set().help("Write the process ID to the specified file. Remove file on exit. Ensures only one instance at a time.");
+    optParser.option("--daemonize").bool().help("Daemonize the process. Requires: npm install daemon");
     optParser.option("--platform").set().help("The platform to use");
     optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
     optParser.option("--script").set().help("Call a script defined in the program boot package");
@@ -6426,323 +6572,370 @@ var boot = exports.boot = function(options)
         spawnForPlatform(cliOptions.platform);
         return;
     }
-
-    API.DEBUG.print("\0magenta(----------------------------------------------------------------------------");
-    API.DEBUG.print("\0bold(|  PINF Loader v" + VERSION + "  ~  https://github.com/pinf/loader-js/\0)");
-    API.DEBUG.print("----------------------------------------------------------------------------\0)");
-
-    API.DEBUG.print("Loaded adapter: " + API.ENV.platform);
-
-    var downloader = new (__require__('downloader').Downloader)({
-        // TODO: Look for a better place first
-        basePath: API.SYSTEM.pwd + "/.pinf-packages"
-    });
-
-    var assembler = API.ENV.assembler = new (__require__('assembler').Assembler)(downloader);
-
-    API.ENV.loadSourceDescriptorsForProgram = function(path, existingSourceDescriptors)
-    {
-        var DESCRIPTORS = __require__('descriptors');
-        var sourceDescriptors = [],
-            files = [];
-        if (typeof existingSourceDescriptors !== "undefined") {
-            existingSourceDescriptors.forEach(function(descriptor)
-            {
-                sourceDescriptors[descriptor.path] = descriptor;
-            });
-        }
-        if (cliOptions.sources)
-        {
-            if (!API.FILE.exists(cliOptions.sources))
-                throw new Error("Source repository overlay file specified via --sources not found at: " + cliOptions.sources);
-            files.push(cliOptions.sources);
-        }
-        if (options.sources)
-        {
-            if (!API.FILE.exists(options.sources))
-                throw new Error("Source repository overlay file specified via options.sources not found at: " + options.sources);
-            files.push(options.sources);
-        }
-        files.push(API.FILE.dirname(path) + "/sources.local.json");
-        if (typeof API.SYSTEM.env.HOME != "undefined" && API.SYSTEM.env.HOME)
-            files.push(API.SYSTEM.env.HOME + "/.pinf/config/sources.json");
-        files.push(API.FILE.dirname(path) + "/sources.json");
-        files.forEach(function(sourcesPath)
-        {
-            if (!sourceDescriptors[sourcesPath] && API.FILE.exists(sourcesPath))
-                sourceDescriptors[sourcesPath] = new DESCRIPTORS.Sources(sourcesPath);
-        });
-        var descriptors = [];
-        for (var key in sourceDescriptors)
-            descriptors.push(sourceDescriptors[key]);
-        sourceDescriptors = descriptors;
-        if (API.DEBUG.enabled)
-        {
-            if (sourceDescriptors.length > 0)
-            {
-                API.DEBUG.print("Using source overlay files:");
-                sourceDescriptors.forEach(function(sourceDescriptor)
-                {
-                    API.DEBUG.print("  \0cyan(" + sourceDescriptor.path + "\0)");
-                });
-            }
-            else
-                API.DEBUG.print("Not using any source overlay files.");
-        }
-        return sourceDescriptors;
-    }
-
-    var init = function(path)
-    {
-        path = path || "";
-        if (path.charAt(0) != "/")
-            path = API.SYSTEM.pwd + "/" + path;
-        path = path.split("/");
-
-        if (/\.zip$/.test(path[path.length-1]))
-        {
-            path[path.length-1] += "!/";
-        }
-        if (!path[path.length-1] || path[path.length-1] != "program.json")
-        {
-            API.DEBUG.print("No descriptor URI argument. Assuming: '[./]program.json'");
-            path.push("program.json");
-        }
-        path = API.FILE.realpath(path.join("/"));
     
-        API.DEBUG.print("Loading program descriptor from: " + path);
-
-        downloader.basePath = path.substring(0, path.length-13) + "/.pinf-packages";
-    
-        API.DEBUG.print("Using program cache directory: " + downloader.basePath);
-
-        // ######################################################################
-        // # Sandbox
-        // ######################################################################
-
-        var sandbox = new API.SANDBOX.Sandbox({
-            mainModuleDir: API.FILE.dirname(path) + "/"
-        });
-
-        // ######################################################################
-        // # Simple script
-        // ######################################################################
-
-        if (!API.FILE.isFile(path))
-        {
-            var scriptPath = cliOptions.args[0];
-
-            if (scriptPath.charAt(0) != "/")
-            {
-                scriptPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + scriptPath);
-                if (!/\.js$/.test(scriptPath))
-                    scriptPath += ".js";
-            }
-
-            if (!API.FILE.exists(scriptPath))
-            {
-                if (/\.js$/.test(scriptPath))
-                    scriptPath = scriptPath.substring(0, scriptPath.length-3);
-
-                if (!API.FILE.exists(scriptPath))
-                    throw new Error("Script not found at: " + scriptPath);
-            }
-
-            sandbox.init();
-            sandbox.declare([ scriptPath ], function(require, exports, module)
-            {
-                var scriptModule = require(scriptPath);
-                if (typeof scriptModule.main == "undefined")
-                    throw new Error("Script at '" + scriptPath + "' does not export 'main()'");
-
-                API.DEBUG.print("Running script: " + scriptPath);
-
-                API.DEBUG.print("\0magenta(\0:blue(----- | Script stdout & stderr follows ====>\0:)\0)");
-
-                scriptModule.main({
-                    bootProgram: function(options)
-                    {
-                        if (typeof options.platformRequire == "undefined")
-                            options.platformRequire = API.ENV.platformRequire;
-                        return boot(options);
-                    },
-                    args: cliOptions.args.slice(1, cliOptions.args.length)
-                });
-            });
-            return;
-        }
-
-        // ######################################################################
-        // # Program assembly
-        // ######################################################################
-
-        if (!API.FILE.exists(path))
-        {
-            API.SYSTEM.print("\0red(No program descriptor found at: " + path + "\0)\n");
-            return;
-        }
-
-        // Assemble the program (making all code available on disk) by downloading all it's dependencies
-
-        assembler.assembleProgram(sandbox, path, function(program)
-        {
-            var engines = program.getEngines();
-            if (engines)
-            {
-                if (engines.indexOf(API.ENV.platform) === -1)
-                {
-                    API.DEBUG.print("\0yellow(Spawning platform: " + engines[0] + "\0)");
-                    spawnForPlatform(engines[0]);
-                    return false;
-                }
-            }
-            return true;
-        },
-        function(program)
-        {
-            API.ENV.booting = false;
-
-            // TODO: Keep these references elsewhere so we can have nested sandboxes
-            API.ENV.program = program;
-            API.ENV.sandbox = sandbox;
-
-            var dependencies = program.getBootPackages();
-            if (dependencies.length > 1)
-            {
-                throw new Error("Only one program boot package allowed in: " + path);
-            }
-
-            // ######################################################################
-            // # Program Booting
-            // ######################################################################
-    
-            API.ENV.booting = true;
-
-            if (API.DEBUG.enabled) {
-                API.DEBUG.print("Loading program's main packages:");
-                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-                {
-                    if (typeof dependencies[i]["_package-" + i] != "undefined")
-                        API.DEBUG.print("  " + dependencies[i]["_package-" + i].location);
-                }
-            }
-
-            timers.load = new Date().getTime()
-
-            var env = options.env || {};
-            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
-
-            sandbox.declare(dependencies, function(require, exports, module)
-            {
-                timers.run = new Date().getTime()
-
-                // ######################################################################
-                // # Program Script
-                // ######################################################################
-        
-                if (cliOptions.script)
-                {
-                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
-                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
-                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
-                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
-                    {
-                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
-                        {
-                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
-                            {
-                                var script = require(id);
-
-                                if (typeof script.main == "undefined")
-                                    throw new Error("Script does not export main() in " + id);
-
-                                API.ENV.booting = false;
-
-                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
-
-                                script.main(env);
-                            });
-                        }, {
-                            "discover-packages": cliOptions["discover-packages"] || false,
-                            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
-                        });
-                    }
-                    else
-                        throw new Error("NYI - Non-locator based script pointers");
-                }
-                else
-
-                // ######################################################################
-                // # Program Boot Packages
-                // ######################################################################
-
-                {
-                    API.DEBUG.print("Booting program. Output for boot package follows in green between ==> ... <==");
-        
-                    // Run the program by calling main() on each packages' main module
-                    var pkg,
-                        hl;
-                    // TODO: Refactor as there is only ever one boot package
-                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-                    {
-                        var pkg = require("_package-" + i);
-            
-                        if (typeof pkg.main === "undefined")
-                            throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
-                        
-                        if (API.DEBUG.enabled)
-                        {
-                            var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
-                            hl = h.length;
-                            API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
-                            API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
-                        }
-            
-                        pkg.main(env);
-            
-                        if (API.DEBUG.enabled)
-                        {
-                            API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
-                            var f = "";
-                            for (var i=0 ; i<hl-8 ; i++) f += "-";
-                            API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
-                        }
-                    }
-
-                    API.ENV.booting = false;
-                }
-
-                timers.end = new Date().getTime()
-
-                API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
-                var f = "";
-                for (var i=0 ; i<hl ; i++) f += "|";
-                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
-
-                if (typeof options.callback != "undefined")
-                {
-                    options.callback(sandbox, require);
-                }
-            });
-        }, {
-            "discover-packages": cliOptions["discover-packages"] || false,
-            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
-        });
-    } // init()
-
-    if (/^https?:\/\//.test(cliOptions.args[0]))
+    function run()
     {
-        API.DEBUG.print("Boot cache directory: " + downloader.basePath);
+	    API.DEBUG.print("\0magenta(----------------------------------------------------------------------------");
+	    API.DEBUG.print("\0bold(|  PINF Loader v" + VERSION + "  ~  https://github.com/pinf/loader-js/\0)");
+	    API.DEBUG.print("----------------------------------------------------------------------------\0)");
+	
+	    API.DEBUG.print("Loaded adapter: " + API.ENV.platform);
+	
+	    var downloader = new ((API.DOWNLOADER = __require__('downloader')).Downloader)({
+	        // TODO: Look for a better place first
+	        basePath: API.SYSTEM.pwd + "/.pinf-packages"
+	    });
+	
+	    var assembler = API.ENV.assembler = new (__require__('assembler').Assembler)(downloader);
+	
+	    API.ENV.loadSourceDescriptorsForProgram = function(path, existingSourceDescriptors)
+	    {
+	        var DESCRIPTORS = __require__('descriptors');
+	        var sourceDescriptors = [],
+	            files = [];
+	        if (typeof existingSourceDescriptors !== "undefined") {
+	            existingSourceDescriptors.forEach(function(descriptor)
+	            {
+	                sourceDescriptors[descriptor.path] = descriptor;
+	            });
+	        }
+	        if (cliOptions.sources)
+	        {
+	            if (!API.FILE.exists(cliOptions.sources))
+	                throw new Error("Source repository overlay file specified via --sources not found at: " + cliOptions.sources);
+	            files.push(cliOptions.sources);
+	        }
+	        if (options.sources)
+	        {
+	            if (!API.FILE.exists(options.sources))
+	                throw new Error("Source repository overlay file specified via options.sources not found at: " + options.sources);
+	            files.push(options.sources);
+	        }
+	
+	        if (API.SYSTEM.pwd !== "__PWD__")
+	        {
+	        	files.push(API.SYSTEM.pwd + "/sources.local.json");
+	        }
+	        files.push(API.FILE.dirname(path) + "/sources.local.json");
+	        if (typeof API.SYSTEM.env.HOME != "undefined" && API.SYSTEM.env.HOME)
+	            files.push(API.SYSTEM.env.HOME + "/.pinf/config/sources.json");
+	        files.push(API.FILE.dirname(path) + "/sources.json");
+	        files.forEach(function(sourcesPath)
+	        {
+	            if (!sourceDescriptors[sourcesPath] && API.FILE.exists(sourcesPath))
+	                sourceDescriptors[sourcesPath] = new DESCRIPTORS.Sources(sourcesPath);
+	        });
+	        var descriptors = [];
+	        for (var key in sourceDescriptors)
+	            descriptors.push(sourceDescriptors[key]);
+	        sourceDescriptors = descriptors;
+	        if (API.DEBUG.enabled)
+	        {
+	            if (sourceDescriptors.length > 0)
+	            {
+	                API.DEBUG.print("Using source overlay files:");
+	                sourceDescriptors.forEach(function(sourceDescriptor)
+	                {
+	                    API.DEBUG.print("  \0cyan(" + sourceDescriptor.path + "\0)");
+	                });
+	            }
+	            else
+	                API.DEBUG.print("Not using any source overlay files.");
+	        }
+	        return sourceDescriptors;
+	    }
+	
+	    var init = function(path)
+	    {
+	        path = path || "";
+	        if (path.charAt(0) != "/")
+	            path = API.SYSTEM.pwd + "/" + path;
+	        path = path.split("/");
+	
+	        if (/\.zip$/.test(path[path.length-1]))
+	        {
+	            path[path.length-1] += "!/";
+	        }
+	        if (!path[path.length-1] || path[path.length-1] != "program.json")
+	        {
+	            API.DEBUG.print("No descriptor URI argument. Assuming: '[./]program.json'");
+	            path.push("program.json");
+	        }
+	        path = API.FILE.realpath(path.join("/"));
+	    
+	        API.DEBUG.print("Loading program descriptor from: " + path);
+	
+	        downloader.basePath = path.substring(0, path.length-13) + "/.pinf-packages";
+	    
+	        API.DEBUG.print("Using program cache directory: " + downloader.basePath);
+	
+	        // ######################################################################
+	        // # Sandbox
+	        // ######################################################################
+	
+	        var sandbox = new API.SANDBOX.Sandbox({
+	            mainModuleDir: API.FILE.dirname(path) + "/"
+	        });
+	
+	        // ######################################################################
+	        // # Simple script
+	        // ######################################################################
+	
+	        if (!API.FILE.isFile(path))
+	        {
+	            var scriptPath = cliOptions.args[0];
+	
+	            if (scriptPath.charAt(0) != "/")
+	            {
+	                scriptPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + scriptPath);
+	                if (!/\.js$/.test(scriptPath))
+	                    scriptPath += ".js";
+	            }
+	
+	            if (!API.FILE.exists(scriptPath))
+	            {
+	                if (/\.js$/.test(scriptPath))
+	                    scriptPath = scriptPath.substring(0, scriptPath.length-3);
+	
+	                if (!API.FILE.exists(scriptPath))
+	                    throw new Error("Script not found at: " + scriptPath);
+	            }
+	
+	            sandbox.init();
+	            sandbox.declare([ scriptPath ], function(require, exports, module)
+	            {
+	                var scriptModule = require(scriptPath);
+	                if (typeof scriptModule.main == "undefined")
+	                    throw new Error("Script at '" + scriptPath + "' does not export 'main()'");
+	
+	                API.DEBUG.print("Running script: " + scriptPath);
+	
+	                API.DEBUG.print("\0magenta(\0:blue(----- | Script stdout & stderr follows ====>\0:)\0)");
+	
+	                scriptModule.main({
+	                    bootProgram: function(options)
+	                    {
+	                        if (typeof options.platformRequire == "undefined")
+	                            options.platformRequire = API.ENV.platformRequire;
+	                        return boot(options);
+	                    },
+	                    args: cliOptions.args.slice(1, cliOptions.args.length)
+	                });
+	            });
+	            return;
+	        }
+	
+	        // ######################################################################
+	        // # Program assembly
+	        // ######################################################################
+	
+	        if (!API.FILE.exists(path))
+	        {
+	            API.SYSTEM.print("\0red(No program descriptor found at: " + path + "\0)\n");
+	            return;
+	        }
+	
+	        // Assemble the program (making all code available on disk) by downloading all it's dependencies
+	
+	        assembler.assembleProgram(sandbox, path, function(program)
+	        {
+	            var engines = program.getEngines();
+	            if (engines)
+	            {
+	                if (engines.indexOf(API.ENV.platform) === -1)
+	                {
+	                    API.DEBUG.print("\0yellow(Spawning platform: " + engines[0] + "\0)");
+	                    spawnForPlatform(engines[0]);
+	                    return false;
+	                }
+	            }
+	            return true;
+	        },
+	        function(program)
+	        {
+	            API.ENV.booting = false;
+	
+	            // TODO: Keep these references elsewhere so we can have nested sandboxes
+	            API.ENV.program = program;
+	            API.ENV.sandbox = sandbox;
+	
+	            var dependencies = program.getBootPackages();
+	            if (dependencies.length > 1)
+	            {
+	                throw new Error("Only one program boot package allowed in: " + path);
+	            }
+	
+	            // ######################################################################
+	            // # Program Booting
+	            // ######################################################################
+	    
+	            API.ENV.booting = true;
+	
+	            if (API.DEBUG.enabled) {
+	                API.DEBUG.print("Loading program's main packages:");
+	                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+	                {
+	                    if (typeof dependencies[i]["_package-" + i] != "undefined")
+	                        API.DEBUG.print("  " + dependencies[i]["_package-" + i].location);
+	                }
+	            }
+	
+	            timers.load = new Date().getTime()
+	
+	            var env = options.env || {};
+	            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
+	
+	            sandbox.declare(dependencies, function(require, exports, module)
+	            {
+	                timers.run = new Date().getTime()
+	
+	                // ######################################################################
+	                // # Program Script
+	                // ######################################################################
+	        
+	                if (cliOptions.script)
+	                {
+	                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
+	                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
+	                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+	                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
+	                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+	                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
+	                    {
+	                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
+	                        {
+	                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
+	                            {
+	                                var script = require(id);
+	
+	                                if (typeof script.main == "undefined")
+	                                    throw new Error("Script does not export main() in " + id);
+	
+	                                API.ENV.booting = false;
+	
+	                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
+	
+	                                script.main(env);
+	                            });
+	                        }, {
+	                            "discover-packages": cliOptions["discover-packages"] || false,
+	                            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
+	                        });
+	                    }
+	                    else
+	                        throw new Error("NYI - Non-locator based script pointers");
+	                }
+	                else
+	
+	                // ######################################################################
+	                // # Program Boot Packages
+	                // ######################################################################
+	
+	                {
+	                    API.DEBUG.print("Booting program. Output for boot package follows in green between ==> ... <==");
+	        
+	                    // Run the program by calling main() on each packages' main module
+	                    var pkg,
+	                        hl;
+	                    // TODO: Refactor as there is only ever one boot package
+	                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+	                    {
+	                        var pkg = require("_package-" + i);
+	            
+	                        if (typeof pkg.main === "undefined")
+	                            throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
+	                        
+	                        if (API.DEBUG.enabled)
+	                        {
+	                            var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
+	                            hl = h.length;
+	                            API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
+	                            API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
+	                        }
+	            
+	                        pkg.main(env);
+	            
+	                        if (API.DEBUG.enabled)
+	                        {
+	                            API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
+	                            var f = "";
+	                            for (var i=0 ; i<hl-8 ; i++) f += "-";
+	                            API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
+	                        }
+	                    }
+	
+	                    API.ENV.booting = false;
+	                }
+	
+	                timers.end = new Date().getTime()
+	
+	                API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
+	                var f = "";
+	                for (var i=0 ; i<hl ; i++) f += "|";
+	                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
+	
+	                if (typeof options.callback != "undefined")
+	                {
+	                    options.callback(sandbox, require);
+	                }
+	            });
+	        }, {
+	            "discover-packages": cliOptions["discover-packages"] || false,
+	            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
+	        });
+	    } // init()
+	
+	    if (/^https?:\/\//.test(cliOptions.args[0]))
+	    {
+	        API.DEBUG.print("Boot cache directory: " + downloader.basePath);
+	
+	        assembler.provisonProgramForURL(cliOptions.args[0], init, {
+	            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(API.SYSTEM.pwd + "/")
+	        });
+	    }
+	    else
+	        init(cliOptions.args[0]);
+    
+    }  // run()
 
-        assembler.provisonProgramForURL(cliOptions.args[0], init, {
-            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(API.SYSTEM.pwd + "/")
-        });
-    }
-    else
-        init(cliOptions.args[0]);
+    if (cliOptions.pidfile) {
 
+    	function preRun()
+    	{
+        	API.FILE.write(cliOptions.pidfile, API.SYSTEM.pid);
+        	API.SYSTEM.on("exit", function()
+        	{
+            	API.FILE.remove(cliOptions.pidfile);
+        	});
+
+        	// TODO: Move this further down so we only daemonize if the program started successfully
+            if (cliOptions.daemonize) {
+            	API.SYSTEM.daemonize(cliOptions.pidfile, function()
+            	{
+                	run();
+            	});
+            } else {
+            	run();
+            }
+    	}
+    	if (API.FILE.exists(cliOptions.pidfile)) {
+    		// check if process is still running
+            API.SYSTEM.exec("kill -0 " + API.FILE.read(cliOptions.pidfile), function (stdout, stderr, error) {
+    		    if (!stdout && !stderr) {
+            		throw new Error("Program for pid file '" + cliOptions.pidfile + "' already running at process ID: " + API.FILE.read(cliOptions.pidfile));
+    		    } else {
+//    			if (/No such process/.test(stderr)) {
+    				API.FILE.remove(cliOptions.pidfile);
+    				preRun();
+    			}
+            });
+    	} else {
+    		preRun();
+    	}
+    } else {
+    	run();
+    }    
+    
     }
     catch(e)
     {
@@ -6961,6 +7154,11 @@ exports.getAPI = function()
     return API;
 }
 
+
+exports.setConsole = API.CONSOLE.setConsole;
+exports.setErrorLogPath = API.CONSOLE.setErrorLogPath;
+
+
 exports.getPlatformRequire = function()
 {
     return API.ENV.platformRequire;
@@ -6975,12 +7173,6 @@ exports.canExit = function()
 {
     // TODO: Use own flag here
     return !API.ENV.mustTerminate;
-}
-
-exports.setConsole = function(console)
-{
-    API.ENV.console = console;
-    SANDBOX.setConsole(console);
 }
 
 exports.runProgram = function(options, callback)
@@ -7023,131 +7215,150 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
 
         if (/\/program.json$/.test())
             throw new Error("Program path '" + options.programPath + "' must end in '/program.json'");
-
-        if (!API.FILE.exists(options.programPath))
-            throw new Error("Program path '" + options.programPath + "' does not exist!");
-
-        var sandbox = new API.SANDBOX.Sandbox({
-            mainModuleDir: API.FILE.dirname(options.programPath) + "/",
-            platform: options.platform || API.ENV.platform
-        });
-
-        self.getMainModuleDir = function()
+            
+        function createSandbox()
         {
-            return sandbox.loader.bravojs.mainModuleDir;
-        }
-
-        self.packageForId = function(packageId)
-        {
-            packageId = packageId.replace(/^\w*!/, "");
-
-            if (packageId.charAt(packageId.length-1) != "/")
-                packageId += "/";
-
-            return sandbox.packages[packageId];
-        }
-
-        self.packageForHash = function(packageHash)
-        {
-            for (var packageId in sandbox.packages)
+            if (!API.FILE.exists(options.programPath))
+                throw new Error("Program path '" + options.programPath + "' does not exist!");
+    
+            var sandbox = new API.SANDBOX.Sandbox({
+                mainModuleDir: API.FILE.dirname(options.programPath) + "/",
+                platform: options.platform || API.ENV.platform
+            });
+    
+            self.getMainModuleDir = function()
             {
-                if (typeof sandbox.packages[packageId].getHashId === "function" &&
-                    sandbox.packages[packageId].getHashId() == packageHash)
+                return sandbox.loader.bravojs.mainModuleDir;
+            }
+    
+            self.packageForId = function(packageId)
+            {
+                packageId = packageId.replace(/^\w*!/, "");
+    
+                if (packageId.charAt(packageId.length-1) != "/")
+                    packageId += "/";
+    
+                return sandbox.packages[packageId];
+            }
+    
+            self.packageForHash = function(packageHash)
+            {
+                for (var packageId in sandbox.packages)
                 {
-                    return sandbox.packages[packageId];
+                    if (typeof sandbox.packages[packageId].getHashId === "function" &&
+                        sandbox.packages[packageId].getHashId() == packageHash)
+                    {
+                        return sandbox.packages[packageId];
+                    }
+                }
+                return null;
+            }
+    
+            self.forEachPackage = function(callback)
+            {
+                for (var packageId in sandbox.packages)
+                {
+                    callback(packageId, sandbox.packages[packageId]);
                 }
             }
-            return null;
-        }
-
-        self.forEachPackage = function(callback)
-        {
-            for (var packageId in sandbox.packages)
+    
+            self.forEachModule = function(callback)
             {
-                callback(packageId, sandbox.packages[packageId]);
+                for (var moduleIdentifier in sandbox.loader.bravojs.pendingModuleDeclarations)
+                {
+                    callback(
+                        moduleIdentifier,
+                        sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].dependencies,
+                        sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].moduleFactory
+                    );
+                }
             }
-        }
-
-        self.forEachModule = function(callback)
-        {
-            for (var moduleIdentifier in sandbox.loader.bravojs.pendingModuleDeclarations)
+    
+            self.load = function(moduleIdentifier, callback)
             {
-                callback(
-                    moduleIdentifier,
-                    sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].dependencies,
-                    sandbox.loader.bravojs.pendingModuleDeclarations[moduleIdentifier].moduleFactory
-                );
+                return sandbox.loader.bravojs.module.load(moduleIdentifier, callback);
             }
-        }
-
-        self.load = function(moduleIdentifier, callback)
-        {
-            return sandbox.loader.bravojs.module.load(moduleIdentifier, callback);
-        }
-
-        var bootModule = false,
-            sandboxRequire = false;
-
-        self.boot = function(callback, options)
-        {
-            var module = sandboxRequire('_package-0');
-            if (typeof module.main === "undefined") {
-                throw new Error("Program's '" + options.programPath + "' main module does not export 'main()'!");
+    
+            var bootModule = false,
+                sandboxRequire = false;
+    
+            self.boot = function(callback, options)
+            {
+                var module = sandboxRequire('_package-0');
+                if (typeof module.main === "undefined") {
+                    throw new Error("Program's '" + options.programPath + "' main module does not export 'main()'!");
+                }
+                module.main(options || {});
+                callback(module);
             }
-            module.main(options || {});
-            callback(module);
-        }
-
-        // TODO: Need a way to get current parent sandbox instead of using stack
-        var descriptorSandbox;
-        if (typeof API.ENV.sandboxes !== "undefined") {
-            descriptorSandbox = API.ENV.sandboxes[API.ENV.sandboxes.length-1];
-        } else {
-            descriptorSandbox = API.ENV.sandbox;
-        }
-        // Inherit source descriptors from program
-        var sourceDescriptors = API.ENV.loadSourceDescriptorsForProgram(options.programPath, descriptorSandbox.sourceDescriptors);
-
-        API.ENV.assembler.assembleProgram(sandbox, options.programPath, function() {}, function(program)
-        {
-            self.program = program;
-
-            var dependencies = program.getBootPackages();
-
-            if (dependencies.length === 1) {
-                bootModule = dependencies[0];
-            }
-
-            // Declare program boot packages but do not call main() on them
-            sandbox.declare(dependencies, function(require, exports, module)
-            {            
-                sandboxRequire = require;
-                callback(self, require);
-            });
-        },
-        {
-            sourceDescriptors: sourceDescriptors,
-            extendsProgramDescriptorPath: options.extendsProgramDescriptorPath || false
-        });
-
-        // NOTE: This helps somewhat to conserve memory in the program-server
-        // TODO: Figure out why old sandboxes are not garbage collected
-        self.destroy = function()
-        {
+    
+            // TODO: Need a way to get current parent sandbox instead of using stack
+            var descriptorSandbox;
             if (typeof API.ENV.sandboxes !== "undefined") {
-                for (var i=API.ENV.sandboxes.length-1 ; i>=0 ; i--) {
-                    if (API.ENV.sandboxes[i] === sandbox) {
-                        API.ENV.sandboxes.splice(i, 1);
+                descriptorSandbox = API.ENV.sandboxes[API.ENV.sandboxes.length-1];
+            } else {
+                descriptorSandbox = API.ENV.sandbox;
+            }
+            // Inherit source descriptors from program
+            var sourceDescriptors = API.ENV.loadSourceDescriptorsForProgram(options.programPath, descriptorSandbox.sourceDescriptors);
+    
+            API.ENV.assembler.assembleProgram(sandbox, options.programPath, function() {}, function(program)
+            {
+                self.program = program;
+    
+                var dependencies = program.getBootPackages();
+    
+                if (dependencies.length === 1) {
+                    bootModule = dependencies[0];
+                }
+    
+                // Declare program boot packages but do not call main() on them
+                sandbox.declare(dependencies, function(require, exports, module)
+                {            
+                    sandboxRequire = require;
+                    callback(self, require);
+                });
+            },
+            {
+                sourceDescriptors: sourceDescriptors,
+                extendsProgramDescriptorPath: options.extendsProgramDescriptorPath || false
+            });
+    
+            // NOTE: This helps somewhat to conserve memory in the program-server
+            // TODO: Figure out why old sandboxes are not garbage collected
+            self.destroy = function()
+            {
+                if (typeof API.ENV.sandboxes !== "undefined") {
+                    for (var i=API.ENV.sandboxes.length-1 ; i>=0 ; i--) {
+                        if (API.ENV.sandboxes[i] === sandbox) {
+                            API.ENV.sandboxes.splice(i, 1);
+                        }
                     }
                 }
             }
+    
+            // TODO: Don't just use a stack here as it will fail when destroying and re-creating child sandboxes
+            if (typeof API.ENV.sandboxes === "undefined") {
+                API.ENV.sandboxes = [API.ENV.sandbox];
+            }
+            API.ENV.sandboxes.push(sandbox);            
         }
 
-        // TODO: Don't just use a stack here as it will fail when destroying and re-creating child sandboxes
-        if (typeof API.ENV.sandboxes === "undefined") {
-            API.ENV.sandboxes = [API.ENV.sandbox];
+        if (/^\w*:\/\//.test(options.programPath)) {
+            var m;
+            // TODO: Put this in a plugin
+            if (m = options.programPath.match(/^https?:\/\/github.com\/([^\/]*)\/([^\/]*)\/?$/))
+            {
+                options.programPath = "https://github.com/" + m[1] + "/" + m[2] + "/zipball/master";
+            }
+            API.ENV.assembler.downloader.getForArchive(/* url */ options.programPath, function(path)
+            {
+                options.programPath = path + "/program.json";
+                createSandbox();
+            });
+        } else {
+            createSandbox();
         }
-        API.ENV.sandboxes.push(sandbox);
     }
     else
     {
@@ -7276,6 +7487,13 @@ JSGI.prototype.spider = function(route, targetPath, callback)
             },
             function done(sandbox)
             {
+                var origCallback = callback;
+                callback = function(response)
+                {
+                    sandbox.destroy();
+                    origCallback(response);
+                }
+                
                 var contexts = sandbox.program.getContexts(sandbox).getAllContexts();
 
                 if (!contexts || Object.keys(contexts).length === 0)
@@ -7308,7 +7526,7 @@ JSGI.prototype.spider = function(route, targetPath, callback)
                         }
                     }
 
-                    var fromPath = info.sourcePath + "/resources",
+                    var fromPath = info.sourcePath + "/" + info.resourcesPath,
                         toPath = targetPath + route.path.substring(0, route.path.length-3) + "/" + info.hashId + "@/resources";
 
                     if (!API.FILE.exists(fromPath) || API.FILE.exists(toPath))
@@ -7686,7 +7904,8 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                 {
                     spiderInsight.packages[pkg.getHashId()] = {
                         hashId: pkg.getHashId(),
-                        sourcePath: pkg.path
+                        sourcePath: pkg.path,
+                        resourcesPath: pkg.getResourcesDir()
                     };
 
                     packageDescriptors.sent[rewritePath(parts[0], true)] = true;
@@ -7697,7 +7916,7 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                         {
                             if (typeof descriptor.modules[path] == "object" && descriptor.modules[path].available !== false)
                             {
-                                if (typeof descriptor.modules[path].location == "undefined")
+                                if (!descriptor.modules[path].location)
                                     throw new Error("There should be a location property in the mapping locator by now! path["+path+"] locator["+API.JSON.stringify(descriptor.modules[path])+"]");
                                 packageDescriptors.mapped[rewritePath(descriptor.modules[path].location, true)] = true;
                                 descriptor.modules[path].location = "__MAIN_MODULE_DIR__" + "/" + rewritePath(descriptor.modules[path].location, true);
@@ -7715,7 +7934,7 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                             }
                             else
                             {
-                                if (typeof descriptor.mappings[alias].location == "undefined")
+                                if (!descriptor.mappings[alias].location)
                                     throw new Error("There should be a location property in the mapping locator by now!");
                                 packageDescriptors.mapped[rewritePath(descriptor.mappings[alias].location, true)] = true;
                                 descriptor.mappings[alias].location = "__MAIN_MODULE_DIR__" + "/" + rewritePath(descriptor.mappings[alias].location, true);
@@ -7845,10 +8064,19 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                 if (info)
                 {
                     contextId = pkgId + "@" + modulePathId.replace(/\.js$/, "");
+                    var tmpSandboxes = [];
                     var cbt2 = new API.UTIL.CallbackTracker(cbt.add(function()
                     {
 // API.SYSTEM.print("initDone2" + "\n");        
                         
+                        if (tmpSandboxes.length > 0) {
+                            tmpSandboxes.forEach(function(sandbox)
+                            {
+                                sandbox.destroy();
+                            });
+                            tmpSandboxes = [];
+                        }
+
                         if (info.type === "top")
                             injectLoader();
 
@@ -7880,6 +8108,7 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                                 },
                                 cbt2.add(function done(sandbox)
                                 {
+                                    tmpSandboxes.push(sandbox);
                                     contextsCache[parent] = [];
 
                                     if (contexts[parent] && contexts[parent].includes && contexts[parent].includes.length > 0)
@@ -7939,6 +8168,13 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
 
                 if (/@\/resources\//.test(path))
                 {
+                    if (pkg) {
+                        var resourcesDir = pkg.getResourcesDir();
+                        if (resourcesDir !== "resources") {
+                            path = path.replace(/@\/resources\//, "@/" + resourcesDir + "/");
+                        }
+                    }
+
                     path = path.replace(/@\//, "/").replace(/\?.*$/, "");
 
                     if (!API.FILE.exists(path))
@@ -8072,7 +8308,7 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
 
                     for (var i=0, ic=dependencies.length ; i<ic ; i++ )
                     {
-                        if (typeof dependencies[i]["_package-" + i].location != "undefined")
+                        if (dependencies[i]["_package-" + i].location)
                         {
                             var pkg = sandbox.packageForId(dependencies[i]["_package-" + i].location);
                             dependencies[i]["_package-" + i] = {
@@ -8149,9 +8385,9 @@ var JSGI = exports.JSGI = function(options)
     {
         onRequest: function(upstreamRequest, upstreamResponse)
         {
-
-console.log("upstreamRequest: " + Object.keys(upstreamRequest));            
-console.log("this: "+Object.keys(this));            
+// @see https://github.com/Gozala/jetpack-protocol/issues
+//console.log("upstreamRequest: " + Object.keys(upstreamRequest));            
+//console.log("this: "+Object.keys(this));            
             try {
                 // jedi://hostname:80/path/to/file.ext?query=string&another=one
                 var uriParts = upstreamRequest.uri.match(/^([^:]*):\/\/(([^\/:]*)(:([^\/]*))?)((\/[^\?]*)(\?(.*))?)?$/);
@@ -8426,7 +8662,7 @@ var Package = exports.Package = function(descriptor, options)
             if (typeof this.descriptor.json.scripts[script] == "object")
             {
                 var locator = this.descriptor.json.scripts[script];
-                if (typeof locator.location != "undefined")
+                if (locator.location)
                 {
                     if (locator.location.charAt(0) == ".")
                     {
@@ -8628,6 +8864,20 @@ Package.prototype.getLibDir = function(locator)
     if (this.normalizedDescriptor.json.directories && this.normalizedDescriptor.json.directories.lib)
         return this.normalizedDescriptor.json.directories.lib;
     return "lib";
+}
+
+Package.prototype.getResourcesDir = function(locator)
+{
+    if (typeof locator != "undefined" &&
+        typeof locator.descriptor != "undefined" &&
+        typeof locator.descriptor.directories != "undefined" &&
+        typeof locator.descriptor.directories.resources != "undefined")
+    {
+        return locator.descriptor.directories.resources;
+    }
+    if (this.normalizedDescriptor.json.directories && this.normalizedDescriptor.json.directories.resources)
+        return this.normalizedDescriptor.json.directories.resources;
+    return "resources";
 }
 
 Package.prototype.moduleSourceExists = function(resourceURI)
@@ -9427,7 +9677,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
         if (locator.available !== false)
         {
             // Make sure location path is always absolute and clean
-            if (typeof locator.location != "undefined")
+            if (locator.location)
             {
                 if (locator.location.charAt(0) == "/")
                     locator.location = FILE.realpath(locator.location) + "/";
@@ -9435,7 +9685,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             if ((typeof locator.available == "undefined" || locator.available === true) && typeof locator.provider == "undefined")
             {
                 // If we do not have an absolute path location-based locator by now we cannot proceed
-                if (typeof locator.location == "undefined" || !API.FILE.isAbsolute(locator.location))
+                if (!locator.location || !API.FILE.isAbsolute(locator.location))
                     throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
     
                 // If locator specifies a path we add it to the location.
@@ -9451,7 +9701,7 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
         callback(locator);
     }
     
-    if (typeof locator.archive != "undefined" && typeof locator.location === "undefined")
+    if (typeof locator.archive != "undefined" && !locator.location)
     {
         var m;
 
@@ -9488,35 +9738,11 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
         return;
     }
     else
-    if (typeof locator.catalog != "undefined")
-    {
-        locator = this.descriptor.augmentLocator(locator, options);
-
-        // Only query catalog if program descriptor does not already set a location for the
-        // package referenced by the locator.
-        if (typeof locator.location == "undefined")
-        {
-            assembler.downloader.getCatalogForURL(locator.catalog, function(path)
-            {
-                var catalogDescriptor = new DESCRIPTORS.Catalog(path);
-    
-                locator = catalogDescriptor.packageLocatorForLocator(locator);
-    
-                // NOTE: locator now contains an 'archive' property
-                if (typeof locator.archive == "undefined")
-                    throw new Error("Unable to resolve catalog-based locator.");
-    
-                self.resolveLocator(assembler, locator, callback);
-            });
-            return;
-        }
-    }
-    else
     if (typeof locator.id != "undefined")
     {
         locator = this.descriptor.augmentLocator(locator, options);
 
-        if (typeof locator.location == "undefined" &&
+        if (!locator.location &&
             (typeof locator.archive != "undefined" || typeof locator.catalog != "undefined"))
         {
             this.resolveLocator(assembler, locator, function(locator)
@@ -9531,12 +9757,36 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
         }
     }
     else
+    if (typeof locator.catalog != "undefined")
+    {
+        locator = this.descriptor.augmentLocator(locator, options);
+
+        // Only query catalog if program descriptor does not already set a location for the
+        // package referenced by the locator.
+        if (!locator.location)
+        {
+            assembler.downloader.getCatalogForURL(locator.catalog, function(path)
+            {
+                var catalogDescriptor = new DESCRIPTORS.Catalog(path);
+    
+                locator = catalogDescriptor.packageLocatorForLocator(locator);
+    
+                // NOTE: locator now contains an 'archive' property
+                if (typeof locator.archive == "undefined")
+                    throw new Error("Unable to resolve catalog-based locator.");
+
+                self.resolveLocator(assembler, locator, callback);
+            });
+            return;
+        }
+    }
+    else
     if (locator.available === false)
     {
         // do nothing
     }
     else
-    if (typeof locator.location != "undefined")
+    if (locator.location)
     {
         // do nothing for now
     }
@@ -10213,7 +10463,8 @@ __loader__.memoize('sandbox', function(__require__, module, exports) {
 
 var API = __require__('api'),
     DESCRIPTORS = __require__('descriptors'),
-    PACKAGE = __require__('package');
+    PACKAGE = __require__('package'),
+    CONSOLE = __require__('console');
 
 var Sandbox = exports.Sandbox = function Sandbox(options)
 {
@@ -10244,29 +10495,10 @@ Sandbox.prototype.setProgram = function(program)
     this.init();
 }
 
-var consoleAPI = {
-    instance: console || void 0
-};
-[
-    "log",
-    "info",
-    "warn",
-    "error",
-    "to"
-].forEach(function(priority)
-{
-    consoleAPI[priority] = function()
-    {
-        if (typeof consoleAPI.instance != "undefined" && consoleAPI.instance[priority])
-            return consoleAPI.instance[priority].apply(consoleAPI.instance, arguments);
-        else
-            API.DEBUG.print("[console]" + arguments);
-    }
-});
-
 exports.setConsole = function(console)
 {
-    consoleAPI.instance = console;
+    // TODO: Trigger deprecation notice
+    CONSOLE.setConsole(console);
 }
 
 Sandbox.prototype.init = function()
@@ -10507,7 +10739,7 @@ Sandbox.prototype.init = function()
                     // text plugin
                     code =
                         "loader.bravojs.module.declare([], function() {\n" +
-                        'return ["' + data.replace(/"/g, '\\"').replace(/\n/g, '","') + '"].join("\\n");' +
+                        'return ["' + data.replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '","') + '"].join("\\n");' +
                         "\n});";
                 }
                 else
@@ -10584,7 +10816,7 @@ Sandbox.prototype.init = function()
                 {
                     API.UTIL.eval(code, {
                         loader: loader,
-                        console: consoleAPI
+                        console: CONSOLE.getAPI()
                     }, moduleIdentifier, 1);
                 }
             }
@@ -10684,8 +10916,9 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
     {
         if (typeof newLocator == "undefined")
         {
-            if (typeof self.packages[packageId].uid != "undefined")
+            if (typeof self.packages[packageId].uid != "undefined") {
                 locator.uid = self.packages[packageId].uid;
+            }
             newLocator = self.program.descriptor.augmentLocator(locator, options);
         }
         for (var key in newLocator)
@@ -10709,12 +10942,20 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
     var path = locator.location;
     if (typeof this.packages[path] == "undefined")
     {
+        // Merge descriptor information from the locator onto the package descriptor if applicable
+        // We first ask the program descriptor to augment the locator with any additional info
+        var newLocator = this.program.descriptor.augmentLocator(locator, options);
+
         if (locator.resource === true)
-            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Dummy(path), {
+            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Dummy(path, {
+                extendsDescriptorJSON: newLocator.descriptor
+            }), {
                 platform: self.platform
             });
         else
-            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Package(path), {
+            this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Package(path, {
+                extendsDescriptorJSON: newLocator.descriptor
+            }), {
                 platform: self.platform
             });
 
@@ -10729,15 +10970,6 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
         // If locator has an ID set we also index our packages by it
         if (typeof locator.id != "undefined")
             this.packages[locator.id] = this.packages[path];
-
-        // Merge descriptor information from the locator onto the package descriptor if applicable
-        // We first ask the program descriptor to augment the locator with any additional info
-        var newLocator = this.program.descriptor.augmentLocator(locator, options);
-
-        if (typeof newLocator.descriptor != "undefined")
-        {
-            API.UTIL.deepMerge(this.packages[path].normalizedDescriptor.json, newLocator.descriptor);
-        }
 
         // Convert mapped module IDs to paths
         if (typeof this.packages[path].normalizedDescriptor.json.modules != "undefined")
