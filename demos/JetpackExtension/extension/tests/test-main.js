@@ -6,8 +6,8 @@ exports.test_loader_inclusion = function(test)
 
 exports.test_loader_booting_HelloWorld = function(test)
 {
-    var programResourceURI = packaging.getURLForData("/programs/HelloWorld/program.json");
-    
+    var programResourceURI = require("self").data.url("programs/HelloWorld/program.json");
+
     var stdout = "";
 
     require("pinf-loader").boot({
@@ -25,7 +25,7 @@ exports.test_loader_booting_HelloWorld = function(test)
 
 exports.test_loader_booting_HelloWorldZipped = function(test)
 {
-    var programResourceURI = packaging.getURLForData("/programs/HelloWorldZipped.zip");
+    var programResourceURI = require("self").data.url("programs/HelloWorldZipped.zip");
 
     var stdout = "";
 
@@ -44,7 +44,7 @@ exports.test_loader_booting_HelloWorldZipped = function(test)
 
 exports.test_WidgetTest = function(test)
 {
-    var programResourceURI = packaging.getURLForData("/programs/WidgetTest/program.json");
+    var programResourceURI = require("self").data.url("programs/WidgetTest/program.json");
 
     // This variable is passed to main(env) of each program
     var env = {};
@@ -69,7 +69,7 @@ exports.test_WidgetTest = function(test)
 
 exports.test_ChromeURL_JSGI = function(test)
 {
-    var programResourceURI = packaging.getURLForData("/programs/ChromeURL-JSGI/program.json");
+    var programResourceURI = require("self").data.url("programs/ChromeURL-JSGI/program.json");
 
     var stdout = "";
 
