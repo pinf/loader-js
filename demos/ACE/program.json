@@ -17,6 +17,22 @@
                 "uid": "https://github.com/ajaxorg/ace/"
             }
         },
+        "github.com/ajaxorg/pilot/": {
+            "locator": {
+                "archive": "https://github.com/ajaxorg/pilot/zipball/ab8065643f28a1a4a3db30f6f68d378581397ff4"
+            },
+            "descriptor": {
+                "uid": "https://github.com/ajaxorg/pilot/",
+                "directories": {
+                    "lib": "lib/pilot"
+                },
+                "mappings": {
+                    "pilot": {
+                        "id": "github.com/ajaxorg/pilot/"
+                    }
+                }
+            }
+        },
         "github.com/kriszyp/jsgi-node/zipball/master": {
             "descriptor": {
                 "native": true
