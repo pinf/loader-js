@@ -275,6 +275,7 @@ Other
 
   * `require()` must look to platform `require()` to resolve top-level IDs that do not resolve within the loader
     * Actually if a module ID does not resolve locally or via a mapping it should fail
+  * dependencies for native modules no longer supported
 
 
 Jetpack Wishlist
