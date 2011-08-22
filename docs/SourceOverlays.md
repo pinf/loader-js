@@ -26,4 +26,6 @@ The following lookup order for source overlay files applies and the first match 
   1. `--sources ABSOLUTE_PATH` command line argument
   2. `dirname("/.../program.json") + "/sources.local.json"` (local overlays not committed with program)
   3. `$HOME/.pinf/config/sources.json` (user-specific overlays that apply to all programs)
-  4. `dirname("/.../program.json") + "/sources.json"` (overlays managed with program)
+  4. `/pinf/etc/pinf/sources.json` (system-wide overlays that apply to all programs)
+  5. `dirname("/.../program.json") + "/sources.json"` (overlays managed with program)
+
