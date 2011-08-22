@@ -8,6 +8,12 @@ The loader should work on any CommonJS platform for which there is an adapter. N
 
 UNIX file paths are expected and no testing has been done on Windows.
 
+Compatibility
+-------------
+
+  * `0.1.x` requires NodeJS `0.4.x`
+  * `0.2.x` requires NodeJS `>= 0.5` and NPM `>= 1.0.24`
+
 
 Loader Code
 ===========

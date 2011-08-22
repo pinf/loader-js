@@ -82,6 +82,10 @@ Assumes NodeJS is installed. See [./docs/Setup.md](https://github.com/pinf/loade
     git clone git://github.com/pinf/loader-js.git
     cd ./loader-js
     node ./pinf-loader -v ./demos/HelloWorld
+    
+    # If `commonjs` is linked to `./pinf-loader.sh` and on `$PATH`
+    
+    commonjs -v ./demos/HelloWorld
 
 For more demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md)
 
