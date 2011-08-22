@@ -571,6 +571,11 @@ DEBUG.indent = function(count)
 // # UTIL
 // ######################################################################
 
+UTIL.isArray = function(obj) {
+    return Object.prototype.toString.call(obj) == "[object Array]";
+};
+
+
 /**
  * Merge two objects recursively.
  * 
@@ -2116,10 +2121,67 @@ var API = __require__('api'),
     DESCRIPTORS = __require__('descriptors'),
     PROGRAM = __require__('program');
 
+var rootProgramPath = false;
+
+
 var Assembler = exports.Assembler = function(downloader)
 {
     this.downloader = downloader;
     this.cleaned = [];
+}
+
+Assembler.prototype.pmLocatorResolver = function(program, locator, callback)
+{
+	if (locator.pm === "npm")
+	{
+		// Get NPM to install the package for this program
+
+		// NOTE: If multiple programs are loaded into the sandbox this path will change so we keep the first one
+		//		 and store all packages in there. This will ensure all programs will get the same modules and instances
+		//		 can be shared across programs.
+		if (!rootProgramPath)
+		{
+			rootProgramPath = FILE.dirname(program.descriptor.path);
+		}
+
+		var sandboxPath = FILE.realpath("/pinf/cache/github.com/pinf/loader-js/-npm-sandboxes/" + rootProgramPath),
+			pkgPath = sandboxPath + "/node_modules/" + locator.name;
+		if (!FILE.exists(sandboxPath))
+			FILE.mkdirs(sandboxPath, 0775);
+
+		locator.location = pkgPath;
+		
+		// TODO: If --clean flag supplied clear sandbox once first
+		
+		// check if already installed
+		if (FILE.exists(pkgPath + "/package.json"))
+		{
+			try {
+				// TODO: Revise to check if installed version >= desired version
+//				if (typeof locator.version === "undefined" || API.JSON.parse(FILE.read(pkgPath + "/package.json")).version == locator.version)
+//				{
+					// already exists
+					callback(locator);
+					return;
+//				}
+			} catch(e) {
+				console.log("Error '" + e + "' parsing package.json from package installed via npm. Forcing re-install.");
+			}
+		}
+
+		var command = "cd " + sandboxPath + " ; npm --verbose install -f " + locator.name + ((typeof locator.version !== "undefined")?"@" + locator.version:"");
+
+		// Get NPM to install the package for this program
+		DEBUG.print("Installing package via NPM [\0cyan(" + command + "\0)]:");
+
+		SYSTEM.exec(command, function(stdout, stderr)
+        {
+			DEBUG.print(stdout);
+			callback(locator);
+        });
+	}
+	else
+		throw new Error("Package manager '" + locator.pm + "' not supported for 'pm' locator property.");
 }
 
 Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, callback, options)
@@ -2143,7 +2205,8 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
             path = uri;
 
         new DESCRIPTORS.Program(path, {
-            extendsProgramDescriptorPath: options.extendsProgramDescriptorPath || false
+            extendsProgramDescriptorPath: options.extendsProgramDescriptorPath || false,
+            sourceDescriptors: options.sourceDescriptors || false
         }, function(programDescriptor)
         {
             var program = new PROGRAM.Program(programDescriptor);
@@ -2158,7 +2221,11 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
             sandbox.sourceDescriptors = options.sourceDescriptors || void 0;
     
             program.assembler = self;
-    
+            
+            options.pmLocatorResolver = function(locator, callback) {
+            	self.pmLocatorResolver(program, locator, callback);
+            }
+
             // This will download all packages and make them available on disk
             program.discoverPackages(function assembler_assembleProgram_lambda_discoverPackages_packageForLocator(locator, callback)
             {
@@ -2351,40 +2418,56 @@ Assembler.prototype.provisonProgramForURL = function(url, callback, options)
 
         DEBUG.print("URL: " + url);
 
-        self.downloader.getForArchive(url, function(path)
+        if (/\.json/.test(url))
         {
-            DEBUG.print("Path: " + path);
-            
-            // Look for program.json file. If it does not exist create a default one
-            
-            var descriptorPath = path + "/program.json";
-            
-            if (!API.FILE.exists(descriptorPath))
+            self.downloader.getFileForURL(url, function(path)
             {
-                DEBUG.print("Creating program descriptor at: " + descriptorPath);
+                DEBUG.print("Path: " + path);
+
+                DEBUG.indent(di);
+
+                callback(path);
+            }, {
+                verifyPackageDescriptor: false
+            });
+        }
+        else
+        {        
+            self.downloader.getForArchive(url, function(path)
+            {
+                DEBUG.print("Path: " + path);
                 
-                var id = API.FILE.dirname(descriptorPath.substring(self.downloader.basePath.length+1));
-                id = id.substring(0, id.length-8) + "/";
+                // Look for program.json file. If it does not exist create a default one
                 
-                var descriptor = {
-                    "boot": id,
-                    "packages": {}
-                };
-                descriptor.packages[id] = {
-                    "locator": {
-                        "location": "./"
-                    }
-                };
+                var descriptorPath = path + "/program.json";
+                
+                if (!API.FILE.exists(descriptorPath))
+                {
+                    DEBUG.print("Creating program descriptor at: " + descriptorPath);
+                    
+                    var id = API.FILE.dirname(descriptorPath.substring(self.downloader.basePath.length+1));
+                    id = id.substring(0, id.length-8) + "/";
+                    
+                    var descriptor = {
+                        "boot": id,
+                        "packages": {}
+                    };
+                    descriptor.packages[id] = {
+                        "locator": {
+                            "location": "./"
+                        }
+                    };
 
-                API.FILE.write(descriptorPath, API.JSON.stringify(descriptor));
-            }
+                    API.FILE.write(descriptorPath, API.JSON.stringify(descriptor));
+                }
 
-            DEBUG.indent(di);
+                DEBUG.indent(di);
 
-            callback(descriptorPath);
-        }, {
-            verifyPackageDescriptor: false
-        });
+                callback(descriptorPath);
+            }, {
+                verifyPackageDescriptor: false
+            });
+        }
     }
 
     if (ENV.mustClean && !this.cleaned[this.downloader.basePath + "/downloads"])
@@ -5428,6 +5511,20 @@ Descriptor.prototype.load = function(path, create, options, callback)
         if (!extendsLocator.location)
             throw new Error("Extends locator must contain 'location' property in: " + self.path);
 
+        if (options.sourceDescriptors)
+        {
+        	var found = false;
+        	options.sourceDescriptors.forEach(function(descriptor)
+        	{
+        		if (found) return;
+        		var ret = descriptor.augmentLocator(extendsLocator);
+        		if (ret) {
+        			extendsLocator = ret;
+        			found = true;
+        		}
+        	});
+        }
+        
         var path = extendsLocator.location;
 
         if (path.charAt(0) == ".")
@@ -5466,6 +5563,7 @@ Descriptor.prototype.load = function(path, create, options, callback)
         if (/^\w*:\/\//.test(path)) {
             API.ENV.assembler.downloader.getFileForURL(/* url */ path, function(path)
             {
+            	// TODO: Ensure remote file does not have relative links or load relative links if applicable
                 doMergeExtended(path);
             });
         } else {
@@ -5591,6 +5689,24 @@ var Program = exports.Program = function(path, options, callback)
             if (!self.json.uid.match(/^https?:\/\/(.*)\/$/))
                 throw this.validationError("Value (" + self.json.uid + ") for property 'uid' is not a valid HTTP(s) URL");
         }
+        
+        if (self.json.packages)
+        {
+        	for (var id in self.json.packages)
+        	{
+        		if (self.json.packages[id].locator && self.json.packages[id].locator.pm)
+        		{
+        			if (self.json.packages[id].locator.pm === "npm" && API.ENV.platform === "node")
+        			{
+        				if (!self.json.packages[id].descriptor)
+        					self.json.packages[id].descriptor = {};
+        				self.json.packages[id].descriptor.uid = "http://" + id;
+        				self.json.packages[id].descriptor.native = true;
+        			}
+        		}
+        	}
+        }
+
         if (typeof callback === "function")
             callback(self);
     });
@@ -5721,7 +5837,8 @@ Program.prototype.augmentLocator = function(locator, options)
         // We only throw if package not found if we had a locator from which we could derive an ID
         // e.g. If we had a location only based locator we do not throw as we cannot find packages by path only
         // We also do not throw if the package is marked as not available
-        if (enforce && (typeof locator.available === "undefined" || locator.available !== false))
+    	// We also do not throw if the locator points to a catalog as the catalog may not be downloaded yet or not mapped by the catalog ID
+        if (enforce && (typeof locator.available === "undefined" || locator.available !== false) && typeof locator.catalog === "undefined")
         {
             if (typeof options["discover-packages"] != "undefined" && options["discover-packages"])
             {
@@ -5925,6 +6042,19 @@ Sources.prototype = new Descriptor();
 
 Sources.prototype.augmentLocator = function(locator)
 {
+	if (typeof locator.location !== "undefined" &&
+		typeof this.json.locations === "object" &&
+    	typeof this.json.locations[locator.location] === "object" &&
+    	typeof this.json.locations[locator.location].source === "object")
+	{
+	    if (!this.json.locations[locator.location].source.location)
+	        throw new Error("Source locator for location '" + locator.location + "' must specify 'location' property in: " + this.path);
+	    
+	    locator = API.UTIL.deepCopy(locator);
+	    locator.location = this.json.locations[locator.location].source.location;
+	    return locator;
+	}
+
     if (typeof this.json.packages != "object" ||
         typeof locator.id == "undefined" ||
         typeof this.json.packages[locator.id] == "undefined" ||
@@ -6491,11 +6621,12 @@ var boot = exports.boot = function(options)
     optParser.help("Runs the PINF JavaScript Loader.");
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--pidfile").set().help("Write the process ID to the specified file. Remove file on exit. Ensures only one instance at a time.");
-    optParser.option("--daemonize").bool().help("Daemonize the process. Requires: npm install daemon");
+    optParser.option("--daemonize").bool().help("Daemonize the process. Requires: npm install -g daemon");
+    // TODO: Rename `platform` to `engine` everywhere?
     optParser.option("--platform").set().help("The platform to use");
+    optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
     optParser.option("--script").set().help("Call a script defined in the program boot package");
-    optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
     optParser.option("--terminate").bool().help("Asks program to terminate if it was going to deamonize (primarily used for testing)");
@@ -6619,6 +6750,7 @@ var boot = exports.boot = function(options)
 	        files.push(API.FILE.dirname(path) + "/sources.local.json");
 	        if (typeof API.SYSTEM.env.HOME != "undefined" && API.SYSTEM.env.HOME)
 	            files.push(API.SYSTEM.env.HOME + "/.pinf/config/sources.json");
+	        files.push("/pinf/etc/pinf/sources.json");
 	        files.push(API.FILE.dirname(path) + "/sources.json");
 	        files.forEach(function(sourcesPath)
 	        {
@@ -6759,125 +6891,130 @@ var boot = exports.boot = function(options)
 	            API.ENV.program = program;
 	            API.ENV.sandbox = sandbox;
 	
-	            var dependencies = program.getBootPackages();
-	            if (dependencies.length > 1)
+	            program.getBootPackages(assembler, function(dependencies)
 	            {
-	                throw new Error("Only one program boot package allowed in: " + path);
-	            }
-	
-	            // ######################################################################
-	            // # Program Booting
-	            // ######################################################################
-	    
-	            API.ENV.booting = true;
-	
-	            if (API.DEBUG.enabled) {
-	                API.DEBUG.print("Loading program's main packages:");
-	                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-	                {
-	                    if (typeof dependencies[i]["_package-" + i] != "undefined")
-	                        API.DEBUG.print("  " + dependencies[i]["_package-" + i].location);
-	                }
-	            }
-	
-	            timers.load = new Date().getTime()
-	
-	            var env = options.env || {};
-	            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
-	
-	            sandbox.declare(dependencies, function(require, exports, module)
-	            {
-	                timers.run = new Date().getTime()
-	
-	                // ######################################################################
-	                // # Program Script
-	                // ######################################################################
-	        
-	                if (cliOptions.script)
-	                {
-	                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
-	                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
-	                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-	                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
-	                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-	                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
-	                    {
-	                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
-	                        {
-	                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
-	                            {
-	                                var script = require(id);
-	
-	                                if (typeof script.main == "undefined")
-	                                    throw new Error("Script does not export main() in " + id);
-	
-	                                API.ENV.booting = false;
-	
-	                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
-	
-	                                script.main(env);
-	                            });
-	                        }, {
-	                            "discover-packages": cliOptions["discover-packages"] || false,
-	                            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
-	                        });
-	                    }
-	                    else
-	                        throw new Error("NYI - Non-locator based script pointers");
-	                }
-	                else
-	
-	                // ######################################################################
-	                // # Program Boot Packages
-	                // ######################################################################
-	
-	                {
-	                    API.DEBUG.print("Booting program. Output for boot package follows in green between ==> ... <==");
-	        
-	                    // Run the program by calling main() on each packages' main module
-	                    var pkg,
-	                        hl;
-	                    // TODO: Refactor as there is only ever one boot package
-	                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
-	                    {
-	                        var pkg = require("_package-" + i);
-	            
-	                        if (typeof pkg.main === "undefined")
-	                            throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
-	                        
-	                        if (API.DEBUG.enabled)
-	                        {
-	                            var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
-	                            hl = h.length;
-	                            API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
-	                            API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
-	                        }
-	            
-	                        pkg.main(env);
-	            
-	                        if (API.DEBUG.enabled)
-	                        {
-	                            API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
-	                            var f = "";
-	                            for (var i=0 ; i<hl-8 ; i++) f += "-";
-	                            API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
-	                        }
-	                    }
-	
-	                    API.ENV.booting = false;
-	                }
-	
-	                timers.end = new Date().getTime()
-	
-	                API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
-	                var f = "";
-	                for (var i=0 ; i<hl ; i++) f += "|";
-	                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
-	
-	                if (typeof options.callback != "undefined")
-	                {
-	                    options.callback(sandbox, require);
-	                }
+		            if (dependencies.length > 1)
+		            {
+		                throw new Error("Only one program boot package allowed in: " + path);
+		            }
+		
+		            // ######################################################################
+		            // # Program Booting
+		            // ######################################################################
+		    
+		            API.ENV.booting = true;
+		
+		            if (API.DEBUG.enabled) {
+		                API.DEBUG.print("Loading program's main packages:");
+		                
+		                for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+		                {
+		                    if (typeof dependencies[i]["_package-" + i] != "undefined")
+		                        API.DEBUG.print("  " + dependencies[i]["_package-" + i].location);
+		                }
+		            }
+		
+		            timers.load = new Date().getTime()
+		
+		            var env = options.env || {};
+		            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
+		            env.programDescriptorPath = path;
+		            env.bootPackagePath = dependencies[0]["_package-0"].location;
+
+		            sandbox.declare(dependencies, function(require, exports, module)
+		            {
+		                timers.run = new Date().getTime()
+		
+		                // ######################################################################
+		                // # Program Script
+		                // ######################################################################
+		        
+		                if (cliOptions.script)
+		                {
+		                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
+		                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
+		                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+		                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
+		                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
+		                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
+		                    {
+		                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
+		                        {
+		                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
+		                            {
+		                                var script = require(id);
+		
+		                                if (typeof script.main == "undefined")
+		                                    throw new Error("Script does not export main() in " + id);
+		
+		                                API.ENV.booting = false;
+		
+		                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
+		
+		                                script.main(env);
+		                            });
+		                        }, {
+		                            "discover-packages": cliOptions["discover-packages"] || false,
+		                            sourceDescriptors: API.ENV.loadSourceDescriptorsForProgram(path)
+		                        });
+		                    }
+		                    else
+		                        throw new Error("NYI - Non-locator based script pointers");
+		                }
+		                else
+		
+		                // ######################################################################
+		                // # Program Boot Packages
+		                // ######################################################################
+		
+		                {
+		                    API.DEBUG.print("Booting program. Output for boot package follows in green between ==> ... <==");
+		        
+		                    // Run the program by calling main() on each packages' main module
+		                    var pkg,
+		                        hl;
+		                    // TODO: Refactor as there is only ever one boot package
+		                    for (var i=0, ic=dependencies.length ; i<ic ; i++ )
+		                    {
+		                        var pkg = require("_package-" + i);
+		            
+		                        if (typeof pkg.main === "undefined")
+		                            throw new Error("Package's main module does not export main() in package: " + dependencies[i]["_package-" + i].location);
+		                        
+		                        if (API.DEBUG.enabled)
+		                        {
+		                            var h = "----- " + dependencies[i]["_package-" + i].location + " -> [package.json].main -> main() -----";
+		                            hl = h.length;
+		                            API.DEBUG.print("\0magenta(\0:blue(" + h + "\0:)");
+		                            API.SYSTEM.print("\0:blue(=====>\0:)\0)\0green(\0bold(", false, true);
+		                        }
+		            
+		                        pkg.main(env);
+		            
+		                        if (API.DEBUG.enabled)
+		                        {
+		                            API.SYSTEM.print("\0)\0)\0magenta(\0:blue(<=====\0:)\0)\n");
+		                            var f = "";
+		                            for (var i=0 ; i<hl-8 ; i++) f += "-";
+		                            API.DEBUG.print("\0magenta(\0:blue(----- ^ " + f + "\0:)\0)");
+		                        }
+		                    }
+		
+		                    API.ENV.booting = false;
+		                }
+		
+		                timers.end = new Date().getTime()
+		
+		                API.DEBUG.print("Program Booted  ~  Timing (Assembly: "+(timers.load-timers.start)/1000+", Load: "+(timers.run-timers.load)/1000+", Boot: "+(timers.end-timers.run-timers.loadAdditional)/1000+", Additional Load: "+(timers.loadAdditional)/1000+")");
+		                var f = "";
+		                for (var i=0 ; i<hl ; i++) f += "|";
+		                API.DEBUG.print("\0magenta(\0:blue(----- | Program stdout & stderr follows (if not already terminated) ====>\0:)\0)");
+		
+		                if (typeof options.callback != "undefined")
+		                {
+		                    options.callback(sandbox, require);
+		                }
+		            });	            	
 	            });
 	        }, {
 	            "discover-packages": cliOptions["discover-packages"] || false,
@@ -8651,8 +8788,29 @@ var Package = exports.Package = function(descriptor, options)
     this.preloaders = null;
     if (typeof this.normalizedDescriptor.json.engine != "undefined")
     {
-        if (this.normalizedDescriptor.json.engine.indexOf(API.ENV.platform) === -1)
-            throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engine+"') on platform '" + API.ENV.platform + "'");
+    	this.normalizedDescriptor.json.engines = this.normalizedDescriptor.json.engine;
+    	delete this.normalizedDescriptor.json.engine;
+    }
+    if (typeof this.normalizedDescriptor.json.engines != "undefined")
+    {
+    	if (!UTIL.isArray(this.normalizedDescriptor.json.engines)) {
+    		this.normalizedDescriptor.json.engines = [this.normalizedDescriptor.json.engines];
+    	}
+    	var found = false;
+    	for (var i=0 ; i<this.normalizedDescriptor.json.engines.length ; i++) {
+    		// TODO: Verify correct version of engine
+    		if (typeof this.normalizedDescriptor.json.engines[i] === "object") {
+        		if (new RegExp("^" + API.ENV.platform).exec(Object.keys(this.normalizedDescriptor.json.engines[i])[0])) {
+        			found = true;
+        		}
+    		} else {
+        		if (new RegExp("^" + API.ENV.platform).exec(this.normalizedDescriptor.json.engines[i])) {
+        			found = true;
+        		}
+    		}
+    	}
+        if (!found)
+            throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engines+"') on platform '" + API.ENV.platform + "'");
     }
     if (typeof this.descriptor.json.scripts != "undefined")
     {
@@ -9640,8 +9798,9 @@ Program.prototype.getEngines = function()
     return this.descriptor.json.engine;
 }
 
-Program.prototype.getBootPackages = function()
+Program.prototype.getBootPackages = function(assembler, callback)
 {
+    // TODO: Refactor as we will never have more than one boot package.
     var self = this,
         dependencies = [],
         i = 0;
@@ -9654,6 +9813,14 @@ Program.prototype.getBootPackages = function()
         dependencies.push(dep);
         i++;
     });
+    if (typeof assembler !== "undefined" && typeof callback !== "undefined")
+    {
+    	self.resolveLocator(assembler, dependencies[0]["_package-0"], function(locator)
+    	{
+    		dependencies[0]["_package-0"] = locator;
+    		callback(dependencies);
+    	});
+    }
     return dependencies;
 }
 
@@ -9684,18 +9851,31 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             }
             if ((typeof locator.available == "undefined" || locator.available === true) && typeof locator.provider == "undefined")
             {
-                // If we do not have an absolute path location-based locator by now we cannot proceed
-                if (!locator.location || !API.FILE.isAbsolute(locator.location))
-                    throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
-    
-                // If locator specifies a path we add it to the location.
-                // This is typically needed to get the paths to packages in a multi-package archive
-                if (typeof locator.path != "undefined")
-                    locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
-    
-                // Pass through the original descriptor unchanged
-                if (typeof descriptor != "undefined")
-                    locator.descriptor = descriptor;
+            	if (typeof locator.pm !== "undefined")
+            	{
+            		// Let package manager resolve locator
+            		
+            		if (typeof options.pmLocatorResolver !== "function")
+            			throw new Error("options.pmLocatorResolver not set!");
+
+            		options.pmLocatorResolver(locator, callback);
+            		return;
+            	}
+            	else
+            	{
+	                // If we do not have an absolute path location-based locator by now we cannot proceed
+	                if (!locator.location || !API.FILE.isAbsolute(locator.location))
+	                    throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
+	    
+	                // If locator specifies a path we add it to the location.
+	                // This is typically needed to get the paths to packages in a multi-package archive
+	                if (typeof locator.path != "undefined")
+	                    locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
+	    
+	                // Pass through the original descriptor unchanged
+	                if (typeof descriptor != "undefined")
+	                    locator.descriptor = descriptor;
+            	}
             }
         }
         callback(locator);
@@ -9759,8 +9939,11 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
     else
     if (typeof locator.catalog != "undefined")
     {
-        locator = this.descriptor.augmentLocator(locator, options);
+    	
+console.log("CATALOG", locator);
 
+        locator = this.descriptor.augmentLocator(locator, options);
+        
         // Only query catalog if program descriptor does not already set a location for the
         // package referenced by the locator.
         if (!locator.location)
@@ -9768,12 +9951,14 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             assembler.downloader.getCatalogForURL(locator.catalog, function(path)
             {
                 var catalogDescriptor = new DESCRIPTORS.Catalog(path);
-    
+
                 locator = catalogDescriptor.packageLocatorForLocator(locator);
     
                 // NOTE: locator now contains an 'archive' property
                 if (typeof locator.archive == "undefined")
                     throw new Error("Unable to resolve catalog-based locator.");
+
+console.log("CATALOG", locator);
 
                 self.resolveLocator(assembler, locator, callback);
             });
@@ -10550,7 +10735,11 @@ Sandbox.prototype.init = function()
             // dependencies registered for the package if applicable
             if (pkg.normalizedDescriptor.hasDependencies())
             {
-                var oldLength = API.ENV.platformRequire.paths.length;
+				/* Not needed in node >= 0.5
+				 * If needed in other adapters need to do this via a plugin.
+				 * NodeJS now searches for relative `node_modules/` directories which we link dependencies into.
+				 *
+            	var oldLength = API.ENV.platformRequire.paths.length;
                 pkg.normalizedDescriptor.walkDependencies(function(index, locator)
                 {
                     var depPkg = self.packageForId(locator.id, true),
@@ -10564,6 +10753,7 @@ Sandbox.prototype.init = function()
                     }
                     API.ENV.platformRequire.paths.unshift(depPkg.path + "/" + ((depLibDir)?depLibDir+"/":""));
                 });
+                */
                 var exports = API.ENV.platformRequire(id.replace(/@\//g, "\/"));
                 API.ENV.platformRequire.paths.splice(0, (API.ENV.platformRequire.paths.length - oldLength));                
                 return exports;
@@ -11019,6 +11209,26 @@ Sandbox.prototype.packageForId = function(id, silent)
     {
         if (silent)
             return null;
+        
+        // Before we conclude that the package is not found we check if the `id` is a file path.
+        // If a `package.json` file resides there we take the UID if available and see if we can find the package.
+    	// TODO: Keep map for faster lookup on subsequent calls.
+        // TODO: This should probably be elsewhere and done without going to disk but cannot find better solution at the moment.
+        var path = id.replace(/@?\/?(package\.json)?$/,"") + "/package.json";
+        if (API.FILE.isAbsolute(path) && API.FILE.exists(path))
+        {
+        	var descriptor;
+        	try {
+        		descriptor = API.JSON.parse(API.FILE.read(path));
+        	} catch(e) {
+        		throw new Error("Error '" + e + "' parsing descriptor at: " + path);
+        	}
+        	if (descriptor && typeof descriptor.uid !== "undefined")
+        	{
+				return this.packageForId(descriptor.uid.replace(/^https?:\/\//, ""), silent);
+        	}
+        }
+        
         throw new Error("Package for id '" + id + "' not found via lookup IDs '" + lookupIds + "' in packages: " + Object.keys(this.packages));
     }
     return this.packages[lookupId[0]];
@@ -11379,6 +11589,7 @@ var terms = [
     'xterm',
     'xtermc',
     'xterm-color',
+    'xterm-256color',
     'gnome-terminal'
 ];
 

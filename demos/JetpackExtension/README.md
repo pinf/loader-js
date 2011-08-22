@@ -54,7 +54,7 @@ More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/mas
     mkdir extension
     cd extension
     cfx init
-    cfx -b /Applications/Firefox-4/Firefox.app/Contents/MacOS/firefox-bin test
+    cfx -b /Applications/Firefox.app/Contents/MacOS/firefox-bin test
     cd ../
 
 ### Building and bundling loader:
@@ -64,7 +64,7 @@ More notes and TODO: [../../NOTES.md](https://github.com/pinf/loader-js/blob/mas
 
     cd extension
     ../../../bin/bundle-loader --platform jetpack lib/pinf-loader.js
-    cfx -b /Applications/Firefox-4/Firefox.app/Contents/MacOS/firefox-bin test
+    cfx -b /Applications/Firefox.app/Contents/MacOS/firefox-bin test
     cd ../
 
 ### Packaging:
