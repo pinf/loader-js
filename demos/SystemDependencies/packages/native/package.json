@@ -7,10 +7,5 @@
     "native": true,
     "directories": {
         "lib": ""
-    },
-    "dependencies": [
-        {
-            "archive": "https://github.com/bentomas/node-mime/zipball/master"
-        }
-    ]
+    }
 }
