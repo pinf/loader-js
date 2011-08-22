@@ -173,6 +173,13 @@ Verify alternate mapping locators:
         catalog: "<catalogURL>",
         name: "<packageName>"
     }
+    
+    locator: {
+        name: "<packageName>",
+        version: "<packageVersion>",
+        pm: "<packageManager>"      // e.g. "npm"
+    }
+    
 
     // `archive`-based locators are URLs that must point to a ZIP archive
     
