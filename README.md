@@ -23,6 +23,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[GPSEE](http://code.google.com/p/gpsee/)__ (__Not Yet Implemented__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Not Yet Implemented__)
   * __[Titanium](http://www.appcelerator.com/)__ (__Not Yet Implemented__)
+  * __[PhoneGap](http://www.phonegap.com/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
     * __Standalone__ - Just include one small file in your page (**6.2 KB minified & gziped**)
     * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
