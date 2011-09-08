@@ -2143,15 +2143,41 @@ Assembler.prototype.pmLocatorResolver = function(program, locator, callback)
 		{
 			rootProgramPath = FILE.dirname(program.descriptor.path);
 		}
-
-		var sandboxPath = FILE.realpath("/pinf/cache/github.com/pinf/loader-js/-npm-sandboxes/" + rootProgramPath),
-			pkgPath = sandboxPath + "/node_modules/" + locator.name;
-		if (!FILE.exists(sandboxPath))
-			FILE.mkdirs(sandboxPath, 0775);
-
-		locator.location = pkgPath;
 		
+		var localPckage = false;
+		
+		// If no `name` is specified we set it if we have a `location` set.
+		if (typeof locator.name === "undefined")
+		{
+			if (typeof locator.location === "undefined")
+				throw new Error("Must specify `name` or `location` for locator: " + UTIL.locatorToString(locator));
+
+			var descriptor;
+			try {
+				descriptor = API.JSON.parse(API.FILE.read(locator.location + "/package.json"));
+			} catch(e) {
+				throw new Error("Error '" + e + "' parsing descriptor: " + locator.location + "/package.json");
+			}
+			if (!descriptor.name)
+				throw new Error("No `name` set in: " + locator.location + "/package.json");
+
+			locator.name = descriptor.name;
+			localPckage = true;
+		}
+		
+		var sandboxPath = FILE.realpath("/pinf/cache/github.com/pinf/loader-js/-npm-sandboxes/" + rootProgramPath + ((program.descriptor.json.version)?"/"+program.descriptor.json.version:"")),
+			pkgPath = sandboxPath + "/node_modules/" + locator.name;
+		if (!FILE.exists(sandboxPath + "/node_modules"))
+			FILE.mkdirs(sandboxPath + "/node_modules", 0775);
+
 		// TODO: If --clean flag supplied clear sandbox once first
+		
+		var uri = locator.name + ((typeof locator.version !== "undefined")?"@" + locator.version:"");
+		if (localPckage) {
+			uri = locator.location;
+		}
+		
+		locator.location = pkgPath;
 		
 		// check if already installed
 		if (FILE.exists(pkgPath + "/package.json"))
@@ -2165,11 +2191,11 @@ Assembler.prototype.pmLocatorResolver = function(program, locator, callback)
 					return;
 //				}
 			} catch(e) {
-				console.log("Error '" + e + "' parsing package.json from package installed via npm. Forcing re-install.");
+				console.log("Error '" + e + "' parsing package.json from package installed via npm. Forcing re-install.", e.stack);
 			}
 		}
-
-		var command = "cd " + sandboxPath + " ; npm --verbose install -f " + locator.name + ((typeof locator.version !== "undefined")?"@" + locator.version:"");
+		
+		var command = "cd " + sandboxPath + " ; npm --verbose install -f " + uri;
 
 		// Get NPM to install the package for this program
 		DEBUG.print("Installing package via NPM [\0cyan(" + command + "\0)]:");
@@ -2177,6 +2203,8 @@ Assembler.prototype.pmLocatorResolver = function(program, locator, callback)
 		SYSTEM.exec(command, function(stdout, stderr)
         {
 			DEBUG.print(stdout);
+			DEBUG.print(stderr);
+			
 			callback(locator);
         });
 	}
@@ -2299,11 +2327,15 @@ Assembler.prototype.assembleProgram = function(sandbox, uri, programCallback, ca
 Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, callback, options)
 {
     var self = this;
-
+    
     var di = DEBUG.indent();
     DEBUG.print("Load additional package into program:").indent(di+1);
     DEBUG.print("Locator(original): " + UTIL.locatorToString(locator));
 
+    options.pmLocatorResolver = function(locator, callback) {
+    	self.pmLocatorResolver(program, locator, callback);
+    }
+    
     program.resolveLocator(self, locator, function(resolvedLocator)
     {
         DEBUG.print("Locator(resolved): " + UTIL.locatorToString(resolvedLocator));
@@ -2333,7 +2365,7 @@ Assembler.prototype.addPackageToProgram = function(sandbox, program, locator, ca
                 {
                     callback(sandbox.ensurePackageForLocator(resolvedLocator, options), resolvedLocator);
                 }
-            });
+            }, options);
             
         }, function assembler_assembleProgram_lambda_addPackageToProgram_done()
         {
@@ -5091,7 +5123,8 @@ __loader__.memoize('console', function(__require__, module, exports) {
 // # /console.js
 // ######################################################################
 
-var API = __require__('api');
+var API = __require__('api'),
+	UTIL = __require__('util');
 
 var consoleAPI = {
     instance: console || void 0
@@ -5120,7 +5153,17 @@ var errorLogPath = false;
         }
 
         if (typeof consoleAPI.instance != "undefined" && consoleAPI.instance[priority])
-            return consoleAPI.instance[priority].apply(consoleAPI.instance, arguments);
+        {
+        	if (priority === "error")
+        	{
+        		if (consoleAPI.instance[priority] === console[priority] && typeof API.UTIL.debug === "function")
+        		{
+        			return API.UTIL.debug(normalizeArguments.apply(null, arguments));
+        		} else
+        			return consoleAPI.instance[priority].apply(consoleAPI.instance, normalizeArguments.apply(null, arguments));
+        	} else
+        		return consoleAPI.instance[priority].apply(consoleAPI.instance, normalizeArguments.apply(null, arguments));
+        }
         else
             API.DEBUG.print("[console]" + arguments);
     }
@@ -5133,6 +5176,7 @@ exports.setErrorLogPath = function(path)
 
 exports.setConsole = function(console)
 {
+	// TODO: Log deprecation message
     API.ENV.console = console;
     consoleAPI.instance = console;
 }
@@ -5140,6 +5184,31 @@ exports.setConsole = function(console)
 exports.getAPI = function()
 {
     return consoleAPI;
+}
+
+function normalizeArguments()
+{
+	return UTIL.values(arguments).map(function(arg)
+	{
+		// We have an error object if `error` is found in object constructor name
+		// TODO: This may need to be more deterministic in future
+		if (typeof arg === "object" && /error/i.test(arg.constructor.name))
+		{
+			arg = UTIL.copy(arg);
+			if (arg.stack)
+			{
+				arg.stack = ("" + arg.stack).split("\n").slice(1).map(function(frame)
+				{
+					return UTIL.trim(frame);
+				});
+			}
+		}
+
+		if (typeof arg === "object" && typeof API.UTIL.inspect === "function")
+			return API.UTIL.inspect(arg);
+
+		return arg;
+	});
 }
 
 });
@@ -5410,7 +5479,7 @@ __loader__.memoize('descriptors', function(__require__, module, exports) {
 //  - cadorn, Christoph Dorn <christoph@christophdorn.com>, Copyright 2011, MIT License
 
 var API = __require__('api'),
-    UTIL = API.UTIL,
+    UTIL = __require__('util'),
     FILE = API.FILE,
     JSON = API.JSON;
 
@@ -5427,11 +5496,11 @@ Descriptor.prototype.clone = function()
 
     var self = this,
         descriptor = new self.cloneConstructor();
-    UTIL.keys(self).forEach(function (key) {
+    API.UTIL.keys(self).forEach(function (key) {
         if (self.hasOwnProperty(key))
         {
             if (key == "json")
-                descriptor[key] = UTIL.deepCopy(self[key]);
+                descriptor[key] = API.UTIL.deepCopy(self[key]);
             else
                 descriptor[key] = self[key];
         }
@@ -5554,7 +5623,11 @@ Descriptor.prototype.load = function(path, create, options, callback)
             
             if (typeof self.json["extends"] != "undefined")
             {
-                mergeExtended(self.json["extends"], doneMergingCallback);
+    			traverseExtends(self.json["extends"], function()
+    			{
+    				doneMergingCallback();
+    			});
+                
             } else {
                 doneMergingCallback();
             }
@@ -5571,15 +5644,41 @@ Descriptor.prototype.load = function(path, create, options, callback)
         }
     }
     
+    function traverseExtends(locators, traverseExtendsCallback)
+    {
+    	if (UTIL.isArrayLike(locators))
+    	{
+    		var mc = locators.length;
+    		locators.forEach(function(locator)
+    		{
+                mergeExtended(locator, function()
+                {
+        			mc--;
+                    if (mc === 0 && typeof traverseExtendsCallback === "function")
+                    	traverseExtendsCallback();
+                });
+    		});
+    	}
+    	else
+    	{
+            mergeExtended(locators, function()
+            {
+                if (typeof traverseExtendsCallback === "function")
+                	traverseExtendsCallback();
+            });
+    	}
+    }
+    
     function mergeFinal()
     {
         if (typeof self.json["extends"] != "undefined")
         {
-            mergeExtended(self.json["extends"], function()
-            {
-                if (typeof callback === "function")
-                    callback();
-            });
+			traverseExtends(self.json["extends"], function()
+			{
+	            if (typeof callback === "function")
+	                callback();
+			});
+
         } else {
             if (typeof callback === "function")
                 callback();
@@ -5717,6 +5816,11 @@ Program.prototype.walkBoot = function(callback)
 {
     if (typeof this.json.boot == "undefined")
         throw this.validationError("Property 'boot' is not defined");
+    if (typeof this.json.boot == "boolean") {
+    	if (this.json.boot !== false)
+            throw this.validationError("Property 'boot' must be set to a string or `false`");
+        callback(false);
+    } else
     if (typeof this.json.boot == "string")
         callback(this._validateBoot(this.json.boot));
     else
@@ -5736,7 +5840,7 @@ Program.prototype.walkPackages = function(callback)
     if (typeof this.json.packages != "object")
         throw this.validationError("Property 'packages' must be an object");
     for (var id in this.json.packages)
-        callback(id, UTIL.deepCopy(this.json.packages[id]));
+        callback(id, API.UTIL.deepCopy(this.json.packages[id]));
 }
 
 Program.prototype._validateBoot = function(id)
@@ -5772,7 +5876,7 @@ Program.prototype.augmentLocator = function(locator, options)
 
     options = options || {};
 
-    locator = UTIL.deepCopy(locator);
+    locator = API.UTIL.deepCopy(locator);
 
     var ids = [],
         enforce = false;
@@ -5848,7 +5952,7 @@ Program.prototype.augmentLocator = function(locator, options)
                 this.save();
             }
             else
-                throw this.validationError("Derived package IDs '"+ids+"' for locator '"+UTIL.locatorToString(locator)+"' not found as key in property 'packages': " + Object.keys(this.json.packages));
+                throw this.validationError("Derived package IDs '"+ids+"' for locator '"+API.UTIL.locatorToString(locator)+"' not found as key in property 'packages': " + Object.keys(this.json.packages));
         }
         else
             return finalize(locator);
@@ -5859,7 +5963,7 @@ Program.prototype.augmentLocator = function(locator, options)
 
     if (typeof found.provider != "undefined")
     {
-        return finalize(UTIL.deepMerge(locator, {"provider": found.provider}));
+        return finalize(API.UTIL.deepMerge(locator, {"provider": found.provider}));
     }
     else
     {
@@ -5872,7 +5976,7 @@ Program.prototype.augmentLocator = function(locator, options)
         if (typeof found.locator == "undefined")
             return finalize(locator);
 
-        return finalize(this._normalizeLocator(UTIL.deepMerge(locator, found.locator)));
+        return finalize(this._normalizeLocator(API.UTIL.deepMerge(locator, found.locator)));
     }
 }
 
@@ -5985,7 +6089,7 @@ Catalog.prototype = new Descriptor();
 Catalog.prototype.packageLocatorForLocator = function(locator)
 {
     if (typeof locator.name == "undefined")
-        throw new Error("Catalog-based locator does not specify 'name' property: " + UTIL.locatorToString(locator));
+        throw new Error("Catalog-based locator does not specify 'name' property: " + API.UTIL.locatorToString(locator));
 
     if (typeof locator.version != "undefined")
     {
@@ -6010,7 +6114,7 @@ Catalog.prototype.packageLocatorForLocator = function(locator)
             if (typeof repo.download.url == "undefined")
                 throw new Error("No 'repositories[0].download.url' property found for package '" + locator.name + "' -> '" + locator.revision + "' in: " + this.path);
 
-            var newLocator = UTIL.deepCopy(locator);
+            var newLocator = API.UTIL.deepCopy(locator);
 
             newLocator.archive = repo.download.url.replace("{rev}", locator.revision);
 
@@ -6071,6 +6175,8 @@ Sources.prototype.augmentLocator = function(locator)
     locator.location = this.json.packages[locator.id].source.location;
     if (!/\/$/.test(locator.location))
         locator.location += "/";
+    if (typeof this.json.packages[locator.id].source.path !== "undefined")
+    	locator.path = this.json.packages[locator.id].source.path;
     return locator;
 }
 
@@ -6116,27 +6222,35 @@ var API = __require__('api'),
     DEBUG = API.DEBUG;
 
 var MAX_PARALLEL_DOWNLOADS = 2,
-    USE_CACHE = false,
-    ENABLED = true;
+    USE_CACHE = false;
+//    ENABLED = true;
+
+var directoriesVerified = false;
 
 var Downloader = exports.Downloader = function(options)
 {
     this.basePath = options.basePath;
 
+    // NOTE: This has changed. We now only create the dirs if a download was actually requested.
+    //		 We assume `this.basePath` does not start with `__PWD__` (as is the case if no `/pinf/pinf_packages` directory found and we are running on jetpack)
     // this is the case when used in jetpack or other embedded environment with no PWD
-    if (/^__PWD__/.test(this.basePath)) {
-        ENABLED = false;
-        return;
-    }
-
-    FILE.mkdirs(this.basePath + "/downloads/files", 0775);
-    FILE.mkdirs(this.basePath + "/downloads/packages", 0775);
-    FILE.mkdirs(this.basePath + "/downloads/archives", 0775);
-    FILE.mkdirs(this.basePath + "/cache", 0775);
+//    if (/^__PWD__/.test(this.basePath)) {
+//        ENABLED = false;
+//        return;
+//    }
 }
 
 Downloader.prototype.pathForURL = function(url, type)
 {
+	if (!directoriesVerified)
+	{
+		directoriesVerified = true;
+	    FILE.mkdirs(this.basePath + "/downloads/files", 0775);
+	    FILE.mkdirs(this.basePath + "/downloads/packages", 0775);
+	    FILE.mkdirs(this.basePath + "/downloads/archives", 0775);
+	    FILE.mkdirs(this.basePath + "/cache", 0775);
+	}
+	
     type = type || "source";
 
     var m = url.match(/^https?:\/(.*?)(\?(.*))?$/);
@@ -6185,8 +6299,8 @@ var unzipping = false,
 
 Downloader.prototype.getForArchive = function(archive, callback, options)
 {
-    if (!ENABLED)
-        throw new Error("Downloader is not enabled!");
+//    if (!ENABLED)
+//        throw new Error("Downloader is not enabled!");
     
     options = options || {};
     var self = this;
@@ -6411,8 +6525,8 @@ Downloader.prototype.getCatalogForURL = function(url, callback)
 
 Downloader.prototype.getFileForURL = function(url, callback)
 {
-    if (!ENABLED)
-        throw new Error("Downloader is not enabled!");
+//    if (!ENABLED)
+//        throw new Error("Downloader is not enabled!");
 
     var path = this.pathForURL(url, "file");
 
@@ -6622,11 +6736,15 @@ var boot = exports.boot = function(options)
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--pidfile").set().help("Write the process ID to the specified file. Remove file on exit. Ensures only one instance at a time.");
     optParser.option("--daemonize").bool().help("Daemonize the process. Requires: npm install -g daemon");
+    optParser.option("--stdoutLogPath").set().help("Path to file to log stdout output. For use with --daemonize");
+    optParser.option("--stderrLogPath").set().help("(Currently redirects to --stdoutLogPath internally) Path to file to log stderr output. For use with --daemonize");
+    optParser.option("--exitOnChange").bool().help("Exit process when any source file changes");
     // TODO: Rename `platform` to `engine` everywhere?
     optParser.option("--platform").set().help("The platform to use");
     optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
     optParser.option("--script").set().help("Call a script defined in the program boot package");
+    optParser.option("--link-program-to").set().help("Link the program package to the given directory");
     optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
     optParser.option("--terminate").bool().help("Asks program to terminate if it was going to deamonize (primarily used for testing)");
@@ -6642,6 +6760,9 @@ var boot = exports.boot = function(options)
         optParser.printHelp(cliOptions);
         return;
     }
+    
+    API.ENV.cliOptions = cliOptions;
+    
     if (typeof API.DEBUG.enabled == "undefined")
     {
         if (cliOptions.verbose === true)
@@ -6711,10 +6832,15 @@ var boot = exports.boot = function(options)
 	    API.DEBUG.print("----------------------------------------------------------------------------\0)");
 	
 	    API.DEBUG.print("Loaded adapter: " + API.ENV.platform);
-	
+	    
+	    var pinfPackagesPath = "/pinf/pinf_packages";
+	    if (!API.FILE.exists(pinfPackagesPath)) {
+	    	pinfPackagesPath = API.SYSTEM.pwd + "/.pinf-packages";
+	    }
+
+	    // TODO: Tell downloader to link packages to sources via sources.json if applicable
 	    var downloader = new ((API.DOWNLOADER = __require__('downloader')).Downloader)({
-	        // TODO: Look for a better place first
-	        basePath: API.SYSTEM.pwd + "/.pinf-packages"
+	        basePath: pinfPackagesPath
 	    });
 	
 	    var assembler = API.ENV.assembler = new (__require__('assembler').Assembler)(downloader);
@@ -6797,7 +6923,30 @@ var boot = exports.boot = function(options)
 	    
 	        API.DEBUG.print("Loading program descriptor from: " + path);
 	
-	        downloader.basePath = path.substring(0, path.length-13) + "/.pinf-packages";
+		    var pinfPackagesPath = "/pinf/pinf_packages";
+		    if (!API.FILE.exists(pinfPackagesPath)) {
+		    	pinfPackagesPath = path.substring(0, path.length-13) + "/.pinf-packages";
+		    }
+
+		    downloader.basePath = pinfPackagesPath;
+
+		    
+	        if (cliOptions["link-program-to"])
+	        {
+	        	if (API.FILE.exists(cliOptions["link-program-to"]))
+	        	{
+	        		API.FILE.remove(cliOptions["link-program-to"]);
+	        	} else
+	        	if (!API.FILE.exists(API.FILE.dirname(cliOptions["link-program-to"])))
+        			API.FILE.mkdirs(API.FILE.dirname(cliOptions["link-program-to"]), 0775);
+	        		
+        		API.SYSTEM.exec("ln -s " + API.FILE.dirname(path) + " " + cliOptions["link-program-to"], function(stdout, stderr)
+        		{
+        			console.log(stdout);
+        			console.log(stderr);
+        		});
+	        }
+	        
 	    
 	        API.DEBUG.print("Using program cache directory: " + downloader.basePath);
 	
@@ -6890,6 +7039,11 @@ var boot = exports.boot = function(options)
 	            // TODO: Keep these references elsewhere so we can have nested sandboxes
 	            API.ENV.program = program;
 	            API.ENV.sandbox = sandbox;
+	            
+	            if (!program.hasBootPackage())
+	            {
+	            	return;
+	            }
 	
 	            program.getBootPackages(assembler, function(dependencies)
 	            {
@@ -6919,8 +7073,10 @@ var boot = exports.boot = function(options)
 		            var env = options.env || {};
 		            env.args = env.args || options.args || cliOptions.args.slice(1, cliOptions.args.length) || [];
 		            env.programDescriptorPath = path;
-		            env.bootPackagePath = dependencies[0]["_package-0"].location;
+		            env.bootPackagePath = dependencies[0]["_package-0"].location.replace(/\/$/, "");
 
+		            sandbox.env = env;
+		            
 		            sandbox.declare(dependencies, function(require, exports, module)
 		            {
 		                timers.run = new Date().getTime()
@@ -7306,6 +7462,54 @@ exports.mustTerminate = function()
     return API.ENV.mustTerminate;
 }
 
+exports.getRunPathForScope = function(scopes)
+{
+	var path = "/pinf/run";
+	
+	// TODO: Move this elsewhere and get path via env/config option etc...
+	if (!API.FILE.exists(path))
+		throw new Error("Cache base path does not exist: " + path);
+	
+	scopes.forEach(function(scope)
+	{
+		path = path.replace(/\/$/, "") + "/" + scope;
+	});
+	
+	return path;
+}
+
+exports.getDataPathForScope = function(scopes)
+{
+	var path = "/pinf/data";
+	
+	// TODO: Move this elsewhere and get path via env/config option etc...
+	if (!API.FILE.exists(path))
+		throw new Error("Cache base path does not exist: " + path);
+	
+	scopes.forEach(function(scope)
+	{
+		path = path.replace(/\/$/, "") + "/" + scope;
+	});
+	
+	return path;
+}
+
+exports.getCachePathForScope = function(scopes)
+{
+	var path = "/pinf/cache";
+	
+	// TODO: Move this elsewhere and get path via env/config option etc...
+	if (!API.FILE.exists(path))
+		throw new Error("Cache base path does not exist: " + path);
+	
+	scopes.forEach(function(scope)
+	{
+		path = path.replace(/\/$/, "") + "/" + scope;
+	});
+	
+	return path;
+}
+
 exports.canExit = function()
 {
     // TODO: Use own flag here
@@ -7323,9 +7527,17 @@ exports.runProgram = function(options, callback)
         throw new Error("NYI");
 }
 
+// NOTE: This will always be the first
 exports.getSandbox = function()
 {
     return API.ENV.sandbox;
+}
+
+// NOTE: This returns the last created sandbox which may not exist any more.
+// TODO: The sandbox management needs to be overhauled.
+exports.getLastSandbox = function()
+{
+    return API.ENV.sandboxes[API.ENV.sandboxes.length-1];
 }
 
 var Sandbox = exports.Sandbox = function Sandbox(options, callback)
@@ -7421,7 +7633,12 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
     
             self.boot = function(callback, options)
             {
-                var module = sandboxRequire('_package-0');
+	            sandbox.env = {
+            		programDescriptorPath: sandbox.program.descriptor.path,
+        			bootPackagePath: sandbox.program.getBootPackages()[0]["_package-0"].location.replace(/\/$/, "")
+	            };
+
+	            var module = sandboxRequire('_package-0');
                 if (typeof module.main === "undefined") {
                     throw new Error("Program's '" + options.programPath + "' main module does not export 'main()'!");
                 }
@@ -7505,6 +7722,9 @@ var Sandbox = exports.Sandbox = function Sandbox(options, callback)
 
         // TODO: Need a way to get current parent sandbox instead of using stack
         var sandbox;
+        if (typeof options.originalSandbox !== "undefined") {
+            sandbox = options.originalSandbox.clone();
+        } else
         if (typeof API.ENV.sandboxes !== "undefined") {
             sandbox = API.ENV.sandboxes[API.ENV.sandboxes.length-1].clone();
         } else {
@@ -7699,39 +7919,45 @@ JSGI.prototype.spider = function(route, targetPath, callback)
                     data.then(
                         function handle(data)
                         {
-                            if (data.status != 200)
-                                throw new Error("Status for uri '" + uri + "' not 200.");
-    
-                            var path = targetPath + uri,
-                                dirname = API.FILE.dirname(path);
-                            if (/\/$/.test(dirname))
-                                dirname = dirname.substring(0, dirname.length-1);
-                            if (!API.FILE.exists(dirname))
-                                API.FILE.mkdirs(dirname, 0775);
-    
-                            API.FILE.write(path, data.body.join(""));
-                            
-                            spidering = false;
-                            if (spiderQueue.length > 0)
-                            {
-                                spiderForUri(spiderQueue.shift());
-                            }
-                            else
-                            {
-                                if (Object.keys(spiderInsight.packages).length > 0)
-                                {
-                                    for (var key in spiderInsight.packages)
-                                    {
-                                        resourceQueue.push(spiderInsight.packages[key]);
-                                    }
-                                    copyResourcesForPackage(resourceQueue.shift());
-                                }
-                                else
-                                {
-                                    if (typeof callback === "function")
-                                        callback(true);
-                                }
-                            }
+                        	try {
+	                            if (data.status != 200)
+	                                throw new Error("Status for uri '" + uri + "' not 200.");
+	
+	                            API.SYSTEM.print("      ... got data from URI" + "\n");
+	                            
+	                            var path = targetPath + uri,
+	                                dirname = API.FILE.dirname(path);
+	                            if (/\/$/.test(dirname))
+	                                dirname = dirname.substring(0, dirname.length-1);
+	                            if (!API.FILE.exists(dirname))
+	                                API.FILE.mkdirs(dirname, 0775);
+	    
+	                            API.FILE.write(path, data.body.join(""));
+	                                                        
+	                            spidering = false;
+	                            if (spiderQueue.length > 0)
+	                            {
+	                                spiderForUri(spiderQueue.shift());
+	                            }
+	                            else
+	                            {
+	                                if (Object.keys(spiderInsight.packages).length > 0)
+	                                {
+	                                    for (var key in spiderInsight.packages)
+	                                    {
+	                                        resourceQueue.push(spiderInsight.packages[key]);
+	                                    }
+	                                    copyResourcesForPackage(resourceQueue.shift());
+	                                }
+	                                else
+	                                {
+	                                    if (typeof callback === "function")
+	                                        callback(true);
+	                                }
+	                            }
+                        	} catch(e) {
+	                            API.SYSTEM.print("Error '" + e + "' while saving URI data!" + "\n");
+                        	}
                         },
                         function (error)
                         {
@@ -7862,6 +8088,8 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
     if (typeof route == "undefined")
         return false;
 
+	console.log("[program-server] Responding to: " + request.pathInfo);
+    
     spiderInsight = spiderInsight || {};
     spiderInsight.packages = spiderInsight.packages || {};
 
@@ -7893,13 +8121,17 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
             
             function sendResponse(body)
             {
+            	console.log("[program-server] Sent: " + request.pathInfo);
                 callback({
                     status: 200,
                     headers: {
-                        "content-type": "text/javascript",
-                        "transfer-encoding": "chunked"
+                        "content-type": "text/javascript"
+                        // NOTE: Do not set transfer-encoding here. If set and proxied through nginx,
+                        //		 nginx will append ", chunked" and send extra chars at beginning and
+                        //		 end of response.
+                        // "transfer-encoding": "chunked"
                         // NOTE: Do not set content length as length is not accurate for some JS files                
-        //                "content-length": (body = body.join("\n")).length
+                        // "content-length": (body = body.join("\n")).length
                     },
                     body: [
                         body.join("\n")
@@ -8345,8 +8577,9 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                     callback({
                         status: 200,
                         headers: {
-                            "content-type": types[ext],
-                            "transfer-encoding": "chunked"
+                            "content-type": types[ext]
+                    		// NOTE: Do not set this. It causes a problem with nginx
+                			// "transfer-encoding": "chunked"
                         },
                         binaryBody: true,
                         body: [
@@ -8797,19 +9030,27 @@ var Package = exports.Package = function(descriptor, options)
     		this.normalizedDescriptor.json.engines = [this.normalizedDescriptor.json.engines];
     	}
     	var found = false;
-    	for (var i=0 ; i<this.normalizedDescriptor.json.engines.length ; i++) {
+    	for (var i=this.normalizedDescriptor.json.engines.length-1 ; i >= 0 ; i--) {
     		// TODO: Verify correct version of engine
     		if (typeof this.normalizedDescriptor.json.engines[i] === "object") {
-        		if (new RegExp("^" + API.ENV.platform).exec(Object.keys(this.normalizedDescriptor.json.engines[i])[0])) {
-        			found = true;
-        		}
+    			var keys = Object.keys(this.normalizedDescriptor.json.engines[i]);
+    			if (keys.length === 0) {
+    				this.normalizedDescriptor.json.engines.splice(i, 1);
+    			} else {
+	        		if (new RegExp("^" + API.ENV.platform).exec(keys[0])) {
+	        			found = true;
+	        		}
+    			}
     		} else {
+    			if (!this.normalizedDescriptor.json.engines[i]) {
+    				this.normalizedDescriptor.json.engines.splice(i, 1);
+    			} else
         		if (new RegExp("^" + API.ENV.platform).exec(this.normalizedDescriptor.json.engines[i])) {
         			found = true;
         		}
     		}
     	}
-        if (!found)
+        if (!found && this.normalizedDescriptor.json.engines.length > 0)
             throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engines+"') on platform '" + API.ENV.platform + "'");
     }
     if (typeof this.descriptor.json.scripts != "undefined")
@@ -9754,7 +9995,9 @@ Program.prototype.discoverPackages = function(fetcher, callback, options)
     var self = this;
     self.descriptor.walkBoot(function(id)
     {
-        DEBUG.indent(di).print("ID: " + id).indent(di+1);
+    	DEBUG.indent(di).print("ID: " + id).indent(di+1);
+    	
+    	if (id === false) return;
 
         fetcher(self.descriptor.locatorForId(id, options), cbt.add(function(pkg, locator)
         {
@@ -9775,6 +10018,11 @@ Program.prototype.discoverPackages = function(fetcher, callback, options)
     });
 
     cbt.done();
+}
+
+Program.prototype.hasBootPackage = function()
+{
+	return (this.descriptor.json.boot!==false)?true:false;
 }
 
 Program.prototype.getProviderPackages = function()
@@ -9851,30 +10099,32 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
             }
             if ((typeof locator.available == "undefined" || locator.available === true) && typeof locator.provider == "undefined")
             {
+                // If we do not have an absolute path location-based locator by now we cannot proceed
+                if (!locator.location || !API.FILE.isAbsolute(locator.location))
+                {
+                	// If `pm` is set we typically don't need one
+                	if (typeof locator.pm === "undefined")
+                		throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
+                }
+    
+                // If locator specifies a path we add it to the location.
+                // This is typically needed to get the paths to packages in a multi-package archive
+                if (typeof locator.path != "undefined")
+                    locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
+    
+                // Pass through the original descriptor unchanged
+                if (typeof descriptor != "undefined")
+                    locator.descriptor = descriptor;
+                
             	if (typeof locator.pm !== "undefined")
             	{
             		// Let package manager resolve locator
             		
             		if (typeof options.pmLocatorResolver !== "function")
-            			throw new Error("options.pmLocatorResolver not set!");
+            			throw new Error("options.pmLocatorResolver not set while resolving " + UTIL.locatorToString(locator));
 
             		options.pmLocatorResolver(locator, callback);
             		return;
-            	}
-            	else
-            	{
-	                // If we do not have an absolute path location-based locator by now we cannot proceed
-	                if (!locator.location || !API.FILE.isAbsolute(locator.location))
-	                    throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
-	    
-	                // If locator specifies a path we add it to the location.
-	                // This is typically needed to get the paths to packages in a multi-package archive
-	                if (typeof locator.path != "undefined")
-	                    locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
-	    
-	                // Pass through the original descriptor unchanged
-	                if (typeof descriptor != "undefined")
-	                    locator.descriptor = descriptor;
             	}
             }
         }
@@ -9939,11 +10189,8 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
     else
     if (typeof locator.catalog != "undefined")
     {
-    	
-console.log("CATALOG", locator);
-
         locator = this.descriptor.augmentLocator(locator, options);
-        
+
         // Only query catalog if program descriptor does not already set a location for the
         // package referenced by the locator.
         if (!locator.location)
@@ -9951,14 +10198,12 @@ console.log("CATALOG", locator);
             assembler.downloader.getCatalogForURL(locator.catalog, function(path)
             {
                 var catalogDescriptor = new DESCRIPTORS.Catalog(path);
-
+    
                 locator = catalogDescriptor.packageLocatorForLocator(locator);
     
                 // NOTE: locator now contains an 'archive' property
                 if (typeof locator.archive == "undefined")
                     throw new Error("Unable to resolve catalog-based locator.");
-
-console.log("CATALOG", locator);
 
                 self.resolveLocator(assembler, locator, callback);
             });
@@ -11007,7 +11252,7 @@ Sandbox.prototype.init = function()
                     API.UTIL.eval(code, {
                         loader: loader,
                         console: CONSOLE.getAPI()
-                    }, moduleIdentifier, 1);
+                    }, moduleIdentifier.replace(/@\//, "/") + ".js", 1);
                 }
             }
             catch(e)
