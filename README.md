@@ -18,6 +18,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[NodeJS](http://nodejs.org/)__ - Boot via `commonjs program.json` or via `pinf-loader-js` npm package.
   * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
+  * __[Wakanda](http://www.wakanda.org/)__ (__Not Yet Implemented__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
   * __[RingoJS](http://ringojs.org/)__ (__Not Yet Implemented__)
   * __[GPSEE](http://code.google.com/p/gpsee/)__ (__Not Yet Implemented__)

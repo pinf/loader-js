@@ -1,0 +1,1 @@
+{    "boot": "github.com/pinf/loader-js/demos/Wakanda/project/programs/HelloWorld/",    "packages": {        "github.com/pinf/loader-js/demos/Wakanda/project/programs/HelloWorld/": {            "locator": {                "location": "./"            }        }    }}
