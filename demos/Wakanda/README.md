@@ -10,6 +10,8 @@ TODO
 
   * Need `File().isFile` and `File().isDirectory`
   * Need better `eval()` such as `application.sandboxEval(code, scope, file)`
+  * Need [bug](http://bugs.wakanda.org/bugdetail?Product=-8&Set=1&Version=1&Sort=1&sortOrder=0&Page=1&Bug=WAK0073047)
+    fixed in order to debug loader within wakanda.
 
 Setup
 -----
