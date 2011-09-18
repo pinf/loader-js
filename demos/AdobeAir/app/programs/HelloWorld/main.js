@@ -1,0 +1,1 @@
+﻿module.declare([], function(require, exports, module){    exports.main = function()    {    	//    	window.runtime.trace("Hello World from AdobeAirPINFDemo!");     	        module.print("Hello World!\n");        module.print("OK");    }});

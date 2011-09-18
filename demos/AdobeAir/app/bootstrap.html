@@ -1,0 +1,30 @@
+<html> 
+<head> 
+    <title>Adobe Air PINF Demo</title>
+    <script type="text/javascript"> 
+      var exports = {};
+    </script> 
+    <script type="text/javascript" src="pinf-loader.js"></script> 
+    <script type="text/javascript"> 
+        function appLoad()
+        {
+            window.runtime.trace("Booting..."); 
+            
+            try {
+                exports.boot({
+                	debug: true,
+            	    program: window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld",
+                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath
+            	});
+            } catch(e) {
+                window.runtime.trace("Error '" + e + "' booting PINF Loader!");
+            }
+        	
+            window.runtime.trace("...booted!");
+        }  
+    </script> 
+</head> 
+<body onLoad="appLoad()"> 
+    <h1>Hello World from AdobeAirPINFDemo</h1> 
+</body> 
+</html>
