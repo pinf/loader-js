@@ -80,7 +80,7 @@ Bundler.prototype.writeTo = function(bundlePath)
     code.push("__pinf_loader_scope__.boot = __loader__.__require__('loader').boot;");
 
     code.push("};");
-    code.push("if(typeof exports != 'undefined') { __pinf_loader__(exports); } else { throw new Error('NYI'); }");
+    code.push("if(typeof exports != 'undefined') { __pinf_loader__(exports); } else { throw new Error('exports object not defined!'); }");
     code.push("})();");
 
     FS.writeFileSync(bundlePath, code.join("\n"));

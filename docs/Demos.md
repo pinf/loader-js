@@ -65,3 +65,10 @@ Firefox extensions:
 
     # Jetpack (assuming SDK activated & FF 4 installed)
     cfx --pkgdir=./demos/JetpackExtension/extension run
+
+
+Platform: Titanium
+=================
+
+Appcelerator Titanium-based programs: `./demos/Titanium`
+
