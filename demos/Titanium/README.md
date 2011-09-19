@@ -46,3 +46,9 @@ Development
 Import loader:
 
     ../../bin/bundle-loader --platform titanium ./sample/Resources/pinf-loader.js
+
+
+Links
+=====
+
+  * http://developer.appcelerator.com/apidoc/mobile/latest/
