@@ -1,0 +1,1 @@
+{    "boot": "github.com/pinf/loader-js/demos/Titanium/Resources/programs/HelloWorld/",    "packages": {        "github.com/pinf/loader-js/demos/Titanium/Resources/programs/HelloWorld/": {            "locator": {                "location": "./"            }        }    }}
