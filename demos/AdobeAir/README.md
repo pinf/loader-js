@@ -26,13 +26,50 @@ Dev
 Import loader into air application:
 
     ../../bin/bundle-loader --platform air ./app/pinf-loader.js
-    
+
+Boot loader from project's `bootstrap.js` file:
+
+    <script type="text/javascript">
+      var exports = {},
+          module = {};
+    </script>
+    <script type="text/javascript" src="pinf-loader.js"></script> 
+    <script type="text/javascript"> 
+        function appLoad()
+        {
+            try {
+                exports.boot({
+                    debug: false,
+                    program: window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld",
+                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath,
+                    onSandboxInit: function(sandbox, loader)
+                    {
+                        // Delete initial module.declare so prototype can take over
+                        delete loader.bravojs.module.declare;
+
+                        // Init extra-module environment so modules can be loaded with
+                        // `module.declare(...)` from script tags
+                        module.declare = loader.bravojs.module.declare;
+                    },
+                    callback: function(sandbox, require)
+                    {
+                        main(require(window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld@/main"));
+                    }
+                });
+            } catch(e) {
+                window.runtime.trace("Error '" + e + "' booting PINF Loader!");
+            }
+        }  
+        function main(programMainModule)
+        {
+            // Init App
+        }
+    </script>
+
+
 TODO
 ----
 
-  * Load 2.0 modules via script tags to avoid security issues
-    * Currently dying at `loader.bravojs.module.constructor.prototype.declare`
-    * See: http://help.adobe.com/en_US/AIR/1.5/devappshtml/WS5b3ccc516d4fbf351e63e3d118666ade46-7f11.html
   * Example of spidered program
   * Example of using pinf to download dependencies and then run in air
 

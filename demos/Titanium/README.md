@@ -29,7 +29,7 @@ Boot loader from project's `app.js` file:
             main(require("/programs/HelloWorld@/main"));
         }
     });
-    function main()
+    function main(programMainModule)
     {
         // Init App
     }

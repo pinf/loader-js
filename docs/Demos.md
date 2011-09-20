@@ -68,16 +68,22 @@ Firefox extensions:
     cfx --pkgdir=./demos/JetpackExtension/extension run
 
 
-Platform: Titanium
-=================
-
-Appcelerator Titanium-based programs: `./demos/Titanium`
-
-
 Platform: RingoJS
 =================
 
 RingoJS-based programs: `./demos/RingoJS`
 
     ringo ../pinf-loader.js ../demos/HelloWorld
+
+
+Platform: AdobeAir
+==================
+
+AdobeAir-based programs: `./demos/AdobeAir`
+
+
+Platform: Titanium
+=================
+
+Appcelerator Titanium-based programs: `./demos/Titanium`
 

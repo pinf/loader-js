@@ -19,10 +19,10 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any Appcelerator Titanium application
   * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
+  * __[AdobeAir](http://www.adobe.com/products/air/)__ - Use it in any AdobeAir application
   * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform (__Not tested lately__)
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[GPSEE](http://code.google.com/p/gpsee/)__ (__In Progress__)
-  * __[AdobeAir](http://www.adobe.com/products/air/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
   * __[PhoneGap](http://www.phonegap.com/)__ (__Not Yet Implemented__)
@@ -50,7 +50,7 @@ The loader extends the core CommonJS platform defined by the above specification
 with the following additions:
 
   * CommonJS Programs/A (strawman) (__Not Yet Documented__)
-  * PINF Workspace/A (strawman) (__Not Yet Documented__)
+  * PINF System/A (strawman) (__Not Yet Documented__)
 
 The loader can be used:
 
