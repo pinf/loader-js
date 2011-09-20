@@ -3,3 +3,4 @@
 .pinf-*
 *.local.*
 /.build/
+/node_modules/
