@@ -1,30 +1,44 @@
 <html> 
-<head> 
+<head>
     <title>Adobe Air PINF Demo</title>
-    <script type="text/javascript"> 
-      var exports = {};
-    </script> 
+    <script type="text/javascript">
+      var exports = {},
+          module = {};
+    </script>
     <script type="text/javascript" src="pinf-loader.js"></script> 
     <script type="text/javascript"> 
         function appLoad()
         {
-            window.runtime.trace("Booting..."); 
-            
             try {
                 exports.boot({
-                	debug: true,
+                	debug: false,
             	    program: window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld",
-                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath
+                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath,
+                    onSandboxInit: function(sandbox, loader)
+                    {
+                    	// Delete initial module.declare so prototype can take over
+                    	delete loader.bravojs.module.declare;
+
+                    	// Init extra-module environment so modules can be loaded with
+                    	// `module.declare(...)` from script tags
+                    	module.declare = loader.bravojs.module.declare;
+                    },
+                    callback: function(sandbox, require)
+                    {
+                    	main(require(window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld@/main"));
+                    }
             	});
             } catch(e) {
                 window.runtime.trace("Error '" + e + "' booting PINF Loader!");
             }
-        	
-            window.runtime.trace("...booted!");
         }  
+        function main(programMainModule)
+        {
+        	document.getElementById("message").innerHTML = programMainModule.getGreeting();
+        }
     </script> 
 </head> 
 <body onLoad="appLoad()"> 
-    <h1>Hello World from AdobeAirPINFDemo</h1> 
+    <h1 id="message">Booting ...</h1> 
 </body> 
 </html>

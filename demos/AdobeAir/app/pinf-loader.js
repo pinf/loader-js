@@ -62,7 +62,7 @@ exports.init = function(api)
         api.SYSTEM.print = api.SYSTEM.plainPrint(function(msg)
         {
         	// @see http://help.adobe.com/en_US/air/reference/html/package.html#trace()
-        	window.runtime.trace(msg);
+        	window.runtime.trace((""+msg).replace(/\n$/, ""));
         });
     }
 
@@ -82,29 +82,46 @@ exports.init = function(api)
 		return stack;
 	}
     
+    
+    api.SYSTEM.loadModule = function(path)
+    {
+		var rootPath = window.runtime.flash.filesystem.File.applicationDirectory.nativePath;
+
+		if (path.substring(0, rootPath.length) !== rootPath)
+			throw new Error("Cannot load file '" + path + "' because it is not within: " + rootPath);
+
+		path = path.substring(rootPath.length);
+
+		
+		var script = document.createElement('SCRIPT');
+		script.setAttribute("type","text/javascript");
+		script.setAttribute("src", path);
+		
+		script.onload = function air_script_onload()
+		{
+			// do nothing.
+		}
+
+		script.onerror = function air_script_error()
+		{
+			window.runtime.trace("Error loading script URL: " + script.src);
+		}
+		
+		document.getElementsByTagName("HEAD")[0].appendChild(script);
+    }
+    
+    
     var sandbox;
     
     api.UTIL.setTimeout = setTimeout;
 
     api.UTIL.eval = function(code, scope, file, line)
     {
-    	window.runtime.trace("file: "+file);
-
-    	for(var i in scope.loader.bravojs)
-    	{
-        	window.runtime.trace("scope.loader.bravojs: "+i);
-    	}
-    	
-    	with(scope)
-    	{
-    		
-window.runtime.trace("START EVAL");
-    		
-    		eval(code);
-    		
-window.runtime.trace("DONE EVAL!");
-    		
-    	}
+    	// We do not eval code for AdobeAir but use `SYSTEM.loadModule` instead.
+    	// This is important as evaled code in AdobeAir has security restrictions.
+    	// The `SYSTEM.loadModule` method loads modules via script tags to get around
+    	// these restrictions.
+    	throw new Error("UTIL.eval not supported!");
     };
 
     /*
@@ -4057,7 +4074,7 @@ bravojs.module.constructor.prototype.load = function packages_loader_load(module
         
         var id = window.__bravojs_loaded_moduleIdentifier;
         
-        delete window.__bravojs_loaded_moduleIdentifierl
+        delete window.__bravojs_loaded_moduleIdentifier;
 
         // all modules are memoized now so we can continue
         callback(id);
@@ -6796,7 +6813,8 @@ var boot = exports.boot = function(options)
 	        // ######################################################################
 	
 	        var sandbox = new API.SANDBOX.Sandbox({
-	            mainModuleDir: API.FILE.dirname(path) + "/"
+	            mainModuleDir: API.FILE.dirname(path) + "/",
+	            onInitCallback: options.onSandboxInit || undefined
 	        });
 	
 	        // ######################################################################
@@ -7073,11 +7091,6 @@ var boot = exports.boot = function(options)
     }
     catch(e)
     {
-for (var i in e)
-{
-    API.SYSTEM.print("[pinf-loader] " + i + "\n");
-	
-}
 		var stack = "";
 		if (typeof API.SYSTEM === "object" && typeof API.SYSTEM.formatErrorStack === "function") {
 			stack = API.SYSTEM.formatErrorStack(e);
@@ -10562,6 +10575,39 @@ Sandbox.prototype.init = function()
             }
         }
 
+        // If adapter defines a `SYSTEM.loadModule` method we assume we cannot load source and then eval() module.
+        // We let the adapter method handle the loading.
+        if (typeof API.SYSTEM.loadModule !== "undefined")
+        {
+            try
+            {
+                var URL = loader.bravojs.require.canonicalize(moduleIdentifier),
+	                m = URL.match(/^memory:\/(.*)$/),
+	                path = m[1];
+
+	            path = path.replace(/^\w*!/, "");
+	
+	            if (/\.js$/.test(path) && !API.FILE.exists(path))
+	                path = path.substring(0, path.length-3);
+
+	            loading = {
+                    id: moduleIdentifier,
+                    breakStack: false,
+                    callback: function()
+                    {
+                        callback(moduleIdentifier);
+                    }
+                };
+	            
+	            API.SYSTEM.loadModule(path);
+            }
+            catch(e)
+            {
+                throw new Error("Error loading module via SYSTEM.loadModule(): " + moduleIdentifier);
+            }
+            return;
+        }
+
         var pkg = self.packageForId(moduleIdentifier, true);
         if (pkg)
         {
@@ -10605,6 +10651,9 @@ Sandbox.prototype.init = function()
     {
         var id    = loading.id;
         var callback  = loading.callback;
+        var breakStack = true;
+        if (loading.breakStack === false)
+        	breakStack = false;
 
         loading = void 0;
 
@@ -10613,20 +10662,21 @@ Sandbox.prototype.init = function()
           moduleFactory = dependencies;
           dependencies = [];
         }
-        
+
+        if (breakStack === false)
+        {
+            loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
+        	return;
+        }
+
         function doDeclare(dependencies, moduleFactory, id, callback)
         {
-            if (typeof API.UTIL.setTimeout !== "undefined") {
-                                                          
-window.runtime.trace("do dec 1", typeof API.UTIL.setTimeout,API.UTIL.setTimeout);                                                          
+            if (typeof API.UTIL.setTimeout !== "undefined")
                 API.UTIL.setTimeout(function()
                 {
-                                                          window.runtime.trace("do dec 3");
                     loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
-                                                          window.runtime.trace("do dec 4");
                 }, 1);
-                                   window.runtime.trace("do dec 2");                       
-            } else
+            else
                 loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
         }
         doDeclare(dependencies, moduleFactory, id, callback);
@@ -10638,6 +10688,12 @@ window.runtime.trace("do dec 1", typeof API.UTIL.setTimeout,API.UTIL.setTimeout)
     // ######################################################################
     
     self.declare = loader.bravojs.module.declare;
+
+
+    if (typeof self.options.onInitCallback === "function")
+    {
+    	self.options.onInitCallback(self, loader);
+    }
 }
 
 /**
@@ -12545,7 +12601,7 @@ __loader__.memoize('text!bravojs/plugins/packages/loader.js', function(__require
 // ######################################################################
 // # /bravojs/plugins/packages/loader.js
 // ######################################################################
-return ["/**"," *  This file implements a bravojs core plugin to add"," *  dynamic module and package loading support where the server"," *  given a module or package ID will return the requested"," *  module (main module for package) and all dependencies"," *  in a single file."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages_loader() {","","bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)","{","    var uri;","    ","    if (typeof moduleIdentifier == \"object\")","    {","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            var pkg = bravojs.contextForId(moduleIdentifier.id);","            uri = pkg.resolveId(null);","        }","        else","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            uri = bravojs.mainModuleDir + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);","        }","        else","            throw new Error(\"NYI\");","    }","    else","    if (moduleIdentifier.charAt(0) != \"/\")","    {","        if (moduleIdentifier.charAt(0) != \".\")","        {","            // resolve mapped ID","            uri = bravojs.contextForId(this._id).resolveId(moduleIdentifier).replace(bravojs.mainModuleDir, bravojs.mainModuleDir);","        }","        else","            throw new Error(\"Cannot load module by relative ID: \" + moduleIdentifier);","    }","    else","    {","        uri = bravojs.mainModuleDir + moduleIdentifier.substring(bravojs.mainModuleDir.length);","    }","","    var lookupURI = uri;","    if (/\.js$/.test(lookupURI))","        lookupURI = lookupURI.substring(0, lookupURI.length-3);","","    if (bravojs.require.isMemoized(lookupURI))","    {","        callback(lookupURI);","        return;","    }","","    if (!/\.js$/.test(uri) && !/\/$/.test(uri))","        uri += \".js\";","","    // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)","    uri = uri.replace(/\.{2}\//g, \"__/\");","","    // WebWorker","    if (typeof importScripts === \"function\")","    {","        // Remove hostname","        uri = uri.replace(/^\/[^\/]*\//, \"/\");","","        importScripts(uri);","        ","        if (typeof __bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","","        var id = __bravojs_loaded_moduleIdentifier;","","        delete __bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","        return;","    }","","    var URL = window.location.protocol + \"/\" + uri;","","    // We expect a bunch of modules wrapped with:","    //  require.memoize('ID', [], function (require, exports, module) { ... });","","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", URL);","","    /* Fake script.onload for IE6-8 */","    script.onreadystatechange = function()","    {","        var cb;        ","        if (this.readyState === \"loaded\")","        {","            cb = this.onload;","            this.onload = null;","            setTimeout(cb,0);","        }","    }","","    script.onload = function packages_loader_onload()","    {","        this.onreadystatechange = null;","        ","        if (typeof window.__bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","        ","        var id = window.__bravojs_loaded_moduleIdentifier;","        ","        delete window.__bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","    }","    ","    /* Supply errors on browsers that can */","    script.onerror = function fastload_script_error()","    {","        if (typeof console != \"undefined\")","            console.error(\"Error contacting server URL = \" + script.src);","        else","            alert(\"Error contacting server\nURL=\" + script.src);","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","};","","})();",""].join("\n");
+return ["/**"," *  This file implements a bravojs core plugin to add"," *  dynamic module and package loading support where the server"," *  given a module or package ID will return the requested"," *  module (main module for package) and all dependencies"," *  in a single file."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages_loader() {","","bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)","{","    var uri;","    ","    if (typeof moduleIdentifier == \"object\")","    {","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            var pkg = bravojs.contextForId(moduleIdentifier.id);","            uri = pkg.resolveId(null);","        }","        else","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            uri = bravojs.mainModuleDir + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);","        }","        else","            throw new Error(\"NYI\");","    }","    else","    if (moduleIdentifier.charAt(0) != \"/\")","    {","        if (moduleIdentifier.charAt(0) != \".\")","        {","            // resolve mapped ID","            uri = bravojs.contextForId(this._id).resolveId(moduleIdentifier).replace(bravojs.mainModuleDir, bravojs.mainModuleDir);","        }","        else","            throw new Error(\"Cannot load module by relative ID: \" + moduleIdentifier);","    }","    else","    {","        uri = bravojs.mainModuleDir + moduleIdentifier.substring(bravojs.mainModuleDir.length);","    }","","    var lookupURI = uri;","    if (/\.js$/.test(lookupURI))","        lookupURI = lookupURI.substring(0, lookupURI.length-3);","","    if (bravojs.require.isMemoized(lookupURI))","    {","        callback(lookupURI);","        return;","    }","","    if (!/\.js$/.test(uri) && !/\/$/.test(uri))","        uri += \".js\";","","    // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)","    uri = uri.replace(/\.{2}\//g, \"__/\");","","    // WebWorker","    if (typeof importScripts === \"function\")","    {","        // Remove hostname","        uri = uri.replace(/^\/[^\/]*\//, \"/\");","","        importScripts(uri);","        ","        if (typeof __bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","","        var id = __bravojs_loaded_moduleIdentifier;","","        delete __bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","        return;","    }","","    var URL = window.location.protocol + \"/\" + uri;","","    // We expect a bunch of modules wrapped with:","    //  require.memoize('ID', [], function (require, exports, module) { ... });","","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", URL);","","    /* Fake script.onload for IE6-8 */","    script.onreadystatechange = function()","    {","        var cb;        ","        if (this.readyState === \"loaded\")","        {","            cb = this.onload;","            this.onload = null;","            setTimeout(cb,0);","        }","    }","","    script.onload = function packages_loader_onload()","    {","        this.onreadystatechange = null;","        ","        if (typeof window.__bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","        ","        var id = window.__bravojs_loaded_moduleIdentifier;","        ","        delete window.__bravojs_loaded_moduleIdentifier;","","        // all modules are memoized now so we can continue","        callback(id);","    }","    ","    /* Supply errors on browsers that can */","    script.onerror = function fastload_script_error()","    {","        if (typeof console != \"undefined\")","            console.error(\"Error contacting server URL = \" + script.src);","        else","            alert(\"Error contacting server\nURL=\" + script.src);","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","};","","})();",""].join("\n");
 });
 __pinf_loader_scope__.boot = __loader__.__require__('loader').boot;
 };
