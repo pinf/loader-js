@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/demos/AdobeAir/app/programs/HelloWorld/",
+    "packages": {
+        "github.com/pinf/loader-js/demos/AdobeAir/app/programs/HelloWorld/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

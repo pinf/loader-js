@@ -1,0 +1,1 @@
+﻿module.declare([], function(require, exports, module){    exports.main = function()    {        module.print("Hello World!\n");        module.print("OK");    }    exports.getGreeting = function()    {        return "Hello World from PINF Program!";    }});

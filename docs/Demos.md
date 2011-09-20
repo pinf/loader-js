@@ -6,8 +6,9 @@ Portable
 
 These demos work on the following platforms:
 
-  * NodeJS (default): `node`
-  * Narwhal: `narwhal`
+  * NodeJS (default): `node` (**Tested**)
+  * Narwhal: `narwhal` (**Not tested lately**)
+  * RingoJS: `ringo` (**Not tested yet**)
 
 To use a specific platform specify `--platform <alias>`. `node` is used by default.
 
@@ -65,3 +66,24 @@ Firefox extensions:
 
     # Jetpack (assuming SDK activated & FF 4 installed)
     cfx --pkgdir=./demos/JetpackExtension/extension run
+
+
+Platform: RingoJS
+=================
+
+RingoJS-based programs: `./demos/RingoJS`
+
+    ringo ../pinf-loader.js ../demos/HelloWorld
+
+
+Platform: AdobeAir
+==================
+
+AdobeAir-based programs: `./demos/AdobeAir`
+
+
+Platform: Titanium
+=================
+
+Appcelerator Titanium-based programs: `./demos/Titanium`
+
