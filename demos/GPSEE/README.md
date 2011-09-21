@@ -42,6 +42,8 @@ Usage
 =====
 
     gsr -f ../../pinf-loader.js -- -v ../HelloWorld
+    gsr -f ../../pinf-loader.js -- -v ../LoadExtraCode
+    gsr -f ../../pinf-loader.js -- -v ../Mappings
 
 If the above does not work, ensure it works with nodejs first:
 
