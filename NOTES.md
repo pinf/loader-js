@@ -87,6 +87,11 @@ BravoJS Comments
 Specification Comments
 ======================
 
+CommonJS System
+---------------
+
+  * Need `SYSTEM.os` <- `uname`
+
 
 [CommonJS Modues/2.0draft8](http://www.page.ca/~wes/CommonJS/modules-2.0-draft8/)
 ---------------------------
