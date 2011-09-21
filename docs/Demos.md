@@ -51,6 +51,16 @@ Via NPM:
     npm start pinf-loader-js-demos-npmpackage
 
 
+Platform: GPSEE
+===============
+
+Server-based programs: `./demos/GPSEE`
+
+    gsr -f ./pinf-loader.js -- -v ./demos/HelloWorld
+    gsr -f ./pinf-loader.js -- -v ./demos/LoadExtraCode
+    gsr -f ./pinf-loader.js -- -v ./demos/Mappings
+
+
 Platform: Narwhal
 =================
 

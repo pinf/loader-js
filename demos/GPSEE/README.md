@@ -3,11 +3,6 @@ GPSEE Platform support
 
 Example for running the PINF JavaScript Loader on [GPSEE](http://code.google.com/p/gpsee).
 
-Status
-------
-
-  * Segfaulting
-
 
 Install
 =======
@@ -58,5 +53,7 @@ Updating GPSEE:
     cd ./gpsee
     hg pull
     hg update
+    make clean
+    ./configure --with-mozilla=/pinf/workspaces/github.com/pinf/loader-js/demos/GPSEE/tracemonkey
     make build
     sudo make install
