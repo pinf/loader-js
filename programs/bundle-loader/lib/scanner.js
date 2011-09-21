@@ -47,6 +47,9 @@ function walk(options, files, path, subpath)
         }
         else
         {
+            if (/^\..*\.jsc$/.test(basename))
+                return;
+            
             if (options.exclude.indexOf(subpath + basename)>=0)
                 return;
 
