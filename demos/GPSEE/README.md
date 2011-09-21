@@ -32,9 +32,29 @@ OSX 10.7:
     make build
     sudo make install
 
-
 Make sure GPSEE is available and working:
 
     gsr -h
     gsr -f ./scripts/helloworld.js
     ./scripts/helloworld
+
+Usage
+=====
+
+    gsr -f ../../pinf-loader.js -- -v ../HelloWorld
+
+If the above does not work, ensure it works with nodejs first:
+
+    node ../../pinf-loader.js ../HelloWorld
+
+
+Development
+===========
+
+Updating GPSEE:
+
+    cd ./gpsee
+    hg pull
+    hg update
+    make build
+    sudo make install
