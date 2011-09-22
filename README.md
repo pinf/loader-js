@@ -50,7 +50,6 @@ The loader extends the core CommonJS platform defined by the above specification
 with the following additions:
 
   * CommonJS Programs/A (strawman) (__Not Yet Documented__)
-  * PINF System/A (strawman) (__Not Yet Documented__)
 
 The loader can be used:
 
