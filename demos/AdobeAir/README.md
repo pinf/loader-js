@@ -41,7 +41,7 @@ Boot loader from project's `bootstrap.js` file:
                 exports.boot({
                     debug: false,
                     program: window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/programs/HelloWorld",
-                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath,
+                    "packages-path": window.runtime.flash.filesystem.File.applicationDirectory.nativePath + "/packages",
                     onSandboxInit: function(sandbox, loader)
                     {
                         // Delete initial module.declare so prototype can take over

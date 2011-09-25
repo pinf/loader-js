@@ -14,7 +14,7 @@ Install
     
 Import loader into Titanium project:
 
-    ../../bin/bundle-loader --platform titanium ./project/Resources/pinf-loader.js
+    ../../bin/bundle-loader --platform titanium <project>/Resources/pinf-loader.js
 
 Boot loader from project's `app.js` file:
     
