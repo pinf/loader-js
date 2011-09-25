@@ -1,12 +1,16 @@
 Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
 ========================================================================================
 
-The PINF JavaScript Loader combines what you would traditionally call a __package installer__ and __class loader__ and is
-intended to be used instead of tools such as [npm](http://npmjs.org/), [RequireJS](http://requirejs.org/) and [tusk](http://narwhaljs.org/).
+*Status: BETA - Mostly stable API undergoing wider testing.*
+
+The PINF JavaScript Loader asynchronously combines what you would traditionally call a **package installer** and 
+**class loader** and is **intended to be used as the core to all your JavaScript applications** no matter what 
+platform they run on.
 
 The loader allows for bootstrapping a consistent and state-of-the-art CommonJS environment
-for any supported platform (on server & in browser) and thus is ideally suited to be used as the target for the `commonjs` command and the
-development of cross-platform JavaScript applications and libraries.
+for any supported platform (on servers, in browsers, desktop applications, secure sandboxes, and embedded) and thus 
+is ideally suited to be used as the target for the `commonjs` command and the
+development of cross-platform JavaScript applications and libraries that may be shared with the CommonJS ecosystem.
 
 Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
@@ -29,6 +33,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __Browser__ - For development and optimized production purposes
     * __Standalone__ - Just include one small file in your page (**6.2 KB minified & gziped**)
     * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
+    * __[NobleJS](https://github.com/NobleJS/Noble-Modules)__ (__Not Yet Implemented__)
     * __[RequireJS](http://requirejs.org/)__ (__Not Yet Implemented__)
     * __[Dojo](http://dojotoolkit.org/)__ (__Not Yet Implemented__)
   * __Services__
@@ -50,6 +55,7 @@ The loader extends the core CommonJS platform defined by the above specification
 with the following additions:
 
   * CommonJS Programs/A (strawman) (__Not Yet Documented__)
+  * Various additions and generalizations to be able to load a wide range of packages. (__Not Yet Documented__)
 
 The loader can be used:
 
@@ -108,10 +114,14 @@ Documentation
   * [Compare to other loaders](https://spreadsheets.google.com/lv?key=tDdcrv9wNQRCNCRCflWxhYQ&toomany=true#gid=0) (third party link)
 
 
-Support & Feedback
-==================
+Support, Feedback & News
+========================
 
 Developer mailing list: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
+
+Twitter: [http://twitter.com/pinf](http://twitter.com/pinf)
+
+Blog: [http://christophdorn.com/Blog/](http://christophdorn.com/Blog/)
 
 
 Contribute
