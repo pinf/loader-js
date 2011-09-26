@@ -25,5 +25,11 @@
     ],
     "directories": {
         "lib": "lib/pinf-loader-js"
+    },
+    "scripts": {
+        "export": {
+            "location": "./",
+            "module": "/scripts/export.js"
+        }
     }
 }

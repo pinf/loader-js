@@ -1,0 +1,16 @@
+<html>
+    <head>
+        <script type="text/javascript">
+            var bravojs = {
+                url: window.location.protocol + "//" + 
+                     ((window.location.host)?window.location.host:"") + 
+                     ((window.location.pathname)?window.location.pathname.replace(/\/[^\/]*$/, "/main.js"):"")
+            };
+            document.write('<script type="text/javascript" id="BravoJS" src="' + bravojs.url + '"><' + '/script>');
+        </script>
+    </head>
+    <body>
+        <p>Sample <i>index.html</i> file to load a browser program.</p>
+        <p style="color: red;"><b>NOTE:</b> Must be loaded via HTTP(S)!</p>
+    </body>
+</html>

@@ -1,0 +1,15 @@
+{
+    "uid": "http://github.com/pinf/loader-js/programs/program-exporter/",
+    "main": "main.js",
+    "directories": {
+        "lib": ""
+    },
+    "mappings": {
+        "pinf": {
+            "id": "pinf.org/loader"
+        },
+        "modules": {
+            "id": "github.com/pinf/modules-js/"
+        }
+    }
+}

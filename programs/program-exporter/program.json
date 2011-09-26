@@ -1,0 +1,10 @@
+{
+    "boot": "github.com/pinf/loader-js/programs/program-exporter/",
+    "packages": {
+        "github.com/pinf/loader-js/programs/program-exporter/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}
