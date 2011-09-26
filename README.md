@@ -124,6 +124,23 @@ Twitter: [http://twitter.com/pinf](http://twitter.com/pinf)
 Blog: [http://christophdorn.com/Blog/](http://christophdorn.com/Blog/)
 
 
+TODO
+====
+
+Priority: High
+--------------
+
+  * Clean hierarchical sandbox implementation.
+  * Refactored and abstracted program server to support various plugins.
+  * Consistent and reliable file and line info for errors and stack traces across all platforms.
+
+Priority: Low
+-------------
+
+  * Refactor to leverage Q promises throughout
+  * Run exported programs on all platforms (not just browser)
+
+
 Contribute
 ==========
 
