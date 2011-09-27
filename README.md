@@ -95,7 +95,9 @@ Assumes NodeJS is installed. See [./docs/Setup.md](https://github.com/pinf/loade
     
     commonjs -v ./demos/HelloWorld
 
-For more demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md)
+For more internal development focused demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md)
+
+**For more user-ready demos and instructions see the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.**
 
 
 Documentation
@@ -112,6 +114,10 @@ Documentation
   * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
 
   * [Compare to other loaders](https://spreadsheets.google.com/lv?key=tDdcrv9wNQRCNCRCflWxhYQ&toomany=true#gid=0) (third party link)
+
+Related Projects:
+
+  * Cross-platform tests via the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
 
 
 Support, Feedback & News
@@ -137,8 +143,9 @@ Priority: High
 Priority: Low
 -------------
 
-  * Refactor to leverage Q promises throughout
-  * Run exported programs on all platforms (not just browser)
+  * Refactor to leverage Q promises throughout.
+  * Run exported programs on all platforms (not just browser).
+  * Refactor, abstract and simplify various concepts like descriptors, locators, mapping resolver.
 
 
 Contribute
