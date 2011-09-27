@@ -238,6 +238,19 @@ New: Module Mappings
   * The keys are prepended with `directories.lib` (if not prefixed with './' or '/') and matched against the final module IDs for the package.
   * If a match is found the mapped module is used instead.
 
+  * Resolve mapped module URLs. For example:
+  
+        "code.jquery.com/": {
+            "locator": {
+                "location": "http://code.jquery.com/jquery-1.6.4.min.js"
+            },
+            "descriptor": {
+                "uid": "http://code.jquery.com/",
+                "directories": false
+            }
+        }
+    Where `"directories": false` specifies that `locator.location` points to a URL containing a module in plain text.
+
 
 CommonJS Programs/A
 -------------------
