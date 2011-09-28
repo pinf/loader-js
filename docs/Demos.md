@@ -61,6 +61,16 @@ Server-based programs: `./demos/GPSEE`
     gsr -f ./pinf-loader.js -- -v ./demos/Mappings
 
 
+Platform: v8cgi
+===============
+
+Server-based programs: `./demos/v8cgi`
+
+    v8cgi ./pinf-loader.js -v ./demos/HelloWorld
+    v8cgi ./pinf-loader.js -v ./demos/LoadExtraCode
+    v8cgi ./pinf-loader.js -v ./demos/Mappings
+
+
 Platform: Narwhal
 =================
 

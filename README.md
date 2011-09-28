@@ -25,6 +25,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
   * __[AdobeAir](http://www.adobe.com/products/air/)__ - Use it in any AdobeAir application
   * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it in any GPSEE application
+  * __[v8cgi](http://code.google.com/p/v8cgi)__ - Use it in any v8cgi application
   * __[Narwhal](http://narwhaljs.org/)__ - Use it with any Narwhal engine platform (__Not tested lately__)
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
