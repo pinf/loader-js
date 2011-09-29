@@ -1,15 +1,24 @@
 #!/bin/bash
 
-# TODO: Check --platform to invoke correct platform binary.
-#       For now we let the loader check and have node spawn a process if needed.
-#       Need to check for `node`, `gsr` (gpsee) and `ringo` to realize: https://github.com/pinf/test-programs-js
-
 BASE_PATH=$(dirname $(readlink $0))
-NODE_PATH=$(which "node")
+# TODO: Only match until first non-option argument is found. i.e. argument not prefixed by '-'
+PLATFORM_ALIAS=$(echo "$@" | perl -lpe '($_) = /\s*--platform\s*(\S*)\s*/')
+PLATFORM_BIN_NAME=$PLATFORM_ALIAS
 
-if [ "$NODE_PATH" ]; then
-    exec "$NODE_PATH" "$BASE_PATH/pinf-loader.js" "$@"
-else
-    echo "ERROR: Need NodeJS installed. 'node' must be on the PATH."
-    exit 1
+if [ "$PLATFORM_ALIAS" = "gpsee" ]; then
+    PLATFORM_BIN_NAME="gsr"
 fi
+
+if [ -z $PLATFORM_BIN_NAME ]; then
+    PLATFORM_ALIAS="node"
+    PLATFORM_BIN_NAME="node"
+fi
+
+PLATFORM_BIN_PATH=$(which "$PLATFORM_BIN_NAME")
+
+if [ -z $PLATFORM_BIN_PATH ]; then
+    echo "Fatal Error: No binary '$PLATFORM_BIN_NAME' found for '--platform $PLATFORM_ALIAS' on PATH '$PATH'!"
+    exit 1;
+fi
+
+exec "$PLATFORM_BIN_PATH" "$BASE_PATH/pinf-loader.js" "$@"

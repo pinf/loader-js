@@ -9,6 +9,8 @@ These demos work on the following platforms:
   * NodeJS (default): `node` (**Tested**)
   * Narwhal: `narwhal` (**Not tested lately**)
   * RingoJS: `ringo` (**Not tested yet**)
+  * RingoJS: `gpsee` (**Not tested yet**)
+  * RingoJS: `v8cgi` (**Not tested yet**)
 
 To use a specific platform specify `--platform <alias>`. `node` is used by default.
 
