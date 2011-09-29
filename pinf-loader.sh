@@ -21,4 +21,8 @@ if [ -z $PLATFORM_BIN_PATH ]; then
     exit 1;
 fi
 
-exec "$PLATFORM_BIN_PATH" "$BASE_PATH/pinf-loader.js" "$@"
+if [ "$PLATFORM_BIN_NAME" = "gsr" ]; then
+    exec "$PLATFORM_BIN_PATH" -f "$BASE_PATH/pinf-loader.js" -- "$@"
+else
+    exec "$PLATFORM_BIN_PATH" "$BASE_PATH/pinf-loader.js" "$@"
+fi
