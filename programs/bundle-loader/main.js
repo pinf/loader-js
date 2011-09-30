@@ -12,8 +12,8 @@ exports.main = function(env)
     if (args.length != 3)
         throw new Error("Invalid arguments. Usage: [commonjs] bundle-loader --platform PLATFORM OUTPUT-FILE-PATH");
 
-    if (args[0] != "--platform")
-        throw new Error("No --platform argument provided");
+    if (args[0] != "--adapter")
+        throw new Error("No --adapter argument provided");
 
     var platform = args[1],
         outputPath = args[2];
