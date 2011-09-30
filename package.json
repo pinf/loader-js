@@ -5,6 +5,7 @@
     "label": "CommonJS Module Loader",
     "description": "Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader",
     "homepage": "https://github.com/pinf/loader-js",
+    "author": "Christoph Dorn (http://www.christophdorn.com/) <christoph@christophdorn.com>",
     "repositories": [
         {
             "type": "git",
@@ -24,10 +25,15 @@
             "url": "http://www.opensource.org/licenses/mit-license.php"
         }
     ],
+    "bin": {
+        "commonjs": "./pinf-loader.sh"
+    },
+    "main": "./pinf-loader.js",
     "directories": {
         "lib": "lib/pinf-loader-js"
     },
     "scripts": {
+        "postinstall": "node ./scripts/postinstall.js",
         "export": {
             "location": "./",
             "module": "/scripts/export.js"
