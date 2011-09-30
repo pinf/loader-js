@@ -1,6 +1,7 @@
 {
     "uid": "http://registry.pinf.org/pinf.org/github/loader-js/",
     "name": "pinf-loader-js",
+    "version": "0.2.13",
     "label": "CommonJS Module Loader",
     "description": "Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader",
     "homepage": "https://github.com/pinf/loader-js",
