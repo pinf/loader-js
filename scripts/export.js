@@ -1,4 +1,6 @@
 
+// NOTE: Called via `commonjs --script export ...`
+
 exports.main = function(env)
 {
 

@@ -7,16 +7,9 @@ README.md
 Thumbs.db
 .build/
 *.local.*
+.*.jsc
 
-/bin/
 /demos/
 /docs/
-/lib/pinf-loader-js/adapter/jetpack.js
-/lib/pinf-loader-js/adapter/narwhal.js
-/lib/pinf-loader-js/platform/jetpack/
 /tests/
-/programs/
 /NOTES.md
-/pinf-loader
-/pinf-loader.js
-/pinf-loader.sh
