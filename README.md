@@ -83,6 +83,33 @@ automating software production and system operation. Any CommonJS package may be
 ![Platform overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFPlatformOverview_v1.png)
 
 
+Install
+=======
+
+Requirements:
+
+  * UNIX system (Windows support is under development but still has some way to go)
+  * NodeJS: [http://nodejs.org/](http://nodejs.org/)
+
+Use any one of the following install solutions:
+
+    npm install -g pinf-loader-js
+
+    cd ~/
+    wget -O pinf-loader-js.tar.gz https://github.com/pinf/loader-js/tarball/master
+    tar -zxf pinf-loader-js.tar.gz
+    mv pinf-loader-js-* pinf-loader-js
+    alias commonjs='~/pinf-loader-js/pinf-loader.sh'
+
+    cd ~/
+    git clone git://github.com/pinf/loader-js.git pinf-loader-js
+    alias commonjs='~/pinf-loader-js/pinf-loader.sh'
+
+Make sure it works:
+
+    commonjs -h
+
+
 Demo: Hello World
 =================
 
