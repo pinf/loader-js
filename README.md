@@ -29,8 +29,8 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[Narwhal](https://github.com/cappuccino/narwhal)__ - Use it with any Narwhal engine platform
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
+  * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
-  * __[PhoneGap](http://www.phonegap.com/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
     * __Standalone__ - Just include one small file in your page (**6.2 KB minified & gziped**)
     * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
@@ -63,6 +63,7 @@ The loader can be used:
   * By calling it from the command line to run a program
   * By `require()`ing it from any CommonJS module to load a sub-program
   * By setting it up as a package server to load programs into a browser
+  * To export CommonJS programs to be loaded by CommonJS compliant loaders
 
 The loader:
 
