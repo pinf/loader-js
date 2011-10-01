@@ -7,7 +7,7 @@ The PINF JavaScript Loader asynchronously combines what you would traditionally 
 **class loader** and is **intended to be used as the core to all your JavaScript applications** no matter what 
 platform they run on.
 
-The loader allows for bootstrapping a consistent and state-of-the-art CommonJS environment
+The loader allows for bootstrapping a state-of-the-art, consistent and portable CommonJS environment
 for any supported platform (on servers, in browsers, desktop applications, secure sandboxes, and embedded) and thus 
 is ideally suited to be used as the target for the `commonjs` command and the
 development of cross-platform JavaScript applications and libraries that may be shared with the CommonJS ecosystem.
@@ -116,8 +116,8 @@ Demo: Hello World
 
 More demos:
 
-    * User friendly: See the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
-    * Internal/advanced: See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
+  * User friendly: See the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
+  * Internal/advanced: See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
 
 
 Documentation
