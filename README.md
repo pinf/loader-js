@@ -24,7 +24,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[AdobeAir](http://www.adobe.com/products/air/)__ - Use it in any AdobeAir application
   * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it in any GPSEE application
   * __[v8cgi](http://code.google.com/p/v8cgi)__ - Use it in any v8cgi application
-  * __[Narwhal](https://github.com/cappuccino/narwhal)__ - Use it with any Narwhal engine platform
+  * __[Narwhal](https://github.com/280north/narwhal)__ - Use it with any Narwhal engine platform
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
   * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
@@ -161,6 +161,11 @@ Priority: High
   * Clean hierarchical sandbox implementation.
   * Refactored and abstracted program server to support various plugins.
   * Consistent and reliable file and line info for errors and stack traces across all platforms.
+
+Priority: Medium
+----------------
+
+  * Remove color characters when printing to browser consoles and buffer until newline
 
 Priority: Low
 -------------
