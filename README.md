@@ -113,19 +113,12 @@ Make sure it works:
 Demo: Hello World
 =================
 
-Assumes NodeJS is installed. See [./docs/Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md) for instructions.
+    commonjs -v https://github.com/pinf/test-programs-js/zipball/master HelloWorld
 
-    git clone git://github.com/pinf/loader-js.git
-    cd ./loader-js
-    node ./pinf-loader -v ./demos/HelloWorld
-    
-    # If `commonjs` is linked to `./pinf-loader.sh` and on `$PATH`
-    
-    commonjs -v ./demos/HelloWorld
+More demos:
 
-For more internal development focused demos see: [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md)
-
-**For more user-ready demos and instructions see the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.**
+    * User friendly: See the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
+    * Internal/advanced: See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
 
 
 Documentation
@@ -151,7 +144,7 @@ Related Projects:
 Support, Feedback & News
 ========================
 
-Developer mailing list: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
+Mailing list: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
 
 Twitter: [http://twitter.com/pinf](http://twitter.com/pinf)
 
