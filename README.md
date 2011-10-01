@@ -12,8 +12,6 @@ for any supported platform (on servers, in browsers, desktop applications, secur
 is ideally suited to be used as the target for the `commonjs` command and the
 development of cross-platform JavaScript applications and libraries that may be shared with the CommonJS ecosystem.
 
-Status: [See ./NOTES.md](https://github.com/pinf/loader-js/blob/master/NOTES.md)
-
 ![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v1.png)
 
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
@@ -136,6 +134,8 @@ Documentation
   * [Tests](https://github.com/pinf/loader-js/blob/master/docs/Tests.md)
 
   * [Compare to other loaders](https://spreadsheets.google.com/lv?key=tDdcrv9wNQRCNCRCflWxhYQ&toomany=true#gid=0) (third party link)
+
+  * [Notes](https://github.com/pinf/loader-js/blob/master/NOTES.md)
 
 Related Projects:
 
