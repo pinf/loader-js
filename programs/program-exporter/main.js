@@ -97,6 +97,7 @@ exports.main = function(env)
 	
 	function done()
 	{
+		module.print("\0green(Exported files to be served via HTTP(s): \0bold(" + exportPath + "\0)\0)\n");
 		module.print("DONE\n");
 	}	
 }
