@@ -116,8 +116,8 @@ Demo: Hello World
 
 More demos:
 
-  * User friendly: See the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
-  * Internal/advanced: See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
+  * **User friendly:** See the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
+  * **Internal/advanced:** See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
 
 
 Documentation
