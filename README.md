@@ -146,11 +146,9 @@ Related Projects:
 Support, Feedback & News
 ========================
 
-Mailing list: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
-
-Twitter: [http://twitter.com/pinf](http://twitter.com/pinf)
-
-Blog: [http://christophdorn.com/Blog/](http://christophdorn.com/Blog/)
+ * Mailing list: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
+ * Twitter: [http://twitter.com/pinf](http://twitter.com/pinf)
+ * Blog: [http://christophdorn.com/Blog/](http://christophdorn.com/Blog/)
 
 
 TODO
