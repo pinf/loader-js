@@ -9,7 +9,7 @@ platform they run on.
 
 The loader allows for bootstrapping a state-of-the-art, consistent and portable CommonJS environment
 for any supported platform (on servers, in browsers, desktop applications, secure sandboxes, and embedded) and thus 
-is ideally suited to be used as the target for the `commonjs` command and the
+is ideally suited to be used as the target for the `commonjs` command (currently being standardized) and the
 development of cross-platform JavaScript applications and libraries that may be shared with the CommonJS ecosystem.
 
 ![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v1.png)
