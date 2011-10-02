@@ -18,7 +18,7 @@ This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(c
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
   * `commonjs` - Use it as a target for the `commonjs` command being standardized
-  * __[NodeJS](http://nodejs.org/)__ - Use it in any NodeJS application (**Default platform** until [API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter) come along)
+  * __[NodeJS](http://nodejs.org/)__ - Use it in any NodeJS application (**Default CLI and utility platform** until [API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter) come along)
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any Appcelerator Titanium application
   * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
