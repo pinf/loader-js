@@ -112,7 +112,7 @@ Make sure it works:
 Demo: Hello World
 =================
 
-    commonjs -v https://github.com/pinf/test-programs-js/zipball/master HelloWorld
+    commonjs -v --platform node https://github.com/pinf/test-programs-js/zipball/master --port 8081 HelloWorld
 
 More demos:
 
@@ -161,11 +161,13 @@ Priority: High
   * Clean hierarchical sandbox implementation.
   * Refactored and abstracted program server to support various plugins.
   * Consistent and reliable file and line info for errors and stack traces across all platforms.
+  * Run exported programs on various browser loaders (RequireJS, NobleJS) in addition to BravoJS.
 
 Priority: Medium
 ----------------
 
   * Remove color characters when printing to browser consoles and buffer until newline
+  * Profiling code in loader to time various things with an option to monitor interpreter spawn/load time as well.
 
 Priority: Low
 -------------
