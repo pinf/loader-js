@@ -30,8 +30,8 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
-    * __Standalone__ - Just include one small file in your page (**6.2 KB minified & gziped**)
-    * __[jQuery](http://jquery.org/)__ (__Not Yet Implemented__)
+    * __[BravoJS](http://code.google.com/p/bravojs/)__ - Default browser loader with full CommonJS package support (**11.8 KB minified & gziped**)
+    * __PINF Browser Loader__ - Optimized production browser loader with goal of < 3 to 5 KB minified & gziped (__Not Yet Implemented__)
     * __[NobleJS](https://github.com/NobleJS/Noble-Modules)__ (__Not Yet Implemented__)
     * __[RequireJS](http://requirejs.org/)__ (__Not Yet Implemented__)
     * __[bdLoad](http://bdframework.org/bdLoad/)__ (__Not Yet Implemented__)
