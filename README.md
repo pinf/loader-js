@@ -17,7 +17,8 @@ development of cross-platform JavaScript applications and libraries that may be 
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
 
-  * __[NodeJS](http://nodejs.org/)__ - Boot via `commonjs program.json` or via `pinf-loader-js` npm package.
+  * __`commonjs`__ - Use it as a target for the `commonjs` command being standardized
+  * __[NodeJS](http://nodejs.org/)__ - Use it in any NodeJS application
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
   * __[Titanium](http://www.appcelerator.com/)__ - Use it in any Appcelerator Titanium application
   * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
