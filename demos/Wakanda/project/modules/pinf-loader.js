@@ -23,6 +23,8 @@ __loader__.memoize('adapter/wakanda', function(__require__, module, exports) {
 
 var API;
 
+var SYSTEM = require("system");
+
 exports.init = function(api)
 {
     API = api;
@@ -58,8 +60,7 @@ exports.init = function(api)
     {
         api.SYSTEM.print = api.SYSTEM.plainPrint(function(msg)
         {
-        	// @see http://doc.wakanda.org/Console/Console-Class/log.301-633845.en.html
-            console.log(msg);
+        	SYSTEM.print(msg);
         });
     }
 
@@ -182,7 +183,11 @@ if (!Array.prototype.map) {
 // # ENV
 // ######################################################################
 
-ENV.platformRequire = require;
+ENV.platformRequire = null;
+if (typeof require !== "undefined")
+{
+	ENV.platformRequire = require;
+}
 ENV.mustTerminate = false;
 ENV.mustClean = false;
 ENV.packageProviders = {};
@@ -207,8 +212,11 @@ ENV.packageProviders = {
     }
 }
 
-ENV.console = console;
-
+ENV.console = null;
+if (typeof console !== "undefined")
+{
+	ENV.console = console;
+}
 
 // ######################################################################
 // # SYSTEM
@@ -289,6 +297,16 @@ DEBUG.indent = function(count)
     debugIndent = count;
     return DEBUG;
 };
+
+DEBUG.inspect = function(obj, label)
+{
+	SYSTEM.print(((typeof label !== "undefined")?label+": ":"") + obj + "\n");
+	if (typeof obj === "object")
+	{
+		for (var key in obj)
+			SYSTEM.print("  " + key + ": " + obj[key] + "\n");
+	}
+}
 
 
 // ######################################################################
@@ -1889,7 +1907,7 @@ Assembler.prototype.pmLocatorResolver = function(program, locator, callback)
 			localPckage = true;
 		}
 		
-		var sandboxPath = FILE.realpath("/pinf/cache/github.com/pinf/loader-js/-npm-sandboxes/" + rootProgramPath + ((program.descriptor.json.version)?"/"+program.descriptor.json.version:"")),
+		var sandboxPath = FILE.realpath(this.downloader.basePath + "/npm/" + rootProgramPath + ((program.descriptor.json.version)?"/"+program.descriptor.json.version:"")),
 			pkgPath = sandboxPath + "/node_modules/" + locator.name;
 		if (!FILE.exists(sandboxPath + "/node_modules"))
 			FILE.mkdirs(sandboxPath + "/node_modules", 0775);
@@ -2152,9 +2170,14 @@ Assembler.prototype.provisonProgramForURL = function(url, callback, options)
                     id: url.replace(/^\w*:\/\//, "").replace(/\/$/, "") + "/"
                 }))
                 {
-                    DEBUG.print("URL: \0yellow(" + url +"\0) \0cyan(<- " + ret.location + "\0) (based on source overlay: " + options.sourceDescriptors[i].path + ")");
-                    callback(ret.location);
-                    return;
+                	// If no `ret.location` found the locator could not be resolved/augmented so
+                	// we continue below.
+                	if (typeof ret.location !== "undefined")
+                	{
+                        DEBUG.print("URL: \0yellow(" + url +"\0) \0cyan(<- " + ret.location + "\0) (based on source overlay: " + options.sourceDescriptors[i].path + ")");
+                        callback(ret.location);
+                        return;
+                	}
                 }
             }
         }
@@ -2720,16 +2743,16 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
     for (i=0; i < dependencies.length; i++)
     {
       if (typeof dependencies[i] !== "object")
-	continue;
+	    continue;
 
       for (label in dependencies[i])
       {
-	if (dependencies[i].hasOwnProperty(label))
-	{
-	  if (!deps)
-	    deps = {};
-	  addLabeledDep(dependencies[i][label]);
-	}
+		if (dependencies[i].hasOwnProperty(label))
+		{
+		  if (!deps)
+		    deps = {};
+		  addLabeledDep(dependencies[i][label]);
+		}
       }
     }
   }
@@ -2757,7 +2780,7 @@ bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies
   newRequire.id = function require_id(moduleIdentifier, unsanitized)
   {
     var contextId = getContextSensitiveModuleDir(),
-        context = bravojs.contextForId(contextId, true);
+        context = bravojs.contextForId(contextId, true),
         id = context.resolveId(moduleIdentifier, contextId);
     if (unsanitized)
       return id;
@@ -4021,7 +4044,7 @@ bravojs.module.constructor.prototype.load = function packages_loader_load(module
         
         var id = window.__bravojs_loaded_moduleIdentifier;
         
-        delete window.__bravojs_loaded_moduleIdentifierl
+        delete window.__bravojs_loaded_moduleIdentifier;
 
         // all modules are memoized now so we can continue
         callback(id);
@@ -4060,6 +4083,314 @@ __loader__.memoize('bravojs/plugins/packages/packages', function(__require__, mo
 
 (function packages() {
 
+var calcMD5 = function() {
+/*
+ * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
+ * Digest Algorithm, as defined in RFC 1321.
+ * Copyright (C) Paul Johnston 1999 - 2000.
+ * Updated by Greg Holt 2000 - 2001.
+ * See http://pajhome.org.uk/site/legal.html for details.
+ */
+/*
+ * Convert a 32-bit number to a hex string with ls-byte first
+ */
+var hex_chr = "0123456789abcdef";
+function rhex(num)
+{
+  var str = "";
+  for(var j = 0; j <= 3; j++)
+    str += hex_chr.charAt((num >> (j * 8 + 4)) & 0x0F) +
+           hex_chr.charAt((num >> (j * 8)) & 0x0F);
+  return str;
+}
+/*
+ * Convert a string to a sequence of 16-word blocks, stored as an array.
+ * Append padding bits and the length, as described in the MD5 standard.
+ */
+function str2blks_MD5(str)
+{
+  var nblk = ((str.length + 8) >> 6) + 1;
+  var blks = new Array(nblk * 16);
+  for(var i = 0; i < nblk * 16; i++) blks[i] = 0;
+  for(var i = 0; i < str.length; i++)
+    blks[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
+  blks[i >> 2] |= 0x80 << ((i % 4) * 8);
+  blks[nblk * 16 - 2] = str.length * 8;
+  return blks;
+}
+/*
+ * Add integers, wrapping at 2^32. This uses 16-bit operations internally 
+ * to work around bugs in some JS interpreters.
+ */
+function add(x, y)
+{
+  var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+  return (msw << 16) | (lsw & 0xFFFF);
+}
+/*
+ * Bitwise rotate a 32-bit number to the left
+ */
+function rol(num, cnt)
+{
+  return (num << cnt) | (num >>> (32 - cnt));
+}
+/*
+ * These functions implement the basic operation for each round of the
+ * algorithm.
+ */
+function cmn(q, a, b, x, s, t)
+{
+  return add(rol(add(add(a, q), add(x, t)), s), b);
+}
+function ff(a, b, c, d, x, s, t)
+{
+  return cmn((b & c) | ((~b) & d), a, b, x, s, t);
+}
+function gg(a, b, c, d, x, s, t)
+{
+  return cmn((b & d) | (c & (~d)), a, b, x, s, t);
+}
+function hh(a, b, c, d, x, s, t)
+{
+  return cmn(b ^ c ^ d, a, b, x, s, t);
+}
+function ii(a, b, c, d, x, s, t)
+{
+  return cmn(c ^ (b | (~d)), a, b, x, s, t);
+}
+/*
+ * Take a string and return the hex representation of its MD5.
+ */
+return function calcMD5(str)
+{
+  var x = str2blks_MD5(str);
+  var a =  1732584193;
+  var b = -271733879;
+  var c = -1732584194;
+  var d =  271733878;
+
+  for(var i = 0; i < x.length; i += 16)
+  {
+	var olda = a;
+	var oldb = b;
+	var oldc = c;
+	var oldd = d;
+
+    a = ff(a, b, c, d, x[i+ 0], 7 , -680876936);
+    d = ff(d, a, b, c, x[i+ 1], 12, -389564586);
+    c = ff(c, d, a, b, x[i+ 2], 17,  606105819);
+    b = ff(b, c, d, a, x[i+ 3], 22, -1044525330);
+    a = ff(a, b, c, d, x[i+ 4], 7 , -176418897);
+    d = ff(d, a, b, c, x[i+ 5], 12,  1200080426);
+    c = ff(c, d, a, b, x[i+ 6], 17, -1473231341);
+    b = ff(b, c, d, a, x[i+ 7], 22, -45705983);
+    a = ff(a, b, c, d, x[i+ 8], 7 ,  1770035416);
+    d = ff(d, a, b, c, x[i+ 9], 12, -1958414417);
+    c = ff(c, d, a, b, x[i+10], 17, -42063);
+    b = ff(b, c, d, a, x[i+11], 22, -1990404162);
+    a = ff(a, b, c, d, x[i+12], 7 ,  1804603682);
+    d = ff(d, a, b, c, x[i+13], 12, -40341101);
+    c = ff(c, d, a, b, x[i+14], 17, -1502002290);
+    b = ff(b, c, d, a, x[i+15], 22,  1236535329);    
+
+    a = gg(a, b, c, d, x[i+ 1], 5 , -165796510);
+    d = gg(d, a, b, c, x[i+ 6], 9 , -1069501632);
+    c = gg(c, d, a, b, x[i+11], 14,  643717713);
+    b = gg(b, c, d, a, x[i+ 0], 20, -373897302);
+    a = gg(a, b, c, d, x[i+ 5], 5 , -701558691);
+    d = gg(d, a, b, c, x[i+10], 9 ,  38016083);
+    c = gg(c, d, a, b, x[i+15], 14, -660478335);
+    b = gg(b, c, d, a, x[i+ 4], 20, -405537848);
+    a = gg(a, b, c, d, x[i+ 9], 5 ,  568446438);
+    d = gg(d, a, b, c, x[i+14], 9 , -1019803690);
+    c = gg(c, d, a, b, x[i+ 3], 14, -187363961);
+    b = gg(b, c, d, a, x[i+ 8], 20,  1163531501);
+    a = gg(a, b, c, d, x[i+13], 5 , -1444681467);
+    d = gg(d, a, b, c, x[i+ 2], 9 , -51403784);
+    c = gg(c, d, a, b, x[i+ 7], 14,  1735328473);
+    b = gg(b, c, d, a, x[i+12], 20, -1926607734);
+    
+    a = hh(a, b, c, d, x[i+ 5], 4 , -378558);
+    d = hh(d, a, b, c, x[i+ 8], 11, -2022574463);
+    c = hh(c, d, a, b, x[i+11], 16,  1839030562);
+    b = hh(b, c, d, a, x[i+14], 23, -35309556);
+    a = hh(a, b, c, d, x[i+ 1], 4 , -1530992060);
+    d = hh(d, a, b, c, x[i+ 4], 11,  1272893353);
+    c = hh(c, d, a, b, x[i+ 7], 16, -155497632);
+    b = hh(b, c, d, a, x[i+10], 23, -1094730640);
+    a = hh(a, b, c, d, x[i+13], 4 ,  681279174);
+    d = hh(d, a, b, c, x[i+ 0], 11, -358537222);
+    c = hh(c, d, a, b, x[i+ 3], 16, -722521979);
+    b = hh(b, c, d, a, x[i+ 6], 23,  76029189);
+    a = hh(a, b, c, d, x[i+ 9], 4 , -640364487);
+    d = hh(d, a, b, c, x[i+12], 11, -421815835);
+    c = hh(c, d, a, b, x[i+15], 16,  530742520);
+    b = hh(b, c, d, a, x[i+ 2], 23, -995338651);
+
+    a = ii(a, b, c, d, x[i+ 0], 6 , -198630844);
+    d = ii(d, a, b, c, x[i+ 7], 10,  1126891415);
+    c = ii(c, d, a, b, x[i+14], 15, -1416354905);
+    b = ii(b, c, d, a, x[i+ 5], 21, -57434055);
+    a = ii(a, b, c, d, x[i+12], 6 ,  1700485571);
+    d = ii(d, a, b, c, x[i+ 3], 10, -1894986606);
+    c = ii(c, d, a, b, x[i+10], 15, -1051523);
+    b = ii(b, c, d, a, x[i+ 1], 21, -2054922799);
+    a = ii(a, b, c, d, x[i+ 8], 6 ,  1873313359);
+    d = ii(d, a, b, c, x[i+15], 10, -30611744);
+    c = ii(c, d, a, b, x[i+ 6], 15, -1560198380);
+    b = ii(b, c, d, a, x[i+13], 21,  1309151649);
+    a = ii(a, b, c, d, x[i+ 4], 6 , -145523070);
+    d = ii(d, a, b, c, x[i+11], 10, -1120210379);
+    c = ii(c, d, a, b, x[i+ 2], 15,  718787259);
+    b = ii(b, c, d, a, x[i+ 9], 21, -343485551);
+
+    a = add(a, olda);
+    b = add(b, oldb);
+    c = add(c, oldc);
+    d = add(d, oldd);
+  }
+  return rhex(a) + rhex(b) + rhex(c) + rhex(d);
+}
+}();
+
+//@see http://www.webtoolkit.info/javascript-base64.html
+var Base64 = {
+	 
+	// private property
+	_keyStr : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+ 
+	// public method for encoding
+	encode : function (input) {
+		var output = "";
+		var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+		var i = 0;
+ 
+		input = Base64._utf8_encode(input);
+ 
+		while (i < input.length) {
+ 
+			chr1 = input.charCodeAt(i++);
+			chr2 = input.charCodeAt(i++);
+			chr3 = input.charCodeAt(i++);
+ 
+			enc1 = chr1 >> 2;
+			enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+			enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+			enc4 = chr3 & 63;
+ 
+			if (isNaN(chr2)) {
+				enc3 = enc4 = 64;
+			} else if (isNaN(chr3)) {
+				enc4 = 64;
+			}
+ 
+			output = output +
+			Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) +
+			Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);
+ 
+		}
+ 
+		return output;
+	},
+ 
+	// public method for decoding
+	decode : function (input) {
+		var output = "";
+		var chr1, chr2, chr3;
+		var enc1, enc2, enc3, enc4;
+		var i = 0;
+ 
+		input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+ 
+		while (i < input.length) {
+ 
+			enc1 = Base64._keyStr.indexOf(input.charAt(i++));
+			enc2 = Base64._keyStr.indexOf(input.charAt(i++));
+			enc3 = Base64._keyStr.indexOf(input.charAt(i++));
+			enc4 = Base64._keyStr.indexOf(input.charAt(i++));
+ 
+			chr1 = (enc1 << 2) | (enc2 >> 4);
+			chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+			chr3 = ((enc3 & 3) << 6) | enc4;
+ 
+			output = output + String.fromCharCode(chr1);
+ 
+			if (enc3 != 64) {
+				output = output + String.fromCharCode(chr2);
+			}
+			if (enc4 != 64) {
+				output = output + String.fromCharCode(chr3);
+			}
+ 
+		}
+ 
+		output = Base64._utf8_decode(output);
+ 
+		return output;
+ 
+	},
+ 
+	// private method for UTF-8 encoding
+	_utf8_encode : function (string) {
+		string = string.replace(/\r\n/g,"\n");
+		var utftext = "";
+ 
+		for (var n = 0; n < string.length; n++) {
+ 
+			var c = string.charCodeAt(n);
+ 
+			if (c < 128) {
+				utftext += String.fromCharCode(c);
+			}
+			else if((c > 127) && (c < 2048)) {
+				utftext += String.fromCharCode((c >> 6) | 192);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+			else {
+				utftext += String.fromCharCode((c >> 12) | 224);
+				utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+				utftext += String.fromCharCode((c & 63) | 128);
+			}
+ 
+		}
+ 
+		return utftext;
+	},
+ 
+	// private method for UTF-8 decoding
+	_utf8_decode : function (utftext) {
+		var string = "";
+		var i = 0;
+		var c = c1 = c2 = 0;
+ 
+		while ( i < utftext.length ) {
+ 
+			c = utftext.charCodeAt(i);
+ 
+			if (c < 128) {
+				string += String.fromCharCode(c);
+				i++;
+			}
+			else if((c > 191) && (c < 224)) {
+				c2 = utftext.charCodeAt(i+1);
+				string += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
+				i += 2;
+			}
+			else {
+				c2 = utftext.charCodeAt(i+1);
+				c3 = utftext.charCodeAt(i+2);
+				string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
+				i += 3;
+			}
+ 
+		}
+ 
+		return string;
+	}
+ 
+}
+
 var Plugin = function()
 {
 }
@@ -4079,8 +4410,9 @@ Plugin.prototype.init = function()
 
         id = id.replace(/^\w*!/, "");
 
-        var parts = id.split("@/"),
-            id = parts[0];
+        var parts = id.split("@/");
+        
+        id = parts[0];
 
         if (/@$/.test(id))
             id = id.substring(0, id.length-1);
@@ -4255,6 +4587,9 @@ Plugin.prototype.init = function()
 
         this.hashId = calcMD5(this.id);
     }
+    
+    bravojs.base64encode = Base64.encode;
+    bravojs.base64decode = Base64.decode;
 
     // We need to reset bravojs to use the Context object from above (but keep registered plugins)
     bravojs.reset(null, bravojs.plugins);
@@ -4263,7 +4598,7 @@ Plugin.prototype.init = function()
 Plugin.prototype.requireModule = function(id)
 {
     if (!id)
-        return;
+        return undefined;
     
     // The text plugins need special handeling
     if (id.match(/^text!/))
@@ -4277,6 +4612,7 @@ Plugin.prototype.requireModule = function(id)
         }
         return true;
     }
+    return undefined;
 }
 
 Plugin.prototype.newRequire = function(helpers)
@@ -4290,17 +4626,38 @@ Plugin.prototype.newRequire = function(helpers)
         {
             if (moduleIdentifier.length > 1)
                throw new Error("require([], callback) with more than one module in [] is not supported yet!");
-            if (typeof bravojs.mainContext == "undefined")
-                throw new Error("Cannot resolve ID for ASYNC require. bravojs.mainContext used to resolve ID not set!");
-            // Load IDs are resolved against the default context. To resolve against a different
-            // context use module.load([], callback).
-            moduleIdentifier = bravojs.contextForId(bravojs.mainContext).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());
+
             var callback = arguments[1];
-            bravojs.module.load(moduleIdentifier, function(id)
+
+            if (/^\//.test(moduleIdentifier[0]))
             {
-                callback(newRequire(id));
-            });
-            return;
+	            bravojs.module.load(moduleIdentifier[0], function(id)
+	            {
+	                callback(newRequire(id));
+	            });
+            }
+            else
+            if (/^\./.test(moduleIdentifier[0]))
+            {
+	            moduleIdentifier = bravojs.contextForId(helpers.getContextSensitiveModuleDir()).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());
+	            bravojs.module.load(moduleIdentifier, function(id)
+	            {
+	                callback(newRequire(id));
+	            });
+            }
+            else
+            {
+	            if (typeof bravojs.mainContext == "undefined")
+	                throw new Error("Cannot resolve ID for ASYNC require. bravojs.mainContext used to resolve ID not set!");
+	            // Load IDs are resolved against the default context. To resolve against a different
+	            // context use module.load([], callback).
+	            moduleIdentifier = bravojs.contextForId(bravojs.mainContext).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());
+	            bravojs.module.load(moduleIdentifier, function(id)
+	            {
+	                callback(newRequire(id));
+	            });
+            }
+            return undefined;
         }
         if (helpers.deps && helpers.deps[moduleIdentifier])
             return helpers.deps[moduleIdentifier]();
@@ -4326,9 +4683,12 @@ Plugin.prototype.augmentNewRequire = function(newRequire, helpers)
             {
                 if (typeof moduleIdentifier === "undefined" || !moduleIdentifier)
                 {
-                    if (unsanitized)
-                        return context.id;
-                    return context.uid || context.id;
+                	// NOTE: The code below will likely go. pkg().id() should always return the path ID
+                	//		 of the package and not the UID. Will need separate function to get UID.
+//                    if (unsanitized)
+//                       return context.id;
+//                    return context.uid || context.id;
+					return context.id;
                 }
                 else
                 {
@@ -4459,9 +4819,9 @@ Plugin.prototype.normalizeLocator = function(locator, context)
         locator.location = locator.location.substring(0, locator.location.length -1);
 
     if (typeof locator.location != "undefined") {
-        var context = this.bravojs.contextForId(locator.location);
-        if(context && context.uid) {
-            locator.uid = context.uid;
+        var newContext = this.bravojs.contextForId(locator.location);
+        if(newContext && newContext.uid) {
+            locator.uid = newContext.uid;
         }
     }
 
@@ -4542,11 +4902,19 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
         if (typeof moduleIdentifier.descriptor != "undefined" && typeof moduleIdentifier.descriptor.main != "undefined")
             return finalNormalization(this.bravojs.realpath(id + "@/" + moduleIdentifier.descriptor.main, false));
 
-        var context = this.bravojs.contextForId(id);
-        if (typeof context.descriptor == "undefined" || typeof context.descriptor.main == "undefined")
-            throw new Error("'main' property not set in package descriptor for: " + context.id);
+        var newContext = this.bravojs.contextForId(id);
 
-        return finalNormalization(this.bravojs.realpath(context.id + "@/" + context.descriptor.main, false));
+        if (typeof moduleIdentifier.module !== "undefined")
+        {
+            return finalNormalization(this.bravojs.realpath(newContext.id + "@/" + moduleIdentifier.module, false));
+        }
+        else
+        {
+            if (typeof newContext.descriptor == "undefined" || typeof newContext.descriptor.main == "undefined")
+                throw new Error("'main' property not set in package descriptor for: " + newContext.id);
+
+            return finalNormalization(this.bravojs.realpath(newContext.id + "@/" + newContext.descriptor.main, false));
+        }
     }
 
     // See if moduleIdentifier matches a mapping alias exactly
@@ -4578,7 +4946,15 @@ Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relative
             }
         }
         else
-            throw new Error("Unable to resolve ID '" + moduleIdentifier + "' for matching mapping as 'module' property not defined in mapping locator!");
+        {
+            var mappedContextId = this.normalizeLocator(context.descriptor.mappings[moduleIdentifier], context).location,
+            	mappedContext = this.bravojs.contextForId(mappedContextId);
+            if (mappedContext.descriptor && mappedContext.descriptor.main)
+            {
+            	return mappedContext.resolveId(null, null);
+            }
+            throw new Error("Unable to resolve ID '" + moduleIdentifier + "' for matching mapping as 'module' property not defined in mapping locator and 'main' property not defined in package descriptor!");
+        }
     }
 
     var moduleIdentifierParts = moduleIdentifier.split("@/");
@@ -4660,185 +5036,6 @@ if (typeof exports != "undefined")
     exports.Plugin = Plugin;
 }
 
-
-var calcMD5 = function() {
-/*
- * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
- * Digest Algorithm, as defined in RFC 1321.
- * Copyright (C) Paul Johnston 1999 - 2000.
- * Updated by Greg Holt 2000 - 2001.
- * See http://pajhome.org.uk/site/legal.html for details.
- */
-
-/*
- * Convert a 32-bit number to a hex string with ls-byte first
- */
-var hex_chr = "0123456789abcdef";
-function rhex(num)
-{
-  str = "";
-  for(j = 0; j <= 3; j++)
-    str += hex_chr.charAt((num >> (j * 8 + 4)) & 0x0F) +
-           hex_chr.charAt((num >> (j * 8)) & 0x0F);
-  return str;
-}
-
-/*
- * Convert a string to a sequence of 16-word blocks, stored as an array.
- * Append padding bits and the length, as described in the MD5 standard.
- */
-function str2blks_MD5(str)
-{
-  nblk = ((str.length + 8) >> 6) + 1;
-  blks = new Array(nblk * 16);
-  for(i = 0; i < nblk * 16; i++) blks[i] = 0;
-  for(i = 0; i < str.length; i++)
-    blks[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
-  blks[i >> 2] |= 0x80 << ((i % 4) * 8);
-  blks[nblk * 16 - 2] = str.length * 8;
-  return blks;
-}
-
-/*
- * Add integers, wrapping at 2^32. This uses 16-bit operations internally 
- * to work around bugs in some JS interpreters.
- */
-function add(x, y)
-{
-  var lsw = (x & 0xFFFF) + (y & 0xFFFF);
-  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-  return (msw << 16) | (lsw & 0xFFFF);
-}
-
-/*
- * Bitwise rotate a 32-bit number to the left
- */
-function rol(num, cnt)
-{
-  return (num << cnt) | (num >>> (32 - cnt));
-}
-
-/*
- * These functions implement the basic operation for each round of the
- * algorithm.
- */
-function cmn(q, a, b, x, s, t)
-{
-  return add(rol(add(add(a, q), add(x, t)), s), b);
-}
-function ff(a, b, c, d, x, s, t)
-{
-  return cmn((b & c) | ((~b) & d), a, b, x, s, t);
-}
-function gg(a, b, c, d, x, s, t)
-{
-  return cmn((b & d) | (c & (~d)), a, b, x, s, t);
-}
-function hh(a, b, c, d, x, s, t)
-{
-  return cmn(b ^ c ^ d, a, b, x, s, t);
-}
-function ii(a, b, c, d, x, s, t)
-{
-  return cmn(c ^ (b | (~d)), a, b, x, s, t);
-}
-
-/*
- * Take a string and return the hex representation of its MD5.
- */
-return function calcMD5(str)
-{
-  x = str2blks_MD5(str);
-  a =  1732584193;
-  b = -271733879;
-  c = -1732584194;
-  d =  271733878;
-
-  for(i = 0; i < x.length; i += 16)
-  {
-    olda = a;
-    oldb = b;
-    oldc = c;
-    oldd = d;
-
-    a = ff(a, b, c, d, x[i+ 0], 7 , -680876936);
-    d = ff(d, a, b, c, x[i+ 1], 12, -389564586);
-    c = ff(c, d, a, b, x[i+ 2], 17,  606105819);
-    b = ff(b, c, d, a, x[i+ 3], 22, -1044525330);
-    a = ff(a, b, c, d, x[i+ 4], 7 , -176418897);
-    d = ff(d, a, b, c, x[i+ 5], 12,  1200080426);
-    c = ff(c, d, a, b, x[i+ 6], 17, -1473231341);
-    b = ff(b, c, d, a, x[i+ 7], 22, -45705983);
-    a = ff(a, b, c, d, x[i+ 8], 7 ,  1770035416);
-    d = ff(d, a, b, c, x[i+ 9], 12, -1958414417);
-    c = ff(c, d, a, b, x[i+10], 17, -42063);
-    b = ff(b, c, d, a, x[i+11], 22, -1990404162);
-    a = ff(a, b, c, d, x[i+12], 7 ,  1804603682);
-    d = ff(d, a, b, c, x[i+13], 12, -40341101);
-    c = ff(c, d, a, b, x[i+14], 17, -1502002290);
-    b = ff(b, c, d, a, x[i+15], 22,  1236535329);    
-
-    a = gg(a, b, c, d, x[i+ 1], 5 , -165796510);
-    d = gg(d, a, b, c, x[i+ 6], 9 , -1069501632);
-    c = gg(c, d, a, b, x[i+11], 14,  643717713);
-    b = gg(b, c, d, a, x[i+ 0], 20, -373897302);
-    a = gg(a, b, c, d, x[i+ 5], 5 , -701558691);
-    d = gg(d, a, b, c, x[i+10], 9 ,  38016083);
-    c = gg(c, d, a, b, x[i+15], 14, -660478335);
-    b = gg(b, c, d, a, x[i+ 4], 20, -405537848);
-    a = gg(a, b, c, d, x[i+ 9], 5 ,  568446438);
-    d = gg(d, a, b, c, x[i+14], 9 , -1019803690);
-    c = gg(c, d, a, b, x[i+ 3], 14, -187363961);
-    b = gg(b, c, d, a, x[i+ 8], 20,  1163531501);
-    a = gg(a, b, c, d, x[i+13], 5 , -1444681467);
-    d = gg(d, a, b, c, x[i+ 2], 9 , -51403784);
-    c = gg(c, d, a, b, x[i+ 7], 14,  1735328473);
-    b = gg(b, c, d, a, x[i+12], 20, -1926607734);
-    
-    a = hh(a, b, c, d, x[i+ 5], 4 , -378558);
-    d = hh(d, a, b, c, x[i+ 8], 11, -2022574463);
-    c = hh(c, d, a, b, x[i+11], 16,  1839030562);
-    b = hh(b, c, d, a, x[i+14], 23, -35309556);
-    a = hh(a, b, c, d, x[i+ 1], 4 , -1530992060);
-    d = hh(d, a, b, c, x[i+ 4], 11,  1272893353);
-    c = hh(c, d, a, b, x[i+ 7], 16, -155497632);
-    b = hh(b, c, d, a, x[i+10], 23, -1094730640);
-    a = hh(a, b, c, d, x[i+13], 4 ,  681279174);
-    d = hh(d, a, b, c, x[i+ 0], 11, -358537222);
-    c = hh(c, d, a, b, x[i+ 3], 16, -722521979);
-    b = hh(b, c, d, a, x[i+ 6], 23,  76029189);
-    a = hh(a, b, c, d, x[i+ 9], 4 , -640364487);
-    d = hh(d, a, b, c, x[i+12], 11, -421815835);
-    c = hh(c, d, a, b, x[i+15], 16,  530742520);
-    b = hh(b, c, d, a, x[i+ 2], 23, -995338651);
-
-    a = ii(a, b, c, d, x[i+ 0], 6 , -198630844);
-    d = ii(d, a, b, c, x[i+ 7], 10,  1126891415);
-    c = ii(c, d, a, b, x[i+14], 15, -1416354905);
-    b = ii(b, c, d, a, x[i+ 5], 21, -57434055);
-    a = ii(a, b, c, d, x[i+12], 6 ,  1700485571);
-    d = ii(d, a, b, c, x[i+ 3], 10, -1894986606);
-    c = ii(c, d, a, b, x[i+10], 15, -1051523);
-    b = ii(b, c, d, a, x[i+ 1], 21, -2054922799);
-    a = ii(a, b, c, d, x[i+ 8], 6 ,  1873313359);
-    d = ii(d, a, b, c, x[i+15], 10, -30611744);
-    c = ii(c, d, a, b, x[i+ 6], 15, -1560198380);
-    b = ii(b, c, d, a, x[i+13], 21,  1309151649);
-    a = ii(a, b, c, d, x[i+ 4], 6 , -145523070);
-    d = ii(d, a, b, c, x[i+11], 10, -1120210379);
-    c = ii(c, d, a, b, x[i+ 2], 15,  718787259);
-    b = ii(b, c, d, a, x[i+ 9], 21, -343485551);
-
-    a = add(a, olda);
-    b = add(b, oldb);
-    c = add(c, oldc);
-    d = add(d, oldd);
-  }
-  return rhex(a) + rhex(b) + rhex(c) + rhex(d);
-}
-
-}();
-
 })();
 
 });
@@ -4851,7 +5048,7 @@ var API = __require__('api'),
 	UTIL = __require__('util');
 
 var consoleAPI = {
-    instance: console || void 0
+    instance: (typeof console !== "undefined")?console:void 0
 };
 var errorLogPath = false;
 
@@ -5402,8 +5599,9 @@ Descriptor.prototype.load = function(path, create, options, callback)
 	            if (typeof callback === "function")
 	                callback();
 			});
-
-        } else {
+        }
+        else
+        {
             if (typeof callback === "function")
                 callback();
         }
@@ -5524,7 +5722,7 @@ var Program = exports.Program = function(path, options, callback)
         				if (!self.json.packages[id].descriptor)
         					self.json.packages[id].descriptor = {};
         				self.json.packages[id].descriptor.uid = "http://" + id;
-        				self.json.packages[id].descriptor.native = true;
+        				self.json.packages[id].descriptor["native"] = true;
         			}
         		}
         	}
@@ -5905,6 +6103,49 @@ Sources.prototype.augmentLocator = function(locator)
 }
 
 
+var WorkspaceSources = exports.WorkspaceSources = function(basePath)
+{
+    this.basePath = basePath;
+    this.path = this.basePath + "/**";
+}
+
+WorkspaceSources.prototype.augmentLocator = function(locator)
+{
+	if (typeof locator !== "object")
+		return locator;
+
+	var m;
+	// TODO: check against branch directories if applicable.
+	if (typeof locator.id !== "undefined" && API.FILE.exists(this.basePath + "/" + locator.id))
+	{
+	    locator = API.UTIL.deepCopy(locator);
+	    locator.location = (this.basePath + "/" + locator.id).replace(/\/$/, "");
+	    // If ID matches a package it may already be mapping to the root of a sub-package so
+	    // we do not need the `path` from the locator.
+	    if (typeof locator.path !== "undefined")
+	    {
+	    	if (locator.location.substring(locator.location.length-locator.path.length) === locator.path)
+	    	{
+				delete locator.path;
+	    	}
+	    }
+	    return locator;
+	}
+	else
+	// TODO: Make this more generic so it works with other source repositories and sub-paths.
+	// e.g. { location: 'https://raw.github.com/pinf/server-js/v0.1.14/program.packages.json' }
+	if (typeof locator.location !== "undefined" && 
+	    (m = locator.location.match(/https?:\/\/raw\.(.*?)\/v[^\/]*\/([^\/]*)$/)) &&
+	    API.FILE.exists(this.basePath + "/" + m[1] + "/" + m[2]))
+	{
+		locator = API.UTIL.deepCopy(locator);
+		locator.location = this.basePath + "/" + m[1] + "/" + m[2];
+		return locator;
+	}
+
+    return locator;
+}
+
 
 // ######################################################################
 // # Routes Descriptor
@@ -5971,10 +6212,14 @@ Downloader.prototype.pathForURL = function(url, type)
 	if (!directoriesVerified)
 	{
 		directoriesVerified = true;
-	    FILE.mkdirs(this.basePath + "/downloads/files", 0775);
-	    FILE.mkdirs(this.basePath + "/downloads/packages", 0775);
-	    FILE.mkdirs(this.basePath + "/downloads/archives", 0775);
-	    FILE.mkdirs(this.basePath + "/cache", 0775);
+		if (!FILE.exists(this.basePath + "/downloads/files"))
+			FILE.mkdirs(this.basePath + "/downloads/files", parseInt("0775"));
+		if (!FILE.exists(this.basePath + "/downloads/packages"))
+			FILE.mkdirs(this.basePath + "/downloads/packages", parseInt("0775"));
+		if (!FILE.exists(this.basePath + "/downloads/archives"))
+			FILE.mkdirs(this.basePath + "/downloads/archives", parseInt("0775"));
+		if (!FILE.exists(this.basePath + "/cache"))
+			FILE.mkdirs(this.basePath + "/cache", parseInt("0775"));
 	}
 	
     type = type || "source";
@@ -6102,7 +6347,7 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
         if (FILE.exists(sourcePath + packageTestFilepath))
         {
             callback(sourcePath);
-            return;
+            return undefined;
         }
 
         if (typeof options.extract === "function")
@@ -6124,31 +6369,35 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
 	        {
 	            if (/gunzip: command not found/.test(stderr))
 	            {
-	                return throwError("UNIX Command not found: gunzip");
+	                throwError("UNIX Command not found: gunzip");
+	                return;
 	            }
 	            else
 	            if (stderr)
 	            {
-	                FILE.mkdirs(sourcePath, 0775);
+	                FILE.mkdirs(sourcePath, parseInt("0775"));
 	                // ZIP File
 	                SYSTEM.exec("unzip -qq -o " + archivePath + " -d " + sourcePath, function(stdout, stderr)
 	                {
 	                    if (/unzip: command not found/.test(stderr))
 	                    {
 	                        cleanup();
-	                        return throwError("UNIX Command not found: unzip");
+	                        throwError("UNIX Command not found: unzip");
+	                        return;
 	                    }
 	                    else
 	                    if (stderr)
 	                    {
 	                        cleanup();
-	                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                        throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                        return;
 	                    }
 	                    else
 	                    if (!FILE.exists(sourcePath))
 	                    {
 	                        cleanup();
-	                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                        throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                        return;
 	                    }
 	
 	                    // See if archive has a directory containing our package
@@ -6160,7 +6409,8 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
 	                            if (!FILE.exists(sourcePath + packageTestFilepath))
 	                            {
 	                                cleanup();
-	                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                                throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                                return;
 	                            }
 	
 	                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
@@ -6178,25 +6428,28 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
 	            else
 	            {
 	                // TGZ file
-	                FILE.mkdirs(sourcePath, 0775);
+	                FILE.mkdirs(sourcePath, parseInt("0775"));
 	                SYSTEM.exec("tar -zxf  " + archivePath + " -C " + sourcePath, function(stdout, stderr)
 	                {
 	                    if (/tar: command not found/.test(stderr))
 	                    {
 	                        cleanup();
-	                        return throwError("UNIX Command not found: tar");
+	                        throwError("UNIX Command not found: tar");
+	                        return;
 	                    }
 	                    else
 	                    if (stderr)
 	                    {
 	                        cleanup();
-	                        return throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                        throwError("Error extracting file '" + archivePath + "': " + stderr);
+	                        return;
 	                    }
 	                    else
 	                    if (!FILE.exists(sourcePath))
 	                    {
 	                        cleanup();
-	                        return throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                        throwError("Error extracting file '" + archivePath) + "' to '" + sourcePath + "'.";
+	                        return;
 	                    }
 	
 	                    // See if archive has a directory containing our package
@@ -6208,7 +6461,8 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
 	                            if (!FILE.exists(sourcePath + packageTestFilepath))
 	                            {
 	                                cleanup();
-	                                return throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                                throwError("Cannot find " + packageTestFilepath + " in extracted archive: " + sourcePath + packageTestFilepath);
+	                                return;
 	                            }
 	
 	                            SYSTEM.exec("mv " + sourcePath + "/*/.* " + sourcePath + "/", function(stdout, stderr)
@@ -6225,13 +6479,14 @@ Downloader.prototype.getForArchive = function(archive, callback, options)
 	            }
 	        });
         }
+        return undefined;
     }
 
     var archivePath = self.pathForURL(archive, "archive");
 
     if (!FILE.exists(archivePath))
     {
-        FILE.mkdirs(FILE.dirname(archivePath), 0775);
+        FILE.mkdirs(FILE.dirname(archivePath), parseInt("0775"));
 
         DEBUG.print("Downloading: " + archive);
         
@@ -6262,7 +6517,7 @@ Downloader.prototype.getFileForURL = function(url, callback)
         return;
     }
 
-    FILE.mkdirs(FILE.dirname(path), 0775);
+    FILE.mkdirs(FILE.dirname(path), parseInt("0775"));
 
     DEBUG.print("Downloading: " + url);
 
@@ -6325,7 +6580,7 @@ Downloader.prototype.doDownload = function(url, path, callback)
     {
         if (FILE.exists(cachePath))
         {
-            API.FILE.mkdirs(API.FILE.dirname(path), 0775);
+            API.FILE.mkdirs(API.FILE.dirname(path), parseInt("0775"));
             SYSTEM.exec("cp " + cachePath + " " + path, function(stdout, stderr)
             {
                 delete currentlyDownloading[url + "::" + path];
@@ -6339,7 +6594,7 @@ Downloader.prototype.doDownload = function(url, path, callback)
 	{
         if (USE_CACHE)
         {
-            API.FILE.mkdirs(API.FILE.dirname(cachePath), 0775);
+            API.FILE.mkdirs(API.FILE.dirname(cachePath), parseInt("0775"));
             SYSTEM.exec("cp " + path + " " + cachePath, function(stdout, stderr)
             {
                 delete currentlyDownloading[url + "::" + path];
@@ -6414,7 +6669,6 @@ __loader__.memoize('loader', function(__require__, module, exports) {
 
 var boot = exports.boot = function(options)
 {
-    const VERSION = "0.0.2";
     var timers = {
         start: new Date().getTime(),
         loadAdditional: 0
@@ -6438,50 +6692,105 @@ var boot = exports.boot = function(options)
 
     // TODO: Bypass the adapter selection if an option is provided
 
-    if (typeof this.window == "undefined" || ""+this.window == "undefined")
+	// Test for Titanium
+	if (typeof Titanium !== "undefined")
+	{
+		adapter = "titanium";
+	}
+	else
+    // Test for Adobe Air
+	if (typeof window !== "undefined" && typeof window.runtime !== "undefined" && typeof window.runtime.air !== "undefined")
+	{
+        adapter = "air";
+	}
+	else
+    // Test for PhoneGap
+	if (typeof device !== "undefined" && typeof device.phonegap !== "undefined")
+	{
+        adapter = "phonegap";
+	}
+	else
+    if (typeof window === "undefined" || typeof this.window === "undefined" || (""+this.window) === "undefined")
     {
         // We are running on a server or headless environment
-    	
-    	// Test for wakanda
-    	if (typeof application !== "undefined" && typeof application.addHttpRequestHandler)
-    	{
-    		adapter = "wakanda";
-    	}
-    	else
-    	{
+    	    	
+        if (typeof require !== "undefined")
+        {
+        	// We are running on a CommonJS Modules environment
+        	        	
+            // Test for Jetpack
+            if (typeof __url__ !== "undefined" && typeof packaging !== "undefined" && typeof memory !== "undefined")
+            {
+                adapter = "jetpack";
+            }
+	        // Test for GPSEE
+            if (!adapter) {
+	            try {
+	                var systemId = "system";
+	                if (require(systemId).platform.indexOf("gpsee") >= 0)
+	                {
+	                    adapter = "gpsee";
+	                }
+	            } catch(e) {}
+            }
 	        // Test for NodeJS
-	        var httpId = "http";
-	        if (typeof process != "undefined" && typeof require(httpId).Server != "undefined")
-	        {
-	            adapter = "node";
-	        }
-	        else
-	        
-	        // Test for Jetpack
-	        if (typeof __url__ != "undefined" && typeof packaging != "undefined" && typeof memory != "undefined")
-	        {
-	            adapter = "jetpack";
-	        }
-	        else
-	        {
-	            // Test for Narwhal
-	            try
-	            {
-	                var narwhal = "narwhal";
-	                if (typeof require(narwhal).ensureEngine != "undefined")
+            if (!adapter) {
+	            try {
+			        var httpId = "http";
+			        if (typeof process != "undefined" && typeof require(httpId).Server != "undefined")
+			        {
+			            adapter = "node";
+			        }
+	            } catch(e) {}
+            }
+            // Test for RingoJS
+            if (!adapter) {
+	            try {
+	                var ringoArgsId = "ringo/args";
+	                if (typeof require(ringoArgsId).Parser !== "undefined")
+	                {
+	                    adapter = "ringo";
+	                }
+	            } catch(e) {}
+            }
+            // Test for v8cgi
+            if (!adapter) {
+	            try {
+	                var jsonRpcHandlerId = "jsonRpcHandler.js";
+	                if (typeof require(jsonRpcHandlerId).jsonRpcHandler !== "undefined")
+	                {
+	                    adapter = "v8cgi";
+	                }
+	            } catch(e) {}
+            }
+            // Test for Narwhal
+            if (!adapter) {
+	            try {
+	                var narwhalId = "narwhal";
+	                if (typeof require(narwhalId).ensureEngine != "undefined")
 	                {
 	                    adapter = "narwhal";
 	                }
-	            }
-	            catch(e) {}
-	        }
-    	}
+	            } catch(e) {}
+            }
+            // Test for Wakanda
+            if (!adapter) {
+	            try {
+	                var systemId = "system";
+	                if (typeof application !== "undefined" && typeof application.addHttpRequestHandler !== "undefined" &&
+	                    typeof require(systemId).platform === "Wakanda")
+	                {
+	                    adapter = "wakanda";
+	                }
+	            } catch(e) {}
+            }
+        }
     }
     else
     {
         // We are most likely running in a browser
     }
-    if (!adapter)
+	if (!adapter)
         throw new Error("Cannot select platform adapter. Unable to identify host JavaScript platform.");
 
     // Normalize JS environment to ES5
@@ -6507,6 +6816,12 @@ var boot = exports.boot = function(options)
     // ######################################################################
     // # CLI
     // ######################################################################
+    
+    var masthead = [
+            "\0magenta(--- http://pinf.org/ ------------------------- http://commonjs.org/ ---",
+            "|   \0bold(PINF JavaScript Loader ~ https://github.com/pinf/loader-js/\0)       |",
+            "------------------------------- (c) Christoph Dorn --- License: MIT ---\0)"
+        ].join("\n");
 
     // Setup command line options
 
@@ -6517,18 +6832,23 @@ var boot = exports.boot = function(options)
 
     //command.help('Announce a new release of a package');
     optParser.arg(".../[program.json]").optional();
-    optParser.help("Runs the PINF JavaScript Loader.");
+    optParser.help("Runs the specified program or script through the PINF JavaScript Loader.");
+    optParser.option("--version").bool().help("Version");
     optParser.option("-v", "--verbose").bool().help("Enables progress messages");
     optParser.option("--pidfile").set().help("Write the process ID to the specified file. Remove file on exit. Ensures only one instance at a time.");
     optParser.option("--daemonize").bool().help("Daemonize the process. Requires: npm install -g daemon");
     optParser.option("--stdoutLogPath").set().help("Path to file to log stdout output. For use with --daemonize");
     optParser.option("--stderrLogPath").set().help("(Currently redirects to --stdoutLogPath internally) Path to file to log stderr output. For use with --daemonize");
     optParser.option("--exitOnChange").bool().help("Exit process when any source file changes");
-    // TODO: Rename `platform` to `engine` everywhere?
+    optParser.option("--packages-path").set().help("Path to root of packages cache/repository");
+    optParser.option("--ignore-global-pinf").bool().help("Ignore global PINF environment at /pinf");
     optParser.option("--platform").set().help("The platform to use");
     optParser.option("--test-platform").set().help("Make sure a platform is working properly");
     optParser.option("--sources").set().help("The path to a sources.json file to overlay source repositories");
     optParser.option("--script").set().help("Call a script defined in the program boot package");
+    optParser.option("--bundle-loader").bool().help("Bundle the loader into one file for use on a specific platform. Arguments: <PlatformAlias> <TargetFilePath>");
+    optParser.option("--init-program").set().help("Path to root of program to initialize/create");
+    optParser.option("--init-package").set().help("Path to root of package to initialize/create");
     optParser.option("--link-program-to").set().help("Link the program package to the given directory");
     optParser.option("--discover-packages").bool().help("Discover all packages and add to program.json");
     optParser.option("--clean").bool().help("Removes all downloaded packages first");
@@ -6536,16 +6856,28 @@ var boot = exports.boot = function(options)
     optParser.option("-h", "--help").bool().help("Display usage information");
 
     if (typeof options.program != "undefined")
-        cliOptions = optParser.parse(["pinf-loader"].concat([options.program]));
+    {
+        cliOptions = optParser.parse(["commonjs"].concat([options.program]));
+    }
     else
-        cliOptions = optParser.parse(["pinf-loader"].concat(API.SYSTEM.args));
+    {
+        cliOptions = optParser.parse(["commonjs"].concat(API.SYSTEM.args));
+    }
 
     if (cliOptions.help === true)
     {
+    	API.SYSTEM.print(masthead + "\n");
         optParser.printHelp(cliOptions);
         return;
     }
-    
+
+    if (cliOptions.version)
+    {
+    	var descriptorJson = API.JSON.parse(API.FILE.read(API.FILE.dirname(API.FILE.dirname(API.FILE.dirname(module.id))) + "/package.json"));
+        API.SYSTEM.print(descriptorJson.version + "\n");
+    	return;
+    }
+
     API.ENV.cliOptions = cliOptions;
     
     if (typeof API.DEBUG.enabled == "undefined")
@@ -6557,9 +6889,14 @@ var boot = exports.boot = function(options)
         API.ENV.mustTerminate = true;
     if (cliOptions.clean === true)
         API.ENV.mustClean = true;
+    if (cliOptions["ignore-global-pinf"] === true)
+    	API.ENV.ignoreGlobalPINF = true;
 
     var knownCliPlatforms = [
         "node",
+        "gsr",
+        "v8cgi",
+        "ringo",
         "narwhal"
     ];
 
@@ -6606,21 +6943,156 @@ var boot = exports.boot = function(options)
     else
     if (typeof cliOptions.platform != "undefined" && cliOptions.platform != API.ENV.platform)
     {
-        spawnForPlatform(cliOptions.platform);
-        return;
+    	// Do nothing! `./pinf-loader.sh` already directed arguments to correct binary.
+//        spawnForPlatform(cliOptions.platform);
+//        return;
+    }
+
+    // TODO: Move `--init-package` elsewhere to keep this module cleaner.
+    if (cliOptions["init-program"] || cliOptions["init-package"])
+    {
+    	if (cliOptions["init-program"] && cliOptions["init-package"])
+    	{
+    		API.SYSTEM.print("\0red(" + "Cannot specify `--init-program` AND `--init-package`. Pick ONE!" + "\0)\n");
+    		return;
+    	}
+    	var initPath = cliOptions["init-program"] || cliOptions["init-package"];
+    	if (/^\//.test(initPath))
+    	{
+    		API.SYSTEM.print("\0red(" + "Absolute paths to `--init-package` not yet supported!" + "\0)\n");
+    		return;
+    	}
+    	else
+    	{
+    		initPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + initPath);
+    	}
+
+		if (API.FILE.exists(initPath))
+		{
+    		API.SYSTEM.print("\0red(" + "Package already exists at: " + initPath + "\0)\n");
+    		return;
+		}
+
+		// Locate parent package.json to determine UID of new package
+		var initPathParts = initPath.split("/");
+		var parentDescriptor = false,
+			uid = false,
+			subPath = [];
+		while(initPathParts.length > 1)
+		{
+			if (API.FILE.exists(initPathParts.join("/") + "/1package.json"))
+			{
+				try {
+					parentDescriptor = API.JSON.parse(API.FILE.read(initPathParts.join("/") + "/package.json"));
+				} catch(e) {
+					console.error("Error '" + e + "' parsing: " + initPathParts.join("/") + "/package.json");
+				}
+			}
+			if (parentDescriptor)
+			{
+				if (parentDescriptor.uid)
+				{
+					uid = parentDescriptor.uid + subPath.reverse().join("/") + "/";
+				}
+				break;
+			}
+			subPath.push(initPathParts.pop());
+		}
+		if (!uid && /^\/pinf\/workspaces\//.test(initPath))
+		{
+			uid = "http://" + API.FILE.realpath(initPath.substring(17)).replace(/^\//, "") + "/";
+		}
+		if (!uid)
+		{
+    		API.SYSTEM.print("\0red(" + "Could not extrapolate UID for new package!" + "\0)\n");
+    		return;
+		}
+
+		API.FILE.mkdirs(initPath, parseInt("0775"));
+		API.FILE.mkdirs(initPath + "/lib", parseInt("0775"));
+
+		API.FILE.write(initPath + "/package.json", [
+		    '{',
+            '    "uid": "' + uid + '",',
+            '    "main": "main.js",',
+            '    "mappings": {',
+            '    }',
+            '}'
+		].join("\n"));
+
+		API.FILE.write(initPath + "/main.js", [
+		    'exports.main = function(env)',
+		    '{',
+		    '    module.print("Hello World!\\n");',
+		    '}'
+		].join("\n"));
+		
+		if (cliOptions["init-program"])
+		{
+			API.FILE.write(initPath + "/program.json", [
+			    '{',
+	            '    "uid": "' + uid + '",',
+	            '    "boot": "' + uid.replace(/^https?:\/\//, "") + '",',
+	            '    "packages": {',
+	            '        "' + uid.replace(/^https?:\/\//, "") + '": {',
+	            '            "locator": {',
+	            '                "location": "./"',
+	            '            }',
+	            '        }',
+	            '    }',
+	            '}'
+			].join("\n"));
+		}
+
+		API.SYSTEM.print("\0green(" + "Initialized package with UID '" + uid + "' at: " + initPath + "\0)\n");
+    	return;
     }
     
+    // TODO: Move `--bundle-loader` elsewhere to keep this module cleaner.
+    if (cliOptions["bundle-loader"])
+    {
+    	if (cliOptions.args.length !== 2)
+    	{
+    		API.SYSTEM.print("\0red(" + "Invalid arguments. Must specify: <PlatformAlias> <TargetFilePath>" + "\0)\n");
+    		return;
+    	}
+
+    	boot({
+        	program: API.FILE.dirname(API.FILE.dirname(API.FILE.dirname(module.id))) + "/programs/bundle-loader/program.json",
+            args: [
+                "--adapter"
+            ].concat(cliOptions.args),
+        	platformRequire: API.ENV.platformRequire
+        });
+		return;
+    }
+
+
     function run()
     {
-	    API.DEBUG.print("\0magenta(----------------------------------------------------------------------------");
-	    API.DEBUG.print("\0bold(|  PINF Loader v" + VERSION + "  ~  https://github.com/pinf/loader-js/\0)");
-	    API.DEBUG.print("----------------------------------------------------------------------------\0)");
-	
-	    API.DEBUG.print("Loaded adapter: " + API.ENV.platform);
-	    
-	    var pinfPackagesPath = "/pinf/pinf_packages";
-	    if (!API.FILE.exists(pinfPackagesPath)) {
-	    	pinfPackagesPath = API.SYSTEM.pwd + "/.pinf-packages";
+	    API.DEBUG.print(masthead);
+
+    	if (typeof API.ENV.ignoreGlobalPINF != "undefined" && API.ENV.ignoreGlobalPINF === true)
+    		API.DEBUG.print("Ignore global PINF: YES");
+
+	    API.DEBUG.print("\0green(Loaded adapter: \0bold(" + API.ENV.platform + "\0)\0)");
+
+	    var pinfPackagesPath = false;
+	    if (options["packages-path"]) {
+	    	pinfPackagesPath = options["packages-path"];
+	    } else
+	    if (cliOptions["packages-path"]) {
+	    	pinfPackagesPath = cliOptions["packages-path"];
+	    } else
+    	if (!API.ENV.ignoreGlobalPINF) {
+	    	pinfPackagesPath = "/pinf/pinf_packages";
+	    }
+
+	    if (!pinfPackagesPath || !API.FILE.exists(pinfPackagesPath)) {
+	    	if (pinfPackagesPath) {
+	    		API.DEBUG.print("\0yellow(Warning: Packages path '" + pinfPackagesPath + "' not found. Using default path '" + API.SYSTEM.pwd + "/.pinf_packages" + "' instead.\0)");
+	    	}
+	    	pinfPackagesPath = API.SYSTEM.pwd + "/.pinf_packages";
 	    }
 
 	    // TODO: Tell downloader to link packages to sources via sources.json if applicable
@@ -6661,7 +7133,8 @@ var boot = exports.boot = function(options)
 	        files.push(API.FILE.dirname(path) + "/sources.local.json");
 	        if (typeof API.SYSTEM.env.HOME != "undefined" && API.SYSTEM.env.HOME)
 	            files.push(API.SYSTEM.env.HOME + "/.pinf/config/sources.json");
-	        files.push("/pinf/etc/pinf/sources.json");
+	        if (!API.ENV.ignoreGlobalPINF)
+	        	files.push("/pinf/etc/pinf/sources.json");
 	        files.push(API.FILE.dirname(path) + "/sources.json");
 	        files.forEach(function(sourcesPath)
 	        {
@@ -6671,6 +7144,10 @@ var boot = exports.boot = function(options)
 	        var descriptors = [];
 	        for (var key in sourceDescriptors)
 	            descriptors.push(sourceDescriptors[key]);
+	    	if (!API.ENV.ignoreGlobalPINF && !sourceDescriptors["/pinf/workspaces/**"])
+	    	{
+	    		descriptors.push(new DESCRIPTORS.WorkspaceSources("/pinf/workspaces"));
+	    	}
 	        sourceDescriptors = descriptors;
 	        if (API.DEBUG.enabled)
 	        {
@@ -6706,16 +7183,8 @@ var boot = exports.boot = function(options)
 	        }
 	        path = API.FILE.realpath(path.join("/"));
 	    
-	        API.DEBUG.print("Loading program descriptor from: " + path);
-	
-		    var pinfPackagesPath = "/pinf/pinf_packages";
-		    if (!API.FILE.exists(pinfPackagesPath)) {
-		    	pinfPackagesPath = path.substring(0, path.length-13) + "/.pinf-packages";
-		    }
+	        API.DEBUG.print("\0green(Loading program descriptor from: \0bold(" + path + "\0)\0)");
 
-		    downloader.basePath = pinfPackagesPath;
-
-		    
 	        if (cliOptions["link-program-to"])
 	        {
 	        	if (API.FILE.exists(cliOptions["link-program-to"]))
@@ -6723,7 +7192,7 @@ var boot = exports.boot = function(options)
 	        		API.FILE.remove(cliOptions["link-program-to"]);
 	        	} else
 	        	if (!API.FILE.exists(API.FILE.dirname(cliOptions["link-program-to"])))
-        			API.FILE.mkdirs(API.FILE.dirname(cliOptions["link-program-to"]), 0775);
+        			API.FILE.mkdirs(API.FILE.dirname(cliOptions["link-program-to"]), parseInt("0775"));
 	        		
         		API.SYSTEM.exec("ln -s " + API.FILE.dirname(path) + " " + cliOptions["link-program-to"], function(stdout, stderr)
         		{
@@ -6740,7 +7209,8 @@ var boot = exports.boot = function(options)
 	        // ######################################################################
 	
 	        var sandbox = new API.SANDBOX.Sandbox({
-	            mainModuleDir: API.FILE.dirname(path) + "/"
+	            mainModuleDir: API.FILE.dirname(path) + "/",
+	            onInitCallback: options.onSandboxInit || undefined
 	        });
 	
 	        // ######################################################################
@@ -6750,7 +7220,13 @@ var boot = exports.boot = function(options)
 	        if (!API.FILE.isFile(path))
 	        {
 	            var scriptPath = cliOptions.args[0];
-	
+
+	            if (!scriptPath)
+	            {
+	            	API.SYSTEM.print("\0red(Error: No script path nor `./[program.json]` file specified!\0)\n");
+	            	return;
+	            }
+
 	            if (scriptPath.charAt(0) != "/")
 	            {
 	                scriptPath = API.FILE.realpath(API.SYSTEM.pwd + "/" + scriptPath);
@@ -6764,7 +7240,10 @@ var boot = exports.boot = function(options)
 	                    scriptPath = scriptPath.substring(0, scriptPath.length-3);
 	
 	                if (!API.FILE.exists(scriptPath))
-	                    throw new Error("Script not found at: " + scriptPath);
+	                {
+		            	API.SYSTEM.print("\0red(Error: Script not found at '" + scriptPath + "'!\0)\n");
+		            	return;
+	                }
 	            }
 	
 	            sandbox.init();
@@ -6873,25 +7352,35 @@ var boot = exports.boot = function(options)
 		                if (cliOptions.script)
 		                {
 		                    var pkg = sandbox.packageForId(dependencies[0]['_package-0'].location);
+		                    
 		                    if (typeof pkg.normalizedDescriptor.json.scripts == "undefined")
 		                        throw new Error("No 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-		                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "undefined")
+
+		                    var scriptConfig = pkg.normalizedDescriptor.json.scripts[cliOptions.script];
+
+		                    if (typeof scriptConfig === "undefined")
 		                        throw new Error("Script '" + cliOptions.script + "' not found in 'scripts' defined in package descriptor: " + pkg.normalizedDescriptor.path);
-		                    if (typeof pkg.normalizedDescriptor.json.scripts[cliOptions.script] == "object")
+
+		                    if (typeof scriptConfig === "object")
 		                    {
-		                        assembler.addPackageToProgram(sandbox, sandbox.program, pkg.normalizedDescriptor.json.scripts[cliOptions.script], function(pkg)
+	                        	assembler.addPackageToProgram(sandbox, sandbox.program, scriptConfig.locator, function(pkg)
 		                        {
-		                            module.load(pkg.getMainId(pkg.normalizedDescriptor.json.scripts[cliOptions.script]), function(id)
+	                            	var concreteScriptConfig = pkg.normalizedDescriptor.json.scripts[scriptConfig.script || cliOptions.script];
+	                            	concreteScriptConfig.options = API.UTIL.deepMerge(concreteScriptConfig.options || {}, scriptConfig.options || {});
+
+	                            	module.load(pkg.getMainId(concreteScriptConfig.locator), function(id)
 		                            {
 		                                var script = require(id);
-		
+
 		                                if (typeof script.main == "undefined")
 		                                    throw new Error("Script does not export main() in " + id);
 		
 		                                API.ENV.booting = false;
 		
 		                                API.DEBUG.print("\0magenta(\0:blue(----- | Program script stdout & stderr follows ====>\0:)\0)");
-		
+
+		                                env.options = concreteScriptConfig.options;
+		                                
 		                                script.main(env);
 		                            });
 		                        }, {
@@ -7017,17 +7506,27 @@ var boot = exports.boot = function(options)
     }
     catch(e)
     {
+		var stack = "";
+		if (typeof API.SYSTEM === "object" && typeof API.SYSTEM.formatErrorStack === "function") {
+			stack = API.SYSTEM.formatErrorStack(e);
+		} else
+		if (typeof e.stack !== "undefined") {
+			stack = e.stack.split("\n").join("\n  ");
+		}
+		
         if (typeof options.print != "undefined")
-            options.print("[pinf-loader] " + e + "\n\n  " + (e.stack || "").split("\n").join("\n  ") + "\n\n");
+            options.print("[pinf-loader] " + e + "\n\n  " + stack + "\n\n");
         else
         if (typeof API != "undefined" && typeof API.SYSTEM != "undefined" && typeof API.SYSTEM.print != "undefined")
-            API.SYSTEM.print("[pinf-loader] " + e + "\n\n  " + (e.stack || "").split("\n").join("\n  ") + "\n\n");
+            API.SYSTEM.print("[pinf-loader] " + e + "\n\n  " + stack + "\n\n");
         else
         if (typeof console != "undefined")
-            console.log("[pinf-loader] " + e.stack);
+            console.log("[pinf-loader] " + e + "\n\n  " + stack);
         else
         if( typeof print != "undefined")
-            print("[pinf-loader] " + e.stack + "\n");
+            print("[pinf-loader] " + e + "\n\n  " + stack + "\n");
+        else
+        	throw new Error("Unable to print error: " + e);
     }
 }
 
@@ -7052,8 +7551,8 @@ var calcMD5 = exports.md5 = function() {
 var hex_chr = "0123456789abcdef";
 function rhex(num)
 {
-  str = "";
-  for(j = 0; j <= 3; j++)
+  var str = "";
+  for(var j = 0; j <= 3; j++)
     str += hex_chr.charAt((num >> (j * 8 + 4)) & 0x0F) +
            hex_chr.charAt((num >> (j * 8)) & 0x0F);
   return str;
@@ -7065,10 +7564,10 @@ function rhex(num)
  */
 function str2blks_MD5(str)
 {
-  nblk = ((str.length + 8) >> 6) + 1;
-  blks = new Array(nblk * 16);
-  for(i = 0; i < nblk * 16; i++) blks[i] = 0;
-  for(i = 0; i < str.length; i++)
+  var nblk = ((str.length + 8) >> 6) + 1;
+  var blks = new Array(nblk * 16);
+  for(var i = 0; i < nblk * 16; i++) blks[i] = 0;
+  for(var i = 0; i < str.length; i++)
     blks[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
   blks[i >> 2] |= 0x80 << ((i % 4) * 8);
   blks[nblk * 16 - 2] = str.length * 8;
@@ -7124,18 +7623,18 @@ function ii(a, b, c, d, x, s, t)
  */
 return function calcMD5(str)
 {
-  x = str2blks_MD5(str);
-  a =  1732584193;
-  b = -271733879;
-  c = -1732584194;
-  d =  271733878;
+  var x = str2blks_MD5(str);
+  var a =  1732584193;
+  var b = -271733879;
+  var c = -1732584194;
+  var d =  271733878;
 
-  for(i = 0; i < x.length; i += 16)
+  for(var i = 0; i < x.length; i += 16)
   {
-    olda = a;
-    oldb = b;
-    oldc = c;
-    oldd = d;
+	var olda = a;
+	var oldb = b;
+	var oldc = c;
+	var oldd = d;
 
     a = ff(a, b, c, d, x[i+ 0], 7 , -680876936);
     d = ff(d, a, b, c, x[i+ 1], 12, -389564586);
@@ -7222,6 +7721,9 @@ __loader__.memoize('modules/pinf/loader', function(__require__, module, exports)
 // ######################################################################
 // Authors:
 //  - cadorn, Christoph Dorn <christoph@christophdorn.com>, Copyright 2011, MIT License
+
+// TODO: This module's API and implementation needs an overhaul with a clear concept of
+//		 where it fits into the PINF loader ecosystem.
 
 var API = __require__('api'),
     LOADER = __require__('loader'),
@@ -7568,6 +8070,7 @@ var routeDescriptors = {};
 var JSGI = exports.JSGI = function(options)
 {
     this.routes = {};
+    this.options = {};
     for (var path in options.map)
     {
         if (path.charAt(0) != "/")
@@ -7601,7 +8104,7 @@ var JSGI = exports.JSGI = function(options)
     this.contexts = {};
 }
 
-JSGI.prototype.spider = function(route, targetPath, callback)
+JSGI.prototype.spider = function(route, targetPath, callback, options)
 {
     if (typeof this.routes[route] == "undefined")
         throw new Error("Route '" + route + "' not found in routes: " + Object.keys(this.routes));
@@ -7620,7 +8123,7 @@ JSGI.prototype.spider = function(route, targetPath, callback)
 
         function spider()
         {
-            var responder = self.responder(null);
+            var responder = self.responder(null, options);
 
             new PINF_LOADER.Sandbox(
             {
@@ -7701,6 +8204,7 @@ JSGI.prototype.spider = function(route, targetPath, callback)
                     var data = responder({
                         pathInfo: uri
                     }, spiderInsight);
+
                     data.then(
                         function handle(data)
                         {
@@ -7801,9 +8305,11 @@ JSGI.prototype.spider = function(route, targetPath, callback)
         throw new Error("NYI");
 }
 
-JSGI.prototype.responder = function(app)
+JSGI.prototype.responder = function(app, options)
 {
     var self = this;
+    
+    this.options = options || {};
 
     return function(request, spiderInsight)
     {
@@ -8029,8 +8535,6 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                 if(memoizedModules.indexOf(moduleIdentifier) > -1 || parentContextsModules.indexOf(moduleIdentifier) > -1)
                     return;
 
-//console.log("  memoise: " + moduleIdentifier);
-
                 memoizedModules.push(moduleIdentifier);
 
                 // Pull out plugin if applicable
@@ -8049,7 +8553,14 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
 
                 deps = "";
                 if (dependencies.length > 0)
-                    deps = "'" + dependencies.join("','") + "'";
+                {
+                    deps = dependencies.map(function(dep)
+            		{
+                    	if (typeof dep === "object")
+                    		return API.JSON.stringify(dep);
+                    	return "'" + dep + "'";
+            		}).join(",");
+                }
 
                 var pkg = sandbox.packageForId(parts[0]);
 
@@ -8214,6 +8725,11 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                 // Check program contexts to see if we are a top-level context and need to inject the loader
                 var contexts = sandbox.program.getContexts(sandbox).getAllContexts(),
                     info = sandbox.program.getContexts(sandbox).contextFor(pkgId, modulePathId);
+                
+                if (self.options.debug)
+                {
+                	console.log("Context info for (pkgId: " + pkgId + ", modulePathId: " + modulePathId + ")", info);
+                }
 
                 if (info)
                 {
@@ -8255,6 +8771,11 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
 
                             if (!contextsCache[parent])
                             {
+                                if (self.options.debug)
+                                {
+                                	console.log("New context for: " + parent);
+                                }
+                            	
                                 new PINF_LOADER.Sandbox(
                                 {
                                     programPath: route.options.programPath,
@@ -8279,17 +8800,43 @@ JSGI.prototype.respond = function(request, callback, spiderInsight)
                                                 sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
                                                 {
                                                     contextsCache[parent].push(moduleIdentifier);
+                                                    
+                                                    if (self.options.debug)
+                                                    {
+                                                    	console.log("  collected module: " + moduleIdentifier);
+                                                    }
+                                                    
                                                     collectedModules.push(moduleIdentifier);
                                                 });
                                             }));
+                                        });
+                                    } else {
+                                        // TODO: Move this up so it is only called once after all sandbox.load() are called 
+                                        sandbox.forEachModule(function(moduleIdentifier, dependencies, moduleFactory)
+                                        {
+                                            contextsCache[parent].push(moduleIdentifier);
+                                            
+                                            if (self.options.debug)
+                                            {
+                                            	console.log("  collected module: " + moduleIdentifier);
+                                            }
+                                            
+                                            collectedModules.push(moduleIdentifier);
                                         });
                                     }
                                 }));
                             }
                             else
                             {
+                            	console.log("Existing context for: " + parent);
+                            	
                                 contextsCache[parent].forEach(function(moduleIdentifier)
                                 {
+                                    if (self.options.debug)
+                                    {
+                                    	console.log("  collected module: " + moduleIdentifier);
+                                    }
+                                	
                                     collectedModules.push(moduleIdentifier);
                                 });
                             }
@@ -8811,32 +9358,39 @@ var Package = exports.Package = function(descriptor, options)
     }
     if (typeof this.normalizedDescriptor.json.engines != "undefined")
     {
-    	if (!UTIL.isArray(this.normalizedDescriptor.json.engines)) {
-    		this.normalizedDescriptor.json.engines = [this.normalizedDescriptor.json.engines];
+    	if (this.normalizedDescriptor.json.engines === "*")
+    	{
+    		delete this.normalizedDescriptor.json.engines;
     	}
-    	var found = false;
-    	for (var i=this.normalizedDescriptor.json.engines.length-1 ; i >= 0 ; i--) {
-    		// TODO: Verify correct version of engine
-    		if (typeof this.normalizedDescriptor.json.engines[i] === "object") {
-    			var keys = Object.keys(this.normalizedDescriptor.json.engines[i]);
-    			if (keys.length === 0) {
-    				this.normalizedDescriptor.json.engines.splice(i, 1);
-    			} else {
-	        		if (new RegExp("^" + API.ENV.platform).exec(keys[0])) {
+    	else
+    	{
+	    	if (!UTIL.isArray(this.normalizedDescriptor.json.engines)) {
+	    		this.normalizedDescriptor.json.engines = [this.normalizedDescriptor.json.engines];
+	    	}
+	    	var found = false;
+	    	for (var i=this.normalizedDescriptor.json.engines.length-1 ; i >= 0 ; i--) {
+	    		// TODO: Verify correct version of engine
+	    		if (typeof this.normalizedDescriptor.json.engines[i] === "object") {
+	    			var keys = Object.keys(this.normalizedDescriptor.json.engines[i]);
+	    			if (keys.length === 0) {
+	    				this.normalizedDescriptor.json.engines.splice(i, 1);
+	    			} else {
+		        		if (new RegExp("^" + API.ENV.platform).exec(keys[0])) {
+		        			found = true;
+		        		}
+	    			}
+	    		} else {
+	    			if (!this.normalizedDescriptor.json.engines[i]) {
+	    				this.normalizedDescriptor.json.engines.splice(i, 1);
+	    			} else
+	        		if (new RegExp("^" + API.ENV.platform).exec(this.normalizedDescriptor.json.engines[i])) {
 	        			found = true;
 	        		}
-    			}
-    		} else {
-    			if (!this.normalizedDescriptor.json.engines[i]) {
-    				this.normalizedDescriptor.json.engines.splice(i, 1);
-    			} else
-        		if (new RegExp("^" + API.ENV.platform).exec(this.normalizedDescriptor.json.engines[i])) {
-        			found = true;
-        		}
-    		}
+	    		}
+	    	}
+	        if (!found && this.normalizedDescriptor.json.engines.length > 0)
+	            throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engines+"') on platform '" + API.ENV.platform + "'");
     	}
-        if (!found && this.normalizedDescriptor.json.engines.length > 0)
-            throw new Error("Cannot run package '"+this.path+"' (supporting engines '"+this.normalizedDescriptor.json.engines+"') on platform '" + API.ENV.platform + "'");
     }
     if (typeof this.descriptor.json.scripts != "undefined")
     {
@@ -8845,18 +9399,28 @@ var Package = exports.Package = function(descriptor, options)
         {
             if (typeof this.descriptor.json.scripts[script] == "object")
             {
-                var locator = this.descriptor.json.scripts[script];
-                if (locator.location)
+                var scriptConfig = this.descriptor.json.scripts[script];
+                if (typeof scriptConfig.locator === "undefined")
                 {
-                    if (locator.location.charAt(0) == ".")
+                	scriptConfig = {
+                		"locator": scriptConfig
+                	};
+                }
+                if (scriptConfig.locator.location)
+                {
+                    if (scriptConfig.locator.location.charAt(0) == ".")
                     {
-                        locator.location = FILE.realpath(this.path + "/" + locator.location);
+                    	scriptConfig.locator.location = FILE.realpath(this.path + "/" + scriptConfig.locator.location);
                     }
                 }
-                this.normalizedDescriptor.json.scripts[script] = locator;
+                this.normalizedDescriptor.json.scripts[script] = scriptConfig;
             }
             else
-                this.normalizedDescriptor.json.scripts[script] = this.descriptor.json.scripts[script];
+            {
+                this.normalizedDescriptor.json.scripts[script] = {
+            		"locator": this.descriptor.json.scripts[script]
+            	};
+            }
         }
     }
 }
@@ -9335,11 +9899,14 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
                 	if (typeof locator.pm === "undefined")
                 		throw new Error("Resolved locator is not absolute path location-based: " + UTIL.locatorToString(locator));
                 }
-    
+
                 // If locator specifies a path we add it to the location.
                 // This is typically needed to get the paths to packages in a multi-package archive
                 if (typeof locator.path != "undefined")
+                {
                     locator.location = API.FILE.realpath(locator.location + "/" + locator.path) + "/";
+                    delete locator.path;
+                }
     
                 // Pass through the original descriptor unchanged
                 if (typeof descriptor != "undefined")
@@ -9456,6 +10023,37 @@ Program.prototype.resolveLocator = function(assembler, locator, callback, option
     }
     else
         throw new Error("NYI - " + UTIL.locatorToString(locator));
+
+    /*
+    Resolve mapped module URLs. For example:
+	    "code.jquery.com/": {
+	        "locator": {
+	            "location": "http://code.jquery.com/jquery-1.6.4.min.js"
+	        },
+	        "descriptor": {
+	            "uid": "http://code.jquery.com/",
+	            "directories": false
+	        }
+	    }
+	*/
+    if (locator.descriptor && locator.descriptor.directories === false && locator.location && /^https?:\/\//.test(locator.location))
+    {
+		assembler.downloader.getFileForURL(locator.location, function(path)
+        {
+			locator.location = API.FILE.dirname(path);
+			locator.descriptor.main = API.FILE.basename(path);
+
+			// NOTE: We need to set it here so it is still set in final locator which gets put back during `finalize(locator)`
+            if (typeof descriptor != "undefined")
+    			descriptor.main = locator.descriptor.main;
+
+            // We set locator to resource so that no package.json is expected and a dummy descriptor is used instead
+			locator.resource = true;
+            
+            finalize(locator);
+        });
+        return;
+    }
 
     finalize(locator);
 }
@@ -10193,7 +10791,7 @@ Sandbox.prototype.init = function()
     Plugin.prototype.requireModule = function(id)
     {
         if (!id)
-            return;
+            return undefined;
 
         // Determine if we are dealing with a provider package
         var pkg = self.packageForId(id, true);
@@ -10229,19 +10827,20 @@ Sandbox.prototype.init = function()
                 });
                 */
                 var exports = API.ENV.platformRequire(id.replace(/@\//g, "\/"));
-                API.ENV.platformRequire.paths.splice(0, (API.ENV.platformRequire.paths.length - oldLength));                
+//                API.ENV.platformRequire.paths.splice(0, (API.ENV.platformRequire.paths.length - oldLength));                
                 return exports;
             }
             else
                 return API.ENV.platformRequire(id.replace(/@\//g, "\/"));
         }
+        return undefined;
     }
     Plugin.prototype.contextForId = function(id)
     {
-        if (!id) return;
+        if (!id) return undefined;
         try
         {
-            var id = self.packageForId(id).path;
+            id = self.packageForId(id).path;
 
             if (typeof this.bravojs.contexts[id] == "undefined")
             {
@@ -10256,6 +10855,7 @@ Sandbox.prototype.init = function()
             if (id.indexOf("@/") !== -1)
                 throw new Error("Unable to find package for ID: " + id);
         }
+        return undefined;
     }
     Plugin.prototype.loadPackageDescriptor = function(id)
     {
@@ -10269,6 +10869,10 @@ Sandbox.prototype.init = function()
     {
         var pkg = self.packageForId(moduleIdentifier, true);
 
+        if (!pkg) {
+        	throw new Error("Package not found for moduleIdentifier: " + moduleIdentifier);
+        }
+        
         if (typeof pkg.isProviderPackage != "undefined" && pkg.isProviderPackage === true)
         {
             // ignore for now
@@ -10400,18 +11004,71 @@ Sandbox.prototype.init = function()
                 var code;
                 if (/^text!/.test(moduleIdentifier))
                 {
-                    // text plugin
+                	// text plugin
                     code =
                         "loader.bravojs.module.declare([], function() {\n" +
-                        'return ["' + data.replace(/"/g, '\\"').replace(/\r/g, '').replace(/\n/g, '","') + '"].join("\\n");' +
+                        'return ((typeof bravojs !== "undefined")?bravojs:loader.bravojs).base64decode("' + loader.bravojs.base64encode(data) + '");' +
                         "\n});";
                 }
+                else
+                if (m = data.match(/(^|[\r\n])\s*define\(\{.*/))
+                {
+                    // AMD no dependencies object
+                	
+                    // strip all data prior to define()
+                    var parts = data.split(m[0]);
+                    if (parts.length != 2)
+                        throw new Error("Unable to fix define() wrapper for module: " + moduleIdentifier);
+                    data = m[0].replace(/^[\r\n]\s*/, "") + parts[1];
+
+                    code = 
+					    "loader.bravojs.module.declare([], function(require, exports, module) {\n" + 
+					    "({define:function(factory){var name; for(name in factory) exports[name] = factory[name]; }})." +
+					    data +
+					    "\n});";
+                }
+                else
+                if (m = data.match(/(^|[\r\n])\s*define\(function\s*\(([^\)]*)\)\s*\n?\{.*/))
+                {
+                    // AMD function
+
+                	// strip all data prior to define()
+                    var parts = data.split(m[0]);
+                    if (parts.length != 2)
+                        throw new Error("Unable to fix define() wrapper for module: " + moduleIdentifier);
+                    data = m[0].replace(/^[\r\n]\s*/, "") + parts[1];
+
+                    var deps = [];
+                    if (m[2])
+                    {
+                    	deps = m[2].split(",").map(function(dep)
+                        {
+                            return dep.match(/^\s*(.*)\s*/)[1];
+                        });
+                    	if (deps.filter(function(dep)
+                        {
+                            return (!/^(require|module|exports)$/.test(dep));
+                        }).length > 0)
+                    	{
+                    		throw new Error("AMD wrapper `define(function(<args>) { ... });` may only specify `require`, `exports` and/or `module` for <args>!");
+                    	}
+                    }
+
+                    code = 
+					    "loader.bravojs.module.declare([" + 
+					    API.UTIL.scrapeDeps(data).join(',') + 
+                    	"], function(require, exports, module) {\n" + 
+					    "({define:function(factory){var name, fExports = factory(" + deps.join(",") + ");" +
+					    " for(name in fExports) exports[name] = fExports[name]; }})." +
+					    data +
+					    "\n});";
+                }                
                 else
                 if (m = data.match(/(^|[\r\n])\s*define\(\[([^\]]*)\].*/))
                 {
                     // AMD with dependencies
 
-                    var deps = m[2].split(",").map(function(dep)
+                	var deps = m[2].split(",").map(function(dep)
                     {
                         return "'" + dep.replace(/^\s*"|^\s*'|"\s*$|'\s*$/g, "") + "'";
                     });
@@ -10429,7 +11086,7 @@ Sandbox.prototype.init = function()
                             return (!/^'(require|module|exports)'$/.test(dep));
                         }).join(",") +
                         "], function(require, exports, module) {\n" + 
-                        "({define:function(deps, factory){module.exports = factory(" +
+                        "({define:function(deps, factory){var name, fExports = factory(" +
                         deps.map(function(dep)
                         {
                             if (/^'(require|module|exports)'$/.test(dep))
@@ -10437,26 +11094,9 @@ Sandbox.prototype.init = function()
                             else
                                 return "require(" + dep + ")";
                         }).join(",") +
-                        ");}})." +
+                        ") || {}; for(name in fExports) exports[name] = fExports[name]; }})." +
                         data +
                         "\n});";
-                }
-                else
-                if (m = data.match(/(^|[\r\n])\s*define\(\s*function\s*\(\s*require\s*,\s*exports\s*,\s*module\s*\)\s*{.*/))
-                {
-                    // AMD without dependencies
-
-                    // strip all data prior to define()
-                    var parts = data.split(m[0]);
-                    if (parts.length != 2)
-                        throw new Error("Unable to fix define() wrapper for module: " + moduleIdentifier);
-                    data = parts[1];
-
-                    code =
-                        "loader.bravojs.module.declare([" +
-                        API.UTIL.scrapeDeps(data).join(',') +
-                        "], function(require, exports, module) {\n" + 
-                        data;
                 }
                 else
                 if ((typeof loader.bravojs.module.constructor.prototype.load != "undefined" &&
@@ -10489,6 +11129,39 @@ Sandbox.prototype.init = function()
 //                e.message += "\n in module " + moduleIdentifier;
                 throw e;
             }
+        }
+
+        // If adapter defines a `SYSTEM.loadModule` method we assume we cannot load source and then eval() module.
+        // We let the adapter method handle the loading.
+        if (typeof API.SYSTEM.loadModule !== "undefined")
+        {
+            try
+            {
+                var URL = loader.bravojs.require.canonicalize(moduleIdentifier),
+	                m = URL.match(/^memory:\/(.*)$/),
+	                path = m[1];
+
+	            path = path.replace(/^\w*!/, "");
+	
+	            if (/\.js$/.test(path) && !API.FILE.exists(path))
+	                path = path.substring(0, path.length-3);
+
+	            loading = {
+                    id: moduleIdentifier,
+                    breakStack: false,
+                    callback: function()
+                    {
+                        callback(moduleIdentifier);
+                    }
+                };
+	            
+	            API.SYSTEM.loadModule(path);
+            }
+            catch(e)
+            {
+                throw new Error("Error loading module via SYSTEM.loadModule(): " + moduleIdentifier);
+            }
+            return;
         }
 
         var pkg = self.packageForId(moduleIdentifier, true);
@@ -10534,6 +11207,9 @@ Sandbox.prototype.init = function()
     {
         var id    = loading.id;
         var callback  = loading.callback;
+        var breakStack = true;
+        if (typeof loading.breakStack !== "undefined" && loading.breakStack === false)
+        	breakStack = false;
 
         loading = void 0;
 
@@ -10542,16 +11218,19 @@ Sandbox.prototype.init = function()
           moduleFactory = dependencies;
           dependencies = [];
         }
-        
+
+        if (breakStack === false || typeof API.UTIL.setTimeout === "undefined")
+        {
+            loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
+        	return;
+        }
+
         function doDeclare(dependencies, moduleFactory, id, callback)
         {
-            if (typeof API.UTIL.setTimeout !== "undefined")
-                API.UTIL.setTimeout(function()
-                {
-                    loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
-                }, 1);
-            else
+            API.UTIL.setTimeout(function()
+            {
                 loader.bravojs.provideModule(dependencies, moduleFactory, id, callback);
+            }, 1);
         }
         doDeclare(dependencies, moduleFactory, id, callback);
     }
@@ -10562,6 +11241,12 @@ Sandbox.prototype.init = function()
     // ######################################################################
     
     self.declare = loader.bravojs.module.declare;
+
+
+    if (typeof self.options.onInitCallback === "function")
+    {
+    	self.options.onInitCallback(self, loader);
+    }
 }
 
 /**
@@ -10610,18 +11295,23 @@ Sandbox.prototype.ensurePackageForLocator = function(locator, options)
         // We first ask the program descriptor to augment the locator with any additional info
         var newLocator = this.program.descriptor.augmentLocator(locator, options);
 
-        if (locator.resource === true)
+        // TODO: Can probably get rid of `locator.resource === true` check here.
+        if (locator.resource === true || !API.FILE.exists(path.replace(/\/$/, "/package.json")))
+        {
             this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Dummy(path, {
                 extendsDescriptorJSON: newLocator.descriptor
             }), {
                 platform: self.platform
             });
+        }
         else
+        {
             this.packages[path] = new PACKAGE.Package(new DESCRIPTORS.Package(path, {
                 extendsDescriptorJSON: newLocator.descriptor
             }), {
                 platform: self.platform
             });
+        }
 
         // If package has a UID set we also index our packages by it
         // TODO: Add version to key if applicable
@@ -10702,8 +11392,8 @@ Sandbox.prototype.packageForId = function(id, silent)
 				return this.packageForId(descriptor.uid.replace(/^https?:\/\//, ""), silent);
         	}
         }
-        
-        throw new Error("Package for id '" + id + "' not found via lookup IDs '" + lookupIds + "' in packages: " + Object.keys(this.packages));
+
+        throw new Error("Package for id '" + id + "' and path '" + path + "' not found via lookup IDs '" + lookupIds + "' in packages '" + Object.keys(this.packages) + "' for program: " + this.program.descriptor.path);
     }
     return this.packages[lookupId[0]];
 }
@@ -12457,21 +13147,21 @@ __loader__.memoize('text!bravojs/bravo.js', function(__require__, module, export
 // ######################################################################
 // # /bravojs/bravo.js
 // ######################################################################
-return ["/**"," *  This file implements BravoJS, a CommonJS Modules/2.0 environment."," *"," *  Copyright (c) 2010, PageMail, Inc."," *  Wes Garland, wes@page.ca"," *  MIT License"," *"," *    - Initial implementation"," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *    - Added package and mappings support"," *    - Various tweaks"," *"," */","","function bravojs_init(bravojs,    /**< Namespace object for this implementation */","                      window)","{","try {","","bravojs.window = window;","","if (!bravojs.hasOwnProperty(\"errorReporter\"))","{","  bravojs.errorReporter = function bravojs_defaultDrrorReporter(e)","  {","    if (typeof alert != \"undefined\")","        alert(\" * BravoJS: \" + e + \"\n\" + e.stack);","    throw(e);","  }","}","","/** Reset the environment so that a new main module can be loaded */","bravojs.reset = function bravojs_reset(mainModuleDir, plugins)","{","  if (!mainModuleDir)","  {","    if (typeof bravojs.mainModuleDir != \"undefined\")","      mainModuleDir = bravojs.mainModuleDir;","    else","      mainModuleDir = bravojs.dirname(bravojs.URL_toId(window.location.href + \".js\", true));","  }","","  bravojs.requireMemo 			= {};	/**< Module exports, indexed by canonical name */","  bravojs.pendingModuleDeclarations	= {};	/**< Module.declare arguments, indexed by canonical name */","  bravojs.mainModuleDir 		= mainModuleDir;","  bravojs.plugins = plugins || [];","  bravojs.contexts = {};","  bravojs.activeContexts = [];","","  delete bravojs.Module.prototype.main;","  delete bravojs.scriptTagMemo;","  delete bravojs.scriptTagMemoIE;","","  /* The default context. Needed before bravojs.Module() can be called. */","  bravojs.makeContext(\"_\");","","  /** Extra-module environment */","  bravojs.module = window.module = new bravojs.Module('', []);","  bravojs.require = window.require = bravojs.requireFactory(bravojs.mainModuleDir, [], bravojs.module);","","  /* Module.declare function which handles main modules inline SCRIPT tags.","   * This function gets deleted as soon as it runs, allowing the module.declare","   * from the prototype take over. Modules created from this function have","   * the empty string as module.id.","   */","  bravojs.module.declare = function main_module_declare(dependencies, moduleFactory)","  {","    if (typeof dependencies === \"function\")","    {","      moduleFactory = dependencies;","      dependencies = [];","    }","","    bravojs.initializeMainModule(dependencies, moduleFactory, '');","  }","}","","/** Print to text to stdout */","function bravojs_print()","{","  var output=\"\";","  var i;","  var stdout;","","  for (i=0; i < arguments.length; i++)","    output += arguments[i] + (i===arguments.length - 1 ? \"\" : \" \");","  output.replace(/\t/, \"        \");","","  if (typeof window.document != \"undefined\" && (stdout = window.document.getElementById('stdout')))","  {","    output += \"\n\";","","    if (typeof stdout.value !== \"undefined\")","    {","      stdout.value += output;","      if (stdout.focus)","        stdout.focus();","","      if (stdout.tagName === \"TEXTAREA\")","        stdout.scrollTop = stdout.scrollHeight;","    }","    else","    {","      if (typeof stdout.innerText !== \"undefined\")","      {","        stdout.innerText = stdout.innerText.slice(0,-1) + output + \" \"; 	/* IE normalizes trailing newlines away */","      }","      else","        stdout.textContent += output;","    }","  }","  else if (typeof console === \"object\" && console.print)","  {","    console.print(output);","  }","  else if (typeof console === \"object\" && console.log)","  {","    console.log(output);","  }","  // WebWorker","  else if (typeof importScripts === \"function\" && typeof postMessage === \"function\")","  {","      postMessage({type: \"log\", data: output});","  }","  else","    alert(\" * BravoJS stdout: \" + output);","}","if (typeof bravojs.print === \"undefined\")","    bravojs.print = bravojs_print;","","bravojs.registerPlugin = function(plugin)","{","    plugin.bravojs = bravojs;","    bravojs.plugins.push(plugin);","    if (typeof plugin.init == \"function\")","      plugin.init();","}","","bravojs.callPlugins = function(method, args)","{","  var i, ret;","  for (i = 0 ; i < bravojs.plugins.length ; i++ )","  {","    if (typeof bravojs.plugins[i][method] != \"undefined\" &&","        typeof (ret = bravojs.plugins[i][method].apply(bravojs.plugins[i], args)) != \"undefined\")","        break;","  }","  return ret;","}","","/** Canonicalize path, compacting slashes and dots per basic UNIX rules."," *  Treats paths with trailing slashes as though they end with INDEX instead."," *  Not rigorous."," */","bravojs.realpath = function bravojs_realpath(path, index)","{","  if (typeof index === \"undefined\")","    index = \"INDEX\";","  if (typeof path !== \"string\")","    path = path.toString();","","  var oldPath = path.split('/');","  var newPath = [];","  var i;","","  if (path.charAt(path.length - 1) === '/' && index)","    oldPath.push(index);","","  for (i = 0; i < oldPath.length; i++)","  {","    if (oldPath[i] == '.' || !oldPath[i].length)","      continue;","    if (oldPath[i] == '..')","    {","      if (!newPath.length)","	throw new Error(\"Invalid module path: \" + path);","      newPath.pop();","      continue;","    }","    newPath.push(oldPath[i]);","  }","","  newPath.unshift('');","  return newPath.join('/');","}","","/** Extract the non-directory portion of a path */","bravojs.basename = function bravojs_basename(path)","{","  if (typeof path !== \"string\")","    path = path.toString();","","  var s = path.split('/').slice(-1).join('/');","  if (!s)","    return path;","  return s;","}","","/** Extract the directory portion of a path */","bravojs.dirname = function bravojs_dirname(path)","{","  if (typeof path !== \"string\")","    path = path.toString();","","  if (path.charAt(path.length - 1) === '/')","    return path.slice(0,-1);","","  var s = path.split('/').slice(0,-1).join('/');","  if (!s)","    return \".\";","","  return s;","}","","/** Turn a module identifier and module directory into a canonical"," *  module.id."," */","bravojs.makeModuleId = function makeModuleId(relativeModuleDir, moduleIdentifier)","{","  return bravojs.contextForId(relativeModuleDir, true).resolveId(moduleIdentifier, relativeModuleDir);","}","","/** Turn a script URL into a canonical module.id */","bravojs.URL_toId = function URL_toId(moduleURL, relaxValidation)","{","  var i;","","  /* Treat the whole web as our module repository.","   * 'http://www.page.ca/a/b/module.js' has id '/www.page.ca/a/b/module'. ","   */","  i = moduleURL.indexOf(\"://\");","  if (i == -1)","    throw new Error(\"Invalid module URL: \" + moduleURL);","  id = moduleURL.slice(i + 2);","","  id = bravojs.realpath(id);","  if ((i = id.indexOf('?')) != -1)","    id = id.slice(0, i);","  if ((i = id.indexOf('#')) != -1)","    id = id.slice(0, i);","","  if (!relaxValidation && (id.slice(-3) != \".js\"))","    throw new Error(\"Invalid module URL: \" + moduleURL);","  id = id.slice(0,-3);","","  return id;","}","","/** Normalize a dependency array so that only unique and previously unprovided "," *  dependencies appear in the output list. The output list also canonicalizes"," *  the module names relative to the current require. Labeled dependencies are"," *  unboxed."," *  If relativeModuleDir is set it is used to resolve relative dependencies."," */","bravojs.normalizeDependencyArray = function bravojs_normalizeDependencyArray(dependencies, relativeModuleDir)","{","  var normalizedDependencies = [];","  var i, label;","","  function addNormal(moduleIdentifier)","  {","    var id = moduleIdentifier;","","    if (typeof id != \"string\" || id.charAt(0) != \"/\")","      id = bravojs.contextForId(relativeModuleDir, true).resolveId(id, relativeModuleDir);","","    if (id === null)","      return;","","    if (bravojs.requireMemo[id] || bravojs.pendingModuleDeclarations[id])","      return;","","    normalizedDependencies.push(id);","  }","","  for (i=0; i < dependencies.length; i++)","  {","    if (dependencies[i])","    {","      switch(typeof dependencies[i])","      {","        case \"object\":","          for (label in dependencies[i])","          {","            if (dependencies[i].hasOwnProperty(label))","              addNormal(dependencies[i][label]);","          }","          break;","","        case \"string\":","          addNormal(dependencies[i]);","          break;","","        default:","          throw new Error(\"Invalid dependency array value at position \" + (i+1));","      }","    }","  }","","  return normalizedDependencies;","}","","/** Get a context for a given module ID used to resolve the ID."," * Plugins should override this function to provide additional contexts."," */","bravojs.contextForId = function bravojs_contextForId(id, onlyCreateIfDelimited)","{","  return bravojs.contexts[\"_\"];","}","","/** Make a new context used to resolve module IDs. */","bravojs.makeContext = function bravojs_makeContext(id)","{","  return bravojs.contexts[id] = new bravojs.Context(id);","}","","/** A Context object used to resolve IDs. */","bravojs.Context = function bravojs_Context(id)","{","  this.id = id;","}","","bravojs.Context.prototype.resolveId = function bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir)","{","  var id;","","  if (moduleIdentifier === '')  /* Special case for main module */","    return '';","","  if (typeof moduleIdentifier !== \"string\")","    throw new Error(\"Invalid module identifier: \" + moduleIdentifier);","","  if (moduleIdentifier.charAt(0) === '/')","  {","    /* Absolute path. Not required by CommonJS but it makes dependency list optimization easier */","    id = moduleIdentifier;","  }","  else","  if ((moduleIdentifier.indexOf(\"./\") == 0) || (moduleIdentifier.indexOf(\"../\") == 0))","  {","    /* Relative module path -- relative to relativeModuleDir */","    id = relativeModuleDir + \"/\" + moduleIdentifier;","  }","  else","  {","    /* Top-level module. Since we don't implement require.paths,","     *  make it relative to the main module.","     */","    id = bravojs.mainModuleDir + \"/\" + moduleIdentifier;","  }","","  return bravojs.realpath(id);","}","","/** Provide a module to the environment "," *  @param	dependencies		A dependency array"," *  @param	moduleFactoryFunction	The function which will eventually be invoked"," *					to decorate the module's exports. If not specified,"," *					we assume the factory has already been memoized in"," *					the bravojs.pendingModuleDeclarations object."," *  @param	id			The module.id of the module we're providing"," *  @param	callback		Optional function to run after the module has been"," *					provided to the environment"," */","bravojs.provideModule = function bravojs_provideModule(dependencies, moduleFactory, ","						       id, callback)","{","  /* Memoize the the factory, satistfy the dependencies, and invoke the callback */","  if (moduleFactory)","    bravojs.require.memoize(id, dependencies, moduleFactory);","","  if (dependencies)","  {","    bravojs.module.provide(bravojs.normalizeDependencyArray(dependencies, id?bravojs.dirname(id):bravojs.mainModuleDir), callback);","  }","  else","  {","    if (callback)","      callback();","  }","}","","/** Initialize a module. This makes the exports object available to require(),"," *  runs the module factory function, and removes the factory function from"," *  the pendingModuleDeclarations object."," */","bravojs.initializeModule = function bravojs_initializeModule(id)","{","  var moduleDir     = id ? bravojs.dirname(id) : bravojs.mainModuleDir;","  var moduleFactory = bravojs.pendingModuleDeclarations[id].moduleFactory;","  var dependencies  = bravojs.pendingModuleDeclarations[id].dependencies;","  var require, exports, module;","","  delete bravojs.pendingModuleDeclarations[id];","","  exports = bravojs.requireMemo[id] = {};","  module  = new bravojs.Module(id, dependencies);","","  if (typeof module.augment == \"function\")","    module.augment();","","  require = bravojs.requireFactory(moduleDir, dependencies, module);","","  moduleFactory(require, exports, module);","}","","/** Search the module memo and return the correct module's exports, or throw."," *  Searching the module memo will initialize a matching pending module factory."," */","bravojs.requireModule = function bravojs_requireModule(parentModuleDir, moduleIdentifier)","{","  /* Remove all active contexts as they are not needed any more (load cycle complete) */","  bravojs.activeContexts = [];","","  var id = bravojs.makeModuleId(parentModuleDir, moduleIdentifier);","","  var exports = bravojs.callPlugins(\"requireModule\", [id]);","  if (typeof exports != \"undefined\")","  {","    if (exports === true)","      return bravojs.requireMemo[id];","    return bravojs.requireMemo[id] = exports;","  }","","  /* If id is false the module is not available */","  if (id === false)","    return null;","","  if (!bravojs.requireMemo[id] && bravojs.pendingModuleDeclarations[id])","    bravojs.initializeModule(id);","","  if (id === null || !bravojs.requireMemo[id])","    throw new Error(\"Module \" + id + \" is not available.\");","","  return bravojs.requireMemo[id];","}","","/** Create a new require function, closing over it's path so that relative"," *  modules work as expected."," */","bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies, module)","{","  var deps, i, label;","","  function getContextSensitiveModuleDir()","  {","    var contextId;","    if (bravojs.activeContexts.length > 0)","      contextId = bravojs.activeContexts[bravojs.activeContexts.length-1].id;","    if (typeof contextId == \"undefined\" || !contextId)","      contextId = moduleDir;","    else","    if (contextId == \"_\")","      contextId = bravojs.mainModuleDir;","    return contextId;","  }","","  function addLabeledDep(moduleIdentifier)","  {","    deps[label] = function bravojs_labeled_dependency() ","    { ","      return bravojs.requireModule(getContextSensitiveModuleDir(), moduleIdentifier);","    }","  }","","  if (dependencies)","  {","    for (i=0; i < dependencies.length; i++)","    {","      if (typeof dependencies[i] !== \"object\")","	continue;","","      for (label in dependencies[i])","      {","	if (dependencies[i].hasOwnProperty(label))","	{","	  if (!deps)","	    deps = {};","	  addLabeledDep(dependencies[i][label]);","	}","      }","    }","  }","","  var newRequire = function require(moduleIdentifier) ","  {","    if (deps && deps[moduleIdentifier])","      return deps[moduleIdentifier]();","    return bravojs.requireModule(getContextSensitiveModuleDir(), moduleIdentifier);","  };","","  var ret = bravojs.callPlugins(\"newRequire\", [{","      module: module,","      deps: deps,","      getContextSensitiveModuleDir: getContextSensitiveModuleDir","  }]);","  if (typeof ret != \"undefined\")","    newRequire = ret;","","  newRequire.paths = [bravojs.mainModuleDir];","","  if (typeof bravojs.platform != \"undefined\")","      newRequire.platform = bravojs.platform;","","  newRequire.id = function require_id(moduleIdentifier, unsanitized)","  {","    var contextId = getContextSensitiveModuleDir(),","        context = bravojs.contextForId(contextId, true);","        id = context.resolveId(moduleIdentifier, contextId);","    if (unsanitized)","      return id;","    return bravojs.callPlugins(\"sanitizeId\", [id]) || id;","  }","","  newRequire.uri = function require_uri(moduleIdentifierPath)","  {","    var basename = bravojs.basename(moduleIdentifierPath),","        parts = basename.split(\".\");","    var uri = window.location.protocol + \"/\" + newRequire.id(moduleIdentifierPath, true);","    if (parts.length > 1)","        uri += \".\" + parts.slice(1).join(\".\");","    return uri;","  }","","  newRequire.canonicalize = function require_canonicalize(moduleIdentifier)","  {","    var id = bravojs.makeModuleId(getContextSensitiveModuleDir(), moduleIdentifier);","","    if (id === '')","      throw new Error(\"Cannot canonically name the resource bearing this main module\");","","    return window.location.protocol + \"/\" + id + \".js\";","  }","","  newRequire.memoize = function require_memoize(id, dependencies, moduleFactory)","  {","    bravojs.pendingModuleDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };","  }","","  newRequire.isMemoized = function require_isMemoized(id)","  {","    return (bravojs.pendingModuleDeclarations[id] || bravojs.requireMemo[id]) ? true : false;","  }","","  newRequire.getMemoized = function require_getMemoized(id)","  {","    return bravojs.pendingModuleDeclarations[id] || bravojs.requireMemo[id];","  }","","  bravojs.callPlugins(\"augmentNewRequire\", [newRequire, {","      module: module,","      getContextSensitiveModuleDir: getContextSensitiveModuleDir","  }]);","","  return newRequire;","}","","/** Module object constructor "," *"," *  @param	id		The canonical module id"," *  @param	dependencies	The dependency list passed to module.declare"," */","bravojs.Module = function bravojs_Module(id, dependencies)","{","  this._id       = id;","  this.id        = bravojs.callPlugins(\"sanitizeId\", [id]) || id;","  this[\"protected\"] = void 0;","  this.dependencies = dependencies;","  this.print = bravojs.print;","","  var i, label;","","  /* Create module.deps array */","  this.deps = {};","","  for (i=0; i < dependencies.length; i++)","  {","    if (typeof dependencies[i] === \"string\")","      continue;","","    if (typeof dependencies[i] !== \"object\")","      throw new Error(\"Invalid \" + typeof dependencies[i] + \" element in dependency array at position \" + i);","","    /* Labeled dependency object */","    for (label in dependencies[i])","    {","      if (dependencies[i].hasOwnProperty(label))","      {","        this.deps[label] = function bravojs_lambda_module_deps() ","        {","          bravojs.requireModule(bravojs.dirname(id), dependencies[i][label]);","        };","      }","    }","  }","}","","/** A module.declare suitable for use during DOM SCRIPT-tag insertion."," * "," *  The general technique described below was invented by Kris Zyp."," *"," *  In non-IE browsers, the script's onload event fires as soon as the "," *  script finishes running, so we just memoize the declaration without"," *  doing anything. After the script is loaded, we do the \"real\" work"," *  as the onload event also supplies the script's URI, which we use"," *  to generate the canonical module id."," * "," *  In IE browsers, the event can fire when the tag is being inserted"," *  in the DOM, or sometime thereafter. In the first case, we read a "," *  memo we left behind when we started inserting the tag; in the latter,"," *  we look for interactive scripts."," *"," *  Event			Action		"," *  -------------------------   ------------------------------------------------------------------------------------"," *  Inject Script Tag		onload event populated with URI"," *				scriptTagMemo populated with URI"," *  IE pulls from cache		cname derived in module.declare from scriptTagMemo, invoke provideModule"," *  IE pulls from http		cname derived in module.declare from script.src, invoke provideModule"," *  Non-IE loads script		onload event triggered, most recent incomplete module.declare is completed, "," *				deriving the cname from the onload event."," */","bravojs.Module.prototype.declare = function bravojs_Module_declare(dependencies, moduleFactory)","{","  var stm;","","  if (typeof dependencies === \"function\")","  {","    moduleFactory = dependencies;","    dependencies = [];","  }","","  stm = bravojs.scriptTagMemo;","  if (stm && stm.id === '')		/* Static HTML module */","  {","    delete bravojs.scriptTagMemo;","    bravojs.provideModule(dependencies, moduleFactory, stm.id, stm.callback);    ","    return;","  }","","  if (stm)","    throw new Error(\"Bug\");","","  if (document.addEventListener)	/* non-IE, defer work to script's onload event which will happen immediately */","  {","    bravojs.scriptTagMemo = { dependencies: dependencies, moduleFactory: moduleFactory };","    return;","  }","","  stm = bravojs.scriptTagMemoIE;","  delete bravojs.scriptTagMemoIE;","","  if (stm && stm.id) 			/* IE, pulling from cache */","  {","    bravojs.provideModule(dependencies, moduleFactory, stm.id, stm.callback);","    return;","  }","","  /* Assume IE fetching from remote */","  var scripts = document.getElementsByTagName(\"SCRIPT\");","  var i;","","  for (i = 0; i < scripts.length; i++)","  {","    if (scripts[i].readyState === \"interactive\")","    {","      bravojs.provideModule(dependencies, moduleFactory, bravojs.URL_toId(scripts[i].src), stm.callback);","      return;","    }","  }","","  throw new Error(\"Could not determine module's canonical name from script-tag loader\");","}","","/** A module.provide suitable for a generic web-server back end.  Loads one module at"," *  a time in continuation-passing style, eventually invoking the passed callback."," * "," *  A more effecient function could be written to take advantage of a web server"," *  which might aggregate and transport more than one module per HTTP request."," *"," *  @param	dependencies	A dependency array"," *  @param	callback	The callback to invoke once all dependencies have been"," *				provided to the environment. Optional."," */","bravojs.Module.prototype.provide = function bravojs_Module_provide(dependencies, callback)","{","  var self = arguments.callee;","","  if ((typeof dependencies !== \"object\") || (dependencies.length !== 0 && !dependencies.length))","    throw new Error(\"Invalid dependency array: \" + dependencies.toString());","","  dependencies = bravojs.normalizeDependencyArray(dependencies, (this._id)?this._id:bravojs.mainModuleDir);","","  if (dependencies.length === 0)","  {","    if (callback)","      callback();","    return;","  }","","  bravojs.activeContexts.push(bravojs.contextForId(dependencies[0], true));","","  bravojs.module.load(dependencies[0], function bravojs_lambda_provideNextDep() { self(dependencies.slice(1), callback) });","","  bravojs.activeContexts.pop();","}","","/** A module.load suitable for a generic web-server back end. The module is"," *  loaded by injecting a SCRIPT tag into the DOM."," *"," *  @param	moduleIdentifier	Module to load"," *  @param	callback		Callback to invoke when the module has loaded."," *"," *  @see	bravojs_Module_declare"," */","bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, callback)","{","  if (window.module.hasOwnProperty(\"declare\"))","    delete window.module.declare;","","  var script = document.createElement('SCRIPT');","  script.setAttribute(\"type\",\"text/javascript\");","  script.setAttribute(\"src\", bravojs.require.canonicalize(moduleIdentifier) + \"?1\");","","  if (document.addEventListener)	/* Non-IE; see bravojs_Module_declare */","  {","    script.onload = function bravojs_lambda_script_onload()","    {","      /* stm contains info from recently-run module.declare() */","      var stm = bravojs.scriptTagMemo;","      if (typeof stm === \"undefined\")","        throw new Error(\"Module '\" + moduleIdentifier + \"' did not invoke module.declare!\");","","      delete bravojs.scriptTagMemo;","","      if (typeof moduleIdentifier == \"object\")","      {","        /* The id is a mapping locator and needs to be resolved. */","        moduleIdentifier = bravojs.makeModuleId(bravojs.mainModuleDir, moduleIdentifier);","      }","","      bravojs.activeContexts.push(bravojs.contextForId(moduleIdentifier, true));","","      bravojs.provideModule(stm.dependencies, stm.moduleFactory, bravojs.require.id(moduleIdentifier, true), function()","      {","        callback(moduleIdentifier);","      });","","      bravojs.activeContexts.pop();","    }","","    script.onerror = function bravojs_lambda_script_onerror() ","    { ","      var id = bravojs.require.id(moduleIdentifier, true);","      bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */","      callback();","    }","  }","  else","  {","    bravojs.scriptTagMemoIE = { moduleIdentifier: moduleIdentifier, callback: callback };","","    script.onreadystatechange = function bravojs_lambda_script_onreadystatechange()","    {","      if (this.readyState != \"loaded\")","        return;","","      /* failed load below */","      var id = bravojs.require.id(moduleIdentifier, true);","","      if (!bravojs.pendingModuleDeclarations[id] && !bravojs.requireMemo[id] && id === bravojs.scriptTagMemoIE.moduleIdentifier)","      {","        bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */","        callback();","      }","    }","  }","","  document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","}","","bravojs.Module.prototype.eventually = function(cb) { cb(); };","","/** Shim the environment to have CommonJS ES-5 requirements (if needed),"," *  the execute the callback"," */","bravojs.es5_shim_then = function bravojs_es5_shim_then(callback)","{","  if (!Array.prototype.indexOf)","  {","    /* Load ES-5 shim into the environment before executing the main module */","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", bravojs.dirname(bravojs.url) + \"/global-es5.js?1\");","","    if (document.addEventListener)","      script.onload = callback;","    else","    {","      script.onreadystatechange = function() ","      {","	if (this.readyState === \"loaded\")","	  callback();","      }","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","  }","  else","  {","    callback();","  }","}","","/** Reload a module, violating the CommonJS singleton paradigm and"," *  potentially introducing bugs in to the program using this function --"," *  as references to the previous instance of the module may still be"," *  held by the application program."," */","bravojs.reloadModule = function(id, callback)","{","  delete bravojs.pendingModuleDeclarations[id];","  delete bravojs.requireMemo[id];","  bravojs.module.provide([id], callback);","}","","/** Main module bootstrap */","bravojs.initializeMainModule = function bravojs_initializeMainModule(dependencies, moduleFactory, moduleIdentifier)","{","  if (bravojs.module.hasOwnProperty(\"declare\"))		/* special extra-module environment bootstrap declare needs to go */","    delete bravojs.module.declare;","","  if (bravojs.module.constructor.prototype.main)","    throw new Error(\"Main module has already been initialized!\");","","  bravojs.es5_shim_then","  (","    (function() ","     {","       bravojs.provideModule(dependencies, moduleFactory, moduleIdentifier, function bravojs_lambda_requireMain() { bravojs.module.constructor.prototype.main = bravojs.require(moduleIdentifier); })","     })","  ); ","}","","/** Run a module which is not declared in the HTML document and make it the program module."," *  @param	dependencies		[optional]	A list of dependencies to sastify before running the mdoule"," *  @param	moduleIdentifier	moduleIdentifier, relative to dirname(window.location.href). This function"," *					adjusts the module path such that the program module's directory is the"," *					top-level module directory before the dependencies are resolved."," *  @param	callback		[optional]	Callback to invoke once the main module has been initialized"," */","bravojs.runExternalMainModule = function bravojs_runExternalProgram(dependencies, moduleIdentifier, callback)","{","  if (arguments.length === 1 || typeof moduleIdentifier === \"function\")","  {","    callback = moduleIdentifier;","    moduleIdentifier = dependencies;","    dependencies = [];","  }","","  delete bravojs.module.declare;","","  if (moduleIdentifier.charAt(0) === '/')","    bravojs.mainModuleDir = bravojs.dirname(moduleIdentifier);","  else","    bravojs.mainModuleDir = bravojs.dirname(bravojs.URL_toId(window.location.href + \".js\"), true) + \"/\" + bravojs.dirname(moduleIdentifier);","","  moduleIdentifier = bravojs.basename(moduleIdentifier);","","  bravojs.es5_shim_then(","      function() {","	bravojs.module.provide(dependencies.concat([moduleIdentifier]), ","		       function bravojs_runMainModule() {","			 bravojs.initializeMainModule(dependencies, '', moduleIdentifier);","			 if (callback)","			   callback(); ","		       })","	    });","}","","bravojs.reset();","","if (typeof bravojs.url === \"undefined\")","{","/** Set the BravoJS URL, so that BravoJS can load components"," *  relative to its install dir.  The HTML script element that"," *  loads BravoJS must either have the ID BravoJS, or be the"," *  very first script in the document."," */ ","(function bravojs_setURL()","{","  var i;","  var checkBasename = false;","  var script;","","  script = document.getElementById(\"BravoJS\");","  if (!script)","  {","    checkBasename = true;","    script = document.getElementsByTagName(\"SCRIPT\")[0];","  }","","  bravojs.url = script.src;","  i = bravojs.url.indexOf(\"?\");","  if (i !== -1)","    bravojs.url = bravojs.url.slice(0,i);","  i = bravojs.url.indexOf(\"#\");","  if (i !== -1)","    bravojs.url = bravojs.url.slice(0,i);","","  if (checkBasename && bravojs.basename(bravojs.url) !== \"bravo.js\")","    throw new Error(\"Could not determine BravoJS URL. BravoJS must be the first script, or have id='BravoJS'\");","})();","}","","/** Diagnostic Aids */","var print   = bravojs.print;","if (!window.onerror)","{","  window.onerror = function window_onerror(message, url, line) ","  { ","    var scripts, i;","","    print(\"\n * Error: \" + message + \"\n\" + ","          \"      in: \" + url + \"\n\" + ","          \"    line: \" + line);  ","  }","}","","} catch(e) { bravojs.errorReporter(e); }","","}","","if (typeof exports !== \"undefined\")","{","    exports.BravoJS = function(context)","    {","        context = context || {};","","        var window = {","            location: {","                protocol: \"memory:\",","                href: \"memory:/\" + ((typeof context.mainModuleDir != \"undefined\")?context.mainModuleDir:\"/bravojs/\")","            }","        };","","        var bravojs = {","            mainModuleDir: context.mainModuleDir || void 0,","            platform: context.platform || void 0,","            url: window.location.href,","            print: (context.api && context.api.system && context.api.system.print) || void 0,","            errorReporter: (context.api && context.api.errorReporter) || void 0,","            XMLHttpRequest: (context.api && context.api.XMLHttpRequest) || void 0,","            DEBUG: context.DEBUG || void 0","        };","","        bravojs_init(bravojs, window);","","        context.bravojs = bravojs;","    }","}","else","{","    if (typeof bravojs === \"undefined\")","      bravojs = {};","    bravojs_init(bravojs, (typeof window != \"undefined\")?window:this);","}",""].join("\n");
+return ["/**"," *  This file implements BravoJS, a CommonJS Modules/2.0 environment."," *"," *  Copyright (c) 2010, PageMail, Inc."," *  Wes Garland, wes@page.ca"," *  MIT License"," *"," *    - Initial implementation"," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *    - Added package and mappings support"," *    - Various tweaks"," *"," */","","function bravojs_init(bravojs,    /**< Namespace object for this implementation */","                      window)","{","try {","","bravojs.window = window;","","if (!bravojs.hasOwnProperty(\"errorReporter\"))","{","  bravojs.errorReporter = function bravojs_defaultDrrorReporter(e)","  {","    if (typeof alert != \"undefined\")","        alert(\" * BravoJS: \" + e + \"\n\" + e.stack);","    throw(e);","  }","}","","/** Reset the environment so that a new main module can be loaded */","bravojs.reset = function bravojs_reset(mainModuleDir, plugins)","{","  if (!mainModuleDir)","  {","    if (typeof bravojs.mainModuleDir != \"undefined\")","      mainModuleDir = bravojs.mainModuleDir;","    else","      mainModuleDir = bravojs.dirname(bravojs.URL_toId(window.location.href + \".js\", true));","  }","","  bravojs.requireMemo 			= {};	/**< Module exports, indexed by canonical name */","  bravojs.pendingModuleDeclarations	= {};	/**< Module.declare arguments, indexed by canonical name */","  bravojs.mainModuleDir 		= mainModuleDir;","  bravojs.plugins = plugins || [];","  bravojs.contexts = {};","  bravojs.activeContexts = [];","","  delete bravojs.Module.prototype.main;","  delete bravojs.scriptTagMemo;","  delete bravojs.scriptTagMemoIE;","","  /* The default context. Needed before bravojs.Module() can be called. */","  bravojs.makeContext(\"_\");","","  /** Extra-module environment */","  bravojs.module = window.module = new bravojs.Module('', []);","  bravojs.require = window.require = bravojs.requireFactory(bravojs.mainModuleDir, [], bravojs.module);","","  /* Module.declare function which handles main modules inline SCRIPT tags.","   * This function gets deleted as soon as it runs, allowing the module.declare","   * from the prototype take over. Modules created from this function have","   * the empty string as module.id.","   */","  bravojs.module.declare = function main_module_declare(dependencies, moduleFactory)","  {","    if (typeof dependencies === \"function\")","    {","      moduleFactory = dependencies;","      dependencies = [];","    }","","    bravojs.initializeMainModule(dependencies, moduleFactory, '');","  }","}","","/** Print to text to stdout */","function bravojs_print()","{","  var output=\"\";","  var i;","  var stdout;","","  for (i=0; i < arguments.length; i++)","    output += arguments[i] + (i===arguments.length - 1 ? \"\" : \" \");","  output.replace(/\t/, \"        \");","","  if (typeof window.document != \"undefined\" && (stdout = window.document.getElementById('stdout')))","  {","    output += \"\n\";","","    if (typeof stdout.value !== \"undefined\")","    {","      stdout.value += output;","      if (stdout.focus)","        stdout.focus();","","      if (stdout.tagName === \"TEXTAREA\")","        stdout.scrollTop = stdout.scrollHeight;","    }","    else","    {","      if (typeof stdout.innerText !== \"undefined\")","      {","        stdout.innerText = stdout.innerText.slice(0,-1) + output + \" \"; 	/* IE normalizes trailing newlines away */","      }","      else","        stdout.textContent += output;","    }","  }","  else if (typeof console === \"object\" && console.print)","  {","    console.print(output);","  }","  else if (typeof console === \"object\" && console.log)","  {","    console.log(output);","  }","  // WebWorker","  else if (typeof importScripts === \"function\" && typeof postMessage === \"function\")","  {","      postMessage({type: \"log\", data: output});","  }","  else","    alert(\" * BravoJS stdout: \" + output);","}","if (typeof bravojs.print === \"undefined\")","    bravojs.print = bravojs_print;","","bravojs.registerPlugin = function(plugin)","{","    plugin.bravojs = bravojs;","    bravojs.plugins.push(plugin);","    if (typeof plugin.init == \"function\")","      plugin.init();","}","","bravojs.callPlugins = function(method, args)","{","  var i, ret;","  for (i = 0 ; i < bravojs.plugins.length ; i++ )","  {","    if (typeof bravojs.plugins[i][method] != \"undefined\" &&","        typeof (ret = bravojs.plugins[i][method].apply(bravojs.plugins[i], args)) != \"undefined\")","        break;","  }","  return ret;","}","","/** Canonicalize path, compacting slashes and dots per basic UNIX rules."," *  Treats paths with trailing slashes as though they end with INDEX instead."," *  Not rigorous."," */","bravojs.realpath = function bravojs_realpath(path, index)","{","  if (typeof index === \"undefined\")","    index = \"INDEX\";","  if (typeof path !== \"string\")","    path = path.toString();","","  var oldPath = path.split('/');","  var newPath = [];","  var i;","","  if (path.charAt(path.length - 1) === '/' && index)","    oldPath.push(index);","","  for (i = 0; i < oldPath.length; i++)","  {","    if (oldPath[i] == '.' || !oldPath[i].length)","      continue;","    if (oldPath[i] == '..')","    {","      if (!newPath.length)","	throw new Error(\"Invalid module path: \" + path);","      newPath.pop();","      continue;","    }","    newPath.push(oldPath[i]);","  }","","  newPath.unshift('');","  return newPath.join('/');","}","","/** Extract the non-directory portion of a path */","bravojs.basename = function bravojs_basename(path)","{","  if (typeof path !== \"string\")","    path = path.toString();","","  var s = path.split('/').slice(-1).join('/');","  if (!s)","    return path;","  return s;","}","","/** Extract the directory portion of a path */","bravojs.dirname = function bravojs_dirname(path)","{","  if (typeof path !== \"string\")","    path = path.toString();","","  if (path.charAt(path.length - 1) === '/')","    return path.slice(0,-1);","","  var s = path.split('/').slice(0,-1).join('/');","  if (!s)","    return \".\";","","  return s;","}","","/** Turn a module identifier and module directory into a canonical"," *  module.id."," */","bravojs.makeModuleId = function makeModuleId(relativeModuleDir, moduleIdentifier)","{","  return bravojs.contextForId(relativeModuleDir, true).resolveId(moduleIdentifier, relativeModuleDir);","}","","/** Turn a script URL into a canonical module.id */","bravojs.URL_toId = function URL_toId(moduleURL, relaxValidation)","{","  var i;","","  /* Treat the whole web as our module repository.","   * 'http://www.page.ca/a/b/module.js' has id '/www.page.ca/a/b/module'. ","   */","  i = moduleURL.indexOf(\"://\");","  if (i == -1)","    throw new Error(\"Invalid module URL: \" + moduleURL);","  id = moduleURL.slice(i + 2);","","  id = bravojs.realpath(id);","  if ((i = id.indexOf('?')) != -1)","    id = id.slice(0, i);","  if ((i = id.indexOf('#')) != -1)","    id = id.slice(0, i);","","  if (!relaxValidation && (id.slice(-3) != \".js\"))","    throw new Error(\"Invalid module URL: \" + moduleURL);","  id = id.slice(0,-3);","","  return id;","}","","/** Normalize a dependency array so that only unique and previously unprovided "," *  dependencies appear in the output list. The output list also canonicalizes"," *  the module names relative to the current require. Labeled dependencies are"," *  unboxed."," *  If relativeModuleDir is set it is used to resolve relative dependencies."," */","bravojs.normalizeDependencyArray = function bravojs_normalizeDependencyArray(dependencies, relativeModuleDir)","{","  var normalizedDependencies = [];","  var i, label;","","  function addNormal(moduleIdentifier)","  {","    var id = moduleIdentifier;","","    if (typeof id != \"string\" || id.charAt(0) != \"/\")","      id = bravojs.contextForId(relativeModuleDir, true).resolveId(id, relativeModuleDir);","","    if (id === null)","      return;","","    if (bravojs.requireMemo[id] || bravojs.pendingModuleDeclarations[id])","      return;","","    normalizedDependencies.push(id);","  }","","  for (i=0; i < dependencies.length; i++)","  {","    if (dependencies[i])","    {","      switch(typeof dependencies[i])","      {","        case \"object\":","          for (label in dependencies[i])","          {","            if (dependencies[i].hasOwnProperty(label))","              addNormal(dependencies[i][label]);","          }","          break;","","        case \"string\":","          addNormal(dependencies[i]);","          break;","","        default:","          throw new Error(\"Invalid dependency array value at position \" + (i+1));","      }","    }","  }","","  return normalizedDependencies;","}","","/** Get a context for a given module ID used to resolve the ID."," * Plugins should override this function to provide additional contexts."," */","bravojs.contextForId = function bravojs_contextForId(id, onlyCreateIfDelimited)","{","  return bravojs.contexts[\"_\"];","}","","/** Make a new context used to resolve module IDs. */","bravojs.makeContext = function bravojs_makeContext(id)","{","  return bravojs.contexts[id] = new bravojs.Context(id);","}","","/** A Context object used to resolve IDs. */","bravojs.Context = function bravojs_Context(id)","{","  this.id = id;","}","","bravojs.Context.prototype.resolveId = function bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir)","{","  var id;","","  if (moduleIdentifier === '')  /* Special case for main module */","    return '';","","  if (typeof moduleIdentifier !== \"string\")","    throw new Error(\"Invalid module identifier: \" + moduleIdentifier);","","  if (moduleIdentifier.charAt(0) === '/')","  {","    /* Absolute path. Not required by CommonJS but it makes dependency list optimization easier */","    id = moduleIdentifier;","  }","  else","  if ((moduleIdentifier.indexOf(\"./\") == 0) || (moduleIdentifier.indexOf(\"../\") == 0))","  {","    /* Relative module path -- relative to relativeModuleDir */","    id = relativeModuleDir + \"/\" + moduleIdentifier;","  }","  else","  {","    /* Top-level module. Since we don't implement require.paths,","     *  make it relative to the main module.","     */","    id = bravojs.mainModuleDir + \"/\" + moduleIdentifier;","  }","","  return bravojs.realpath(id);","}","","/** Provide a module to the environment "," *  @param	dependencies		A dependency array"," *  @param	moduleFactoryFunction	The function which will eventually be invoked"," *					to decorate the module's exports. If not specified,"," *					we assume the factory has already been memoized in"," *					the bravojs.pendingModuleDeclarations object."," *  @param	id			The module.id of the module we're providing"," *  @param	callback		Optional function to run after the module has been"," *					provided to the environment"," */","bravojs.provideModule = function bravojs_provideModule(dependencies, moduleFactory, ","						       id, callback)","{","  /* Memoize the the factory, satistfy the dependencies, and invoke the callback */","  if (moduleFactory)","    bravojs.require.memoize(id, dependencies, moduleFactory);","","  if (dependencies)","  {","    bravojs.module.provide(bravojs.normalizeDependencyArray(dependencies, id?bravojs.dirname(id):bravojs.mainModuleDir), callback);","  }","  else","  {","    if (callback)","      callback();","  }","}","","/** Initialize a module. This makes the exports object available to require(),"," *  runs the module factory function, and removes the factory function from"," *  the pendingModuleDeclarations object."," */","bravojs.initializeModule = function bravojs_initializeModule(id)","{","  var moduleDir     = id ? bravojs.dirname(id) : bravojs.mainModuleDir;","  var moduleFactory = bravojs.pendingModuleDeclarations[id].moduleFactory;","  var dependencies  = bravojs.pendingModuleDeclarations[id].dependencies;","  var require, exports, module;","","  delete bravojs.pendingModuleDeclarations[id];","","  exports = bravojs.requireMemo[id] = {};","  module  = new bravojs.Module(id, dependencies);","","  if (typeof module.augment == \"function\")","    module.augment();","","  require = bravojs.requireFactory(moduleDir, dependencies, module);","","  moduleFactory(require, exports, module);","}","","/** Search the module memo and return the correct module's exports, or throw."," *  Searching the module memo will initialize a matching pending module factory."," */","bravojs.requireModule = function bravojs_requireModule(parentModuleDir, moduleIdentifier)","{","  /* Remove all active contexts as they are not needed any more (load cycle complete) */","  bravojs.activeContexts = [];","","  var id = bravojs.makeModuleId(parentModuleDir, moduleIdentifier);","","  var exports = bravojs.callPlugins(\"requireModule\", [id]);","  if (typeof exports != \"undefined\")","  {","    if (exports === true)","      return bravojs.requireMemo[id];","    return bravojs.requireMemo[id] = exports;","  }","","  /* If id is false the module is not available */","  if (id === false)","    return null;","","  if (!bravojs.requireMemo[id] && bravojs.pendingModuleDeclarations[id])","    bravojs.initializeModule(id);","","  if (id === null || !bravojs.requireMemo[id])","    throw new Error(\"Module \" + id + \" is not available.\");","","  return bravojs.requireMemo[id];","}","","/** Create a new require function, closing over it's path so that relative"," *  modules work as expected."," */","bravojs.requireFactory = function bravojs_requireFactory(moduleDir, dependencies, module)","{","  var deps, i, label;","","  function getContextSensitiveModuleDir()","  {","    var contextId;","    if (bravojs.activeContexts.length > 0)","      contextId = bravojs.activeContexts[bravojs.activeContexts.length-1].id;","    if (typeof contextId == \"undefined\" || !contextId)","      contextId = moduleDir;","    else","    if (contextId == \"_\")","      contextId = bravojs.mainModuleDir;","    return contextId;","  }","","  function addLabeledDep(moduleIdentifier)","  {","    deps[label] = function bravojs_labeled_dependency() ","    { ","      return bravojs.requireModule(getContextSensitiveModuleDir(), moduleIdentifier);","    }","  }","","  if (dependencies)","  {","    for (i=0; i < dependencies.length; i++)","    {","      if (typeof dependencies[i] !== \"object\")","	    continue;","","      for (label in dependencies[i])","      {","		if (dependencies[i].hasOwnProperty(label))","		{","		  if (!deps)","		    deps = {};","		  addLabeledDep(dependencies[i][label]);","		}","      }","    }","  }","","  var newRequire = function require(moduleIdentifier) ","  {","    if (deps && deps[moduleIdentifier])","      return deps[moduleIdentifier]();","    return bravojs.requireModule(getContextSensitiveModuleDir(), moduleIdentifier);","  };","","  var ret = bravojs.callPlugins(\"newRequire\", [{","      module: module,","      deps: deps,","      getContextSensitiveModuleDir: getContextSensitiveModuleDir","  }]);","  if (typeof ret != \"undefined\")","    newRequire = ret;","","  newRequire.paths = [bravojs.mainModuleDir];","","  if (typeof bravojs.platform != \"undefined\")","      newRequire.platform = bravojs.platform;","","  newRequire.id = function require_id(moduleIdentifier, unsanitized)","  {","    var contextId = getContextSensitiveModuleDir(),","        context = bravojs.contextForId(contextId, true),","        id = context.resolveId(moduleIdentifier, contextId);","    if (unsanitized)","      return id;","    return bravojs.callPlugins(\"sanitizeId\", [id]) || id;","  }","","  newRequire.uri = function require_uri(moduleIdentifierPath)","  {","    var basename = bravojs.basename(moduleIdentifierPath),","        parts = basename.split(\".\");","    var uri = window.location.protocol + \"/\" + newRequire.id(moduleIdentifierPath, true);","    if (parts.length > 1)","        uri += \".\" + parts.slice(1).join(\".\");","    return uri;","  }","","  newRequire.canonicalize = function require_canonicalize(moduleIdentifier)","  {","    var id = bravojs.makeModuleId(getContextSensitiveModuleDir(), moduleIdentifier);","","    if (id === '')","      throw new Error(\"Cannot canonically name the resource bearing this main module\");","","    return window.location.protocol + \"/\" + id + \".js\";","  }","","  newRequire.memoize = function require_memoize(id, dependencies, moduleFactory)","  {","    bravojs.pendingModuleDeclarations[id] = { moduleFactory: moduleFactory, dependencies: dependencies };","  }","","  newRequire.isMemoized = function require_isMemoized(id)","  {","    return (bravojs.pendingModuleDeclarations[id] || bravojs.requireMemo[id]) ? true : false;","  }","","  newRequire.getMemoized = function require_getMemoized(id)","  {","    return bravojs.pendingModuleDeclarations[id] || bravojs.requireMemo[id];","  }","","  bravojs.callPlugins(\"augmentNewRequire\", [newRequire, {","      module: module,","      getContextSensitiveModuleDir: getContextSensitiveModuleDir","  }]);","","  return newRequire;","}","","/** Module object constructor "," *"," *  @param	id		The canonical module id"," *  @param	dependencies	The dependency list passed to module.declare"," */","bravojs.Module = function bravojs_Module(id, dependencies)","{","  this._id       = id;","  this.id        = bravojs.callPlugins(\"sanitizeId\", [id]) || id;","  this[\"protected\"] = void 0;","  this.dependencies = dependencies;","  this.print = bravojs.print;","","  var i, label;","","  /* Create module.deps array */","  this.deps = {};","","  for (i=0; i < dependencies.length; i++)","  {","    if (typeof dependencies[i] === \"string\")","      continue;","","    if (typeof dependencies[i] !== \"object\")","      throw new Error(\"Invalid \" + typeof dependencies[i] + \" element in dependency array at position \" + i);","","    /* Labeled dependency object */","    for (label in dependencies[i])","    {","      if (dependencies[i].hasOwnProperty(label))","      {","        this.deps[label] = function bravojs_lambda_module_deps() ","        {","          bravojs.requireModule(bravojs.dirname(id), dependencies[i][label]);","        };","      }","    }","  }","}","","/** A module.declare suitable for use during DOM SCRIPT-tag insertion."," * "," *  The general technique described below was invented by Kris Zyp."," *"," *  In non-IE browsers, the script's onload event fires as soon as the "," *  script finishes running, so we just memoize the declaration without"," *  doing anything. After the script is loaded, we do the \"real\" work"," *  as the onload event also supplies the script's URI, which we use"," *  to generate the canonical module id."," * "," *  In IE browsers, the event can fire when the tag is being inserted"," *  in the DOM, or sometime thereafter. In the first case, we read a "," *  memo we left behind when we started inserting the tag; in the latter,"," *  we look for interactive scripts."," *"," *  Event			Action		"," *  -------------------------   ------------------------------------------------------------------------------------"," *  Inject Script Tag		onload event populated with URI"," *				scriptTagMemo populated with URI"," *  IE pulls from cache		cname derived in module.declare from scriptTagMemo, invoke provideModule"," *  IE pulls from http		cname derived in module.declare from script.src, invoke provideModule"," *  Non-IE loads script		onload event triggered, most recent incomplete module.declare is completed, "," *				deriving the cname from the onload event."," */","bravojs.Module.prototype.declare = function bravojs_Module_declare(dependencies, moduleFactory)","{","  var stm;","","  if (typeof dependencies === \"function\")","  {","    moduleFactory = dependencies;","    dependencies = [];","  }","","  stm = bravojs.scriptTagMemo;","  if (stm && stm.id === '')		/* Static HTML module */","  {","    delete bravojs.scriptTagMemo;","    bravojs.provideModule(dependencies, moduleFactory, stm.id, stm.callback);    ","    return;","  }","","  if (stm)","    throw new Error(\"Bug\");","","  if (document.addEventListener)	/* non-IE, defer work to script's onload event which will happen immediately */","  {","    bravojs.scriptTagMemo = { dependencies: dependencies, moduleFactory: moduleFactory };","    return;","  }","","  stm = bravojs.scriptTagMemoIE;","  delete bravojs.scriptTagMemoIE;","","  if (stm && stm.id) 			/* IE, pulling from cache */","  {","    bravojs.provideModule(dependencies, moduleFactory, stm.id, stm.callback);","    return;","  }","","  /* Assume IE fetching from remote */","  var scripts = document.getElementsByTagName(\"SCRIPT\");","  var i;","","  for (i = 0; i < scripts.length; i++)","  {","    if (scripts[i].readyState === \"interactive\")","    {","      bravojs.provideModule(dependencies, moduleFactory, bravojs.URL_toId(scripts[i].src), stm.callback);","      return;","    }","  }","","  throw new Error(\"Could not determine module's canonical name from script-tag loader\");","}","","/** A module.provide suitable for a generic web-server back end.  Loads one module at"," *  a time in continuation-passing style, eventually invoking the passed callback."," * "," *  A more effecient function could be written to take advantage of a web server"," *  which might aggregate and transport more than one module per HTTP request."," *"," *  @param	dependencies	A dependency array"," *  @param	callback	The callback to invoke once all dependencies have been"," *				provided to the environment. Optional."," */","bravojs.Module.prototype.provide = function bravojs_Module_provide(dependencies, callback)","{","  var self = arguments.callee;","","  if ((typeof dependencies !== \"object\") || (dependencies.length !== 0 && !dependencies.length))","    throw new Error(\"Invalid dependency array: \" + dependencies.toString());","","  dependencies = bravojs.normalizeDependencyArray(dependencies, (this._id)?this._id:bravojs.mainModuleDir);","","  if (dependencies.length === 0)","  {","    if (callback)","      callback();","    return;","  }","","  bravojs.activeContexts.push(bravojs.contextForId(dependencies[0], true));","","  bravojs.module.load(dependencies[0], function bravojs_lambda_provideNextDep() { self(dependencies.slice(1), callback) });","","  bravojs.activeContexts.pop();","}","","/** A module.load suitable for a generic web-server back end. The module is"," *  loaded by injecting a SCRIPT tag into the DOM."," *"," *  @param	moduleIdentifier	Module to load"," *  @param	callback		Callback to invoke when the module has loaded."," *"," *  @see	bravojs_Module_declare"," */","bravojs.Module.prototype.load = function bravojs_Module_load(moduleIdentifier, callback)","{","  if (window.module.hasOwnProperty(\"declare\"))","    delete window.module.declare;","","  var script = document.createElement('SCRIPT');","  script.setAttribute(\"type\",\"text/javascript\");","  script.setAttribute(\"src\", bravojs.require.canonicalize(moduleIdentifier) + \"?1\");","","  if (document.addEventListener)	/* Non-IE; see bravojs_Module_declare */","  {","    script.onload = function bravojs_lambda_script_onload()","    {","      /* stm contains info from recently-run module.declare() */","      var stm = bravojs.scriptTagMemo;","      if (typeof stm === \"undefined\")","        throw new Error(\"Module '\" + moduleIdentifier + \"' did not invoke module.declare!\");","","      delete bravojs.scriptTagMemo;","","      if (typeof moduleIdentifier == \"object\")","      {","        /* The id is a mapping locator and needs to be resolved. */","        moduleIdentifier = bravojs.makeModuleId(bravojs.mainModuleDir, moduleIdentifier);","      }","","      bravojs.activeContexts.push(bravojs.contextForId(moduleIdentifier, true));","","      bravojs.provideModule(stm.dependencies, stm.moduleFactory, bravojs.require.id(moduleIdentifier, true), function()","      {","        callback(moduleIdentifier);","      });","","      bravojs.activeContexts.pop();","    }","","    script.onerror = function bravojs_lambda_script_onerror() ","    { ","      var id = bravojs.require.id(moduleIdentifier, true);","      bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */","      callback();","    }","  }","  else","  {","    bravojs.scriptTagMemoIE = { moduleIdentifier: moduleIdentifier, callback: callback };","","    script.onreadystatechange = function bravojs_lambda_script_onreadystatechange()","    {","      if (this.readyState != \"loaded\")","        return;","","      /* failed load below */","      var id = bravojs.require.id(moduleIdentifier, true);","","      if (!bravojs.pendingModuleDeclarations[id] && !bravojs.requireMemo[id] && id === bravojs.scriptTagMemoIE.moduleIdentifier)","      {","        bravojs.pendingModuleDeclarations[id] = null;	/* Mark null so we don't try to run, but also don't try to reload */","        callback();","      }","    }","  }","","  document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","}","","bravojs.Module.prototype.eventually = function(cb) { cb(); };","","/** Shim the environment to have CommonJS ES-5 requirements (if needed),"," *  the execute the callback"," */","bravojs.es5_shim_then = function bravojs_es5_shim_then(callback)","{","  if (!Array.prototype.indexOf)","  {","    /* Load ES-5 shim into the environment before executing the main module */","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", bravojs.dirname(bravojs.url) + \"/global-es5.js?1\");","","    if (document.addEventListener)","      script.onload = callback;","    else","    {","      script.onreadystatechange = function() ","      {","	if (this.readyState === \"loaded\")","	  callback();","      }","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","  }","  else","  {","    callback();","  }","}","","/** Reload a module, violating the CommonJS singleton paradigm and"," *  potentially introducing bugs in to the program using this function --"," *  as references to the previous instance of the module may still be"," *  held by the application program."," */","bravojs.reloadModule = function(id, callback)","{","  delete bravojs.pendingModuleDeclarations[id];","  delete bravojs.requireMemo[id];","  bravojs.module.provide([id], callback);","}","","/** Main module bootstrap */","bravojs.initializeMainModule = function bravojs_initializeMainModule(dependencies, moduleFactory, moduleIdentifier)","{","  if (bravojs.module.hasOwnProperty(\"declare\"))		/* special extra-module environment bootstrap declare needs to go */","    delete bravojs.module.declare;","","  if (bravojs.module.constructor.prototype.main)","    throw new Error(\"Main module has already been initialized!\");","","  bravojs.es5_shim_then","  (","    (function() ","     {","       bravojs.provideModule(dependencies, moduleFactory, moduleIdentifier, function bravojs_lambda_requireMain() { bravojs.module.constructor.prototype.main = bravojs.require(moduleIdentifier); })","     })","  ); ","}","","/** Run a module which is not declared in the HTML document and make it the program module."," *  @param	dependencies		[optional]	A list of dependencies to sastify before running the mdoule"," *  @param	moduleIdentifier	moduleIdentifier, relative to dirname(window.location.href). This function"," *					adjusts the module path such that the program module's directory is the"," *					top-level module directory before the dependencies are resolved."," *  @param	callback		[optional]	Callback to invoke once the main module has been initialized"," */","bravojs.runExternalMainModule = function bravojs_runExternalProgram(dependencies, moduleIdentifier, callback)","{","  if (arguments.length === 1 || typeof moduleIdentifier === \"function\")","  {","    callback = moduleIdentifier;","    moduleIdentifier = dependencies;","    dependencies = [];","  }","","  delete bravojs.module.declare;","","  if (moduleIdentifier.charAt(0) === '/')","    bravojs.mainModuleDir = bravojs.dirname(moduleIdentifier);","  else","    bravojs.mainModuleDir = bravojs.dirname(bravojs.URL_toId(window.location.href + \".js\"), true) + \"/\" + bravojs.dirname(moduleIdentifier);","","  moduleIdentifier = bravojs.basename(moduleIdentifier);","","  bravojs.es5_shim_then(","      function() {","	bravojs.module.provide(dependencies.concat([moduleIdentifier]), ","		       function bravojs_runMainModule() {","			 bravojs.initializeMainModule(dependencies, '', moduleIdentifier);","			 if (callback)","			   callback(); ","		       })","	    });","}","","bravojs.reset();","","if (typeof bravojs.url === \"undefined\")","{","/** Set the BravoJS URL, so that BravoJS can load components"," *  relative to its install dir.  The HTML script element that"," *  loads BravoJS must either have the ID BravoJS, or be the"," *  very first script in the document."," */ ","(function bravojs_setURL()","{","  var i;","  var checkBasename = false;","  var script;","","  script = document.getElementById(\"BravoJS\");","  if (!script)","  {","    checkBasename = true;","    script = document.getElementsByTagName(\"SCRIPT\")[0];","  }","","  bravojs.url = script.src;","  i = bravojs.url.indexOf(\"?\");","  if (i !== -1)","    bravojs.url = bravojs.url.slice(0,i);","  i = bravojs.url.indexOf(\"#\");","  if (i !== -1)","    bravojs.url = bravojs.url.slice(0,i);","","  if (checkBasename && bravojs.basename(bravojs.url) !== \"bravo.js\")","    throw new Error(\"Could not determine BravoJS URL. BravoJS must be the first script, or have id='BravoJS'\");","})();","}","","/** Diagnostic Aids */","var print   = bravojs.print;","if (!window.onerror)","{","  window.onerror = function window_onerror(message, url, line) ","  { ","    var scripts, i;","","    print(\"\n * Error: \" + message + \"\n\" + ","          \"      in: \" + url + \"\n\" + ","          \"    line: \" + line);  ","  }","}","","} catch(e) { bravojs.errorReporter(e); }","","}","","if (typeof exports !== \"undefined\")","{","    exports.BravoJS = function(context)","    {","        context = context || {};","","        var window = {","            location: {","                protocol: \"memory:\",","                href: \"memory:/\" + ((typeof context.mainModuleDir != \"undefined\")?context.mainModuleDir:\"/bravojs/\")","            }","        };","","        var bravojs = {","            mainModuleDir: context.mainModuleDir || void 0,","            platform: context.platform || void 0,","            url: window.location.href,","            print: (context.api && context.api.system && context.api.system.print) || void 0,","            errorReporter: (context.api && context.api.errorReporter) || void 0,","            XMLHttpRequest: (context.api && context.api.XMLHttpRequest) || void 0,","            DEBUG: context.DEBUG || void 0","        };","","        bravojs_init(bravojs, window);","","        context.bravojs = bravojs;","    }","}","else","{","    if (typeof bravojs === \"undefined\")","      bravojs = {};","    bravojs_init(bravojs, (typeof window != \"undefined\")?window:this);","}",""].join("\n");
 });
 __loader__.memoize('text!bravojs/plugins/packages/packages.js', function(__require__, module, exports) {
 // ######################################################################
 // # /bravojs/plugins/packages/packages.js
 // ######################################################################
-return ["/**"," *  This file implements a bravojs core plugin to add"," *  package and package mappings support."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages() {","","var Plugin = function()","{","}","","Plugin.prototype.init = function()","{","    var bravojs = this.bravojs;","","    /** Get a context for a given module ID used to resolve the ID. If a package","     *  prefix is found a context specific to the package is returned, otherwise","     *  the default context is returned.","     */","    bravojs.contextForId = function packages_bravojs_contextForId(id, onlyCreateIfDelimited)","    {","        if (typeof id == \"undefined\")","            return bravojs.contexts[\"_\"];","","        id = id.replace(/^\w*!/, \"\");","","        var parts = id.split(\"@/\"),","            id = parts[0];","","        if (/@$/.test(id))","            id = id.substring(0, id.length-1);","","        var ret = bravojs.callPlugins(\"contextForId\", [id]);","        if (typeof ret != \"undefined\")","            id = ret;","","        if (parts.length == 1 && typeof bravojs.contexts[id] != \"undefined\")","            return bravojs.contexts[id];","","        if (typeof bravojs.contexts[id] == \"undefined\")","        {","            if (onlyCreateIfDelimited === true && parts.length == 1)","                return bravojs.contexts[\"_\"];","","            bravojs.makeContext(id);","        }","","        return bravojs.contexts[id];","    };","","    bravojs.hasContextForId = function packages_bravojs_hasContext(id)","    {","        id = id.replace(/^\w*!/, \"\");","        var parts = id.split(\"@/\");","        if (parts.length == 2)","            id = parts[0];","        if (/@$/.test(id))","            id = id.substring(0, id.length-1);","        return (typeof bravojs.contexts[id] != \"undefined\");","    }","","    bravojs.makeContext = function packages_bravojs_makeContext(id)","    {","        id = id.replace(/^\w*!/, \"\");","        bravojs.contexts[id] = new bravojs.Context(id);","        /* The id so far is path-based. If the context/package descriptor specifies a UID we map","         * the same context to the UID as well.","         */","        if (typeof bravojs.contexts[id].uid != \"undefined\")","           bravojs.contexts[bravojs.contexts[id].uid] = bravojs.contexts[id];","        return bravojs.contexts[id];","    }","","    bravojs.Context = function packages_bravojs_Context(id)","    {","        this.id = id;","","        // We do not need to do anything for the default context","        if (this.id == \"_\")","            return;","","        id = this.id + \"@/package.json\";","","        if (bravojs.require.isMemoized(id))","        {","            this.descriptor = bravojs.require.getMemoized(id).moduleFactory();","        }","        else","        {","            this.descriptor = bravojs.callPlugins(\"loadPackageDescriptor\", [id]);","            var self = this;","            bravojs.require.memoize(id, [], function()","            {","                return self.descriptor;","            });","        }","","        this.libDir = this.descriptor.directories && this.descriptor.directories.lib;","        if (typeof this.libDir != \"string\")","            this.libDir = \"lib\";","    ","        this.uid = this.descriptor.uid || void 0;","        if (typeof this.uid != \"undefined\")","        {","            var m = this.uid.match(/^\w*:\/\/(.*)$/);","            if (!m)","                throw new Error(\"uid property '\" + this.uid + \"' must be a non-resolving or resolving URL with http or https protocol in: \" + id);","            this.uid = m[1];  // strip the protocol prefix","        }","    }","","    /** Get a map where labels point to package IDs for all declared mappings */","    bravojs.Context.prototype.getNormalizedMappings = function packages_bravojs_Context_getNormalizedMappings()","    {","        if (this.id == \"_\")","            throw new Error(\"Cannot get mappings for default context\");","    ","        if (typeof this.normalizedMappings != \"undefined\")","            return this.normalizedMappings;","","        this.normalizedMappings = {};","","        if (typeof this.descriptor.mappings != \"undefined\")","        {","            for (var label in this.descriptor.mappings)","            {","                var locator = bravojs.callPlugins(\"normalizeLocator\", [this.descriptor.mappings[label], this]);","                this.normalizedMappings[label] = locator.uid || locator.location;","            }","        }","        return this.normalizedMappings;","    }","","    bravojs.Context.prototype.resolveId = function packages_bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir, descriptor)","    {","        // Pull out plugin if applicable","        var plugin;","        if (typeof moduleIdentifier == \"string\")","        {","            var m = moduleIdentifier.match(/^(\w*)!(.*)$/);","            if (m)","            {","                plugin = m[1];","                moduleIdentifier = m[2];","            }","        }","","        try {","            var ret = bravojs.callPlugins(\"normalizeModuleIdentifier\", [moduleIdentifier, relativeModuleDir, descriptor, this]);","            ","            // happens if mapping is ignored","            if (ret === false)","                return false;","            ","            if (typeof ret != \"undefined\")","                moduleIdentifier = ret;","        }","        catch(e)","        {","            var mappings = (typeof this.descriptor != \"undefined\" && typeof this.descriptor.mappings != \"undefined\")?JSON.stringify(this.descriptor.mappings):\"{}\";            ","            throw new Error(e + \" => \" + e.stack + \"\nUnable to resolve moduleIdentifier '\" + JSON.stringify(moduleIdentifier) + \"' against context '\" + this.id + \"' (mappings: \" + mappings + \") and relativeModuleDir '\" + relativeModuleDir + \"'.\");","        }","","        if (moduleIdentifier === null || moduleIdentifier === \"\")","            return moduleIdentifier;","","        if (moduleIdentifier.charAt(0) == \"/\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + moduleIdentifier;","","        if (moduleIdentifier.charAt(0) == \".\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier);","","        if (this.id == \"_\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(bravojs.mainModuleDir + \"/\" + moduleIdentifier);","","        return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier);","    }","","    /** Run just before providing Module to moduleFactory function in bravojs.initializeModule() */","    bravojs.Module.prototype.augment = function bravojs_Module_augment()","    {","        if (this._id === \"\")","            return;","    ","        var context = bravojs.contextForId(this._id, true);","        /* Only add extra module properties if context represents a package (i.e. not default '_' context) */","        if (context.id == \"_\")","            return;","","        /* If context supplies a UID use it over the path-based ID for the package ID */","        if (typeof context.descriptor !== \"undefined\" && typeof context.descriptor.uid !== \"undefined\") {","            this.pkgId = context.descriptor.uid.replace(/^\w*:\/\//, \"\");","            // TODO: If known registry found as prefix strip it from uid","        } else {","            this.pkgId = context.id;","        }","","        /* Normalized mappings are simply a map where labels point to package IDs */","        this.mappings = context.getNormalizedMappings();","","        this.hashId = calcMD5(this.id);","    }","","    // We need to reset bravojs to use the Context object from above (but keep registered plugins)","    bravojs.reset(null, bravojs.plugins);","}","","Plugin.prototype.requireModule = function(id)","{","    if (!id)","        return;","    ","    // The text plugins need special handeling","    if (id.match(/^text!/))","    {","        if (!this.bravojs.requireMemo[id] && this.bravojs.pendingModuleDeclarations[id])","        {","            this.bravojs.requireMemo[id] = this.bravojs.pendingModuleDeclarations[id].moduleFactory();","        }","        if (!this.bravojs.requireMemo[id]) {","            throw new Error(\"Module \" + id + \" is not available.\");","        }","        return true;","    }","}","","Plugin.prototype.newRequire = function(helpers)","{","    var bravojs = this.bravojs;","","    var newRequire = function packages_require(moduleIdentifier) ","    {","        // RequireJS compatibility. Convert require([], callback) to module.load([], callback).","        if (Object.prototype.toString.call(moduleIdentifier) == \"[object Array]\" && arguments.length == 2)","        {","            if (moduleIdentifier.length > 1)","               throw new Error(\"require([], callback) with more than one module in [] is not supported yet!\");","            if (typeof bravojs.mainContext == \"undefined\")","                throw new Error(\"Cannot resolve ID for ASYNC require. bravojs.mainContext used to resolve ID not set!\");","            // Load IDs are resolved against the default context. To resolve against a different","            // context use module.load([], callback).","            moduleIdentifier = bravojs.contextForId(bravojs.mainContext).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());","            var callback = arguments[1];","            bravojs.module.load(moduleIdentifier, function(id)","            {","                callback(newRequire(id));","            });","            return;","        }","        if (helpers.deps && helpers.deps[moduleIdentifier])","            return helpers.deps[moduleIdentifier]();","        return bravojs.requireModule(helpers.getContextSensitiveModuleDir(), moduleIdentifier);","    };","    return newRequire;","}","","Plugin.prototype.augmentNewRequire = function(newRequire, helpers)","{","    var bravojs = this.bravojs;","","    newRequire.pkg = function packages_require_pkg(packageIdentifierPath)","    {","        if (typeof helpers.module != \"undefined\" && typeof helpers.module.mappings != \"undefined\")","        {","            if (typeof helpers.module.mappings[packageIdentifierPath] != \"undefined\")","                packageIdentifierPath = helpers.module.mappings[packageIdentifierPath];","        }","        var context = bravojs.contextForId(packageIdentifierPath);","        return {","            id: function(moduleIdentifier, unsanitized)","            {","                if (typeof moduleIdentifier === \"undefined\" || !moduleIdentifier)","                {","                    if (unsanitized)","                        return context.id;","                    return context.uid || context.id;","                }","                else","                {","                    var id = context.resolveId(moduleIdentifier, helpers.getContextSensitiveModuleDir());","                    if (unsanitized)","                        return id;","                    return bravojs.callPlugins(\"sanitizeId\", [id]) || id;","                }","            }","        }","    }","","    newRequire.canonicalize = function packages_require_canonicalize(moduleIdentifier)","    {","        var id = bravojs.makeModuleId(helpers.getContextSensitiveModuleDir(), moduleIdentifier);","","        if (id === '')","            throw new Error(\"Cannot canonically name the resource bearing this main module\");","","        /* Remove package/module ID delimiter */","        id = bravojs.callPlugins(\"sanitizeId\", [id]) || id;","","        /* Some IDs may refer to non-js files */","        if (bravojs.basename(id).indexOf(\".\") == -1)","            id += \".js\";","","        return bravojs.window.location.protocol + \"/\" + id;","    }","","    newRequire.nameToUrl = function(moduleIdentifier)","    {","        if (arguments.length >= 2 && arguments[1] !== null)","            throw new Error(\"NYI - Second argument to require.nameToUrl() must be 'null'!\");","        else","        if (arguments.length >= 3 && arguments[2] != \"_\")","            throw new Error(\"NYI - Third argument to require.nameToUrl() must be '_'!\");","        throw new Error(\"NYI - require.nameToUrl()\");","/*","        var parts = moduleIdentifier.split(\"/\");","        if (parts.length == 0)","        {","        }","        else","        {","        }","*/","    }","}","","Plugin.prototype.sanitizeId = function(id)","{","    return id.replace(/@\//, \"/\").replace(/@$/, \"\");","}","","/**"," * Load a package descriptor from the server."," * "," * NOTE: This function will block until the server returns the response!"," *       Package descriptors should be memoized before booting the program"," *       for better loading performance."," */","Plugin.prototype.loadPackageDescriptor = function(id)","{","    // NOTE: Do NOT use require.canonicalize(id) here as it will cause an infinite loop!","    var URL = window.location.protocol + \"/\" + bravojs.realpath(id.replace(/@\/+/g, \"\/\"));","","    // TODO: Get this working in other browsers","    var req = new (this.bravojs.XMLHttpRequest || XMLHttpRequest)();","    req.open(\"GET\", URL, false);","    req.send(null);","    if(req.status == 200)","    {","        try","        {","            return JSON.parse(req.responseText);","        }","        catch(e)","        {","            throw new Error(\"Error parsing package descriptor from URL '\" + URL + \"': \" + e);","        }","    }","    else","        throw new Error(\"Error loading package descriptor from URL: \" + URL);","}","","/**"," * Given a mappings locator normalize it according to it's context by"," * setting an absolute path-based location property."," */","Plugin.prototype.normalizeLocator = function(locator, context)","{","    if (typeof locator.provider != \"undefined\")","    {","        // do nothing","//        locator.location = locator.provider;","    }","    else","    if (typeof locator.location != \"undefined\")","    {","        if ((locator.location.indexOf(\"./\") == 0) || (locator.location.indexOf(\"../\") == 0))","        {","            locator.location = this.bravojs.realpath(((context.id!=\"_\")?context.id:this.bravojs.mainModuleDir) + \"/\" + locator.location, false) + \"/\";","        }","    }","    else","    if (typeof locator.id != \"undefined\")","    {","        if (locator.id.charAt(0) != \"/\")","            locator.id = this.bravojs.mainModuleDir + \"/\" + locator.id;","    }","    else","    if (typeof locator.catalog != \"undefined\" || typeof locator.archive != \"undefined\")","    {","        if (typeof locator.catalog != \"undefined\" && typeof locator.name == \"undefined\")","            throw new Error(\"Catalog-based mappings locator does not specify 'name' property: \" + locator);","","        var ret = this.bravojs.callPlugins(\"resolveLocator\", [locator]);","        if (typeof ret == \"undefined\")","            throw new Error(\"Unable to resolve package locator: \" + JSON.stringify(locator));","","        locator.location = ret;","","        if (typeof id == \"undefined\")","            throw new Error(\"Mappings locator could not be resolved by plugins: \" + locator);","    }","","    if (typeof locator.location != \"undefined\" && locator.location.charAt(locator.location.length-1) == \"/\")","        locator.location = locator.location.substring(0, locator.location.length -1);","","    if (typeof locator.location != \"undefined\") {","        var context = this.bravojs.contextForId(locator.location);","        if(context && context.uid) {","            locator.uid = context.uid;","        }","    }","","    return locator;","}","","/**"," * Given a moduleIdentifier convert it to a top-level ID"," */","Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relativeModuleDir, descriptor, context)","{","    if (moduleIdentifier === '')  /* Special case for main module */","        return '';","","    var self = this,","        bravojs = this.bravojs,","        originalModuleIdentifier = moduleIdentifier;","","    function finalNormalization(moduleIdentifier)","    {","        moduleIdentifier = moduleIdentifier.replace(/{platform}/g, bravojs.require.platform);","","        var parts = moduleIdentifier.replace(/\.js$/, \"\").split(\"@/\");","","        if (parts.length == 1)","            return moduleIdentifier;","","        var context = bravojs.contextForId(parts[0]);","        // Resolve mapped modules","        if (typeof context.descriptor.modules != \"undefined\" && typeof context.descriptor.modules[\"/\" + parts[1]] != \"undefined\")","        {","            var locator = self.normalizeLocator(context.descriptor.modules[\"/\" + parts[1]], context);","            if (typeof locator.available != \"undefined\" && locator.available === false)","                return null;","","            if (typeof locator.module != \"undefined\")","                moduleIdentifier = bravojs.contextForId(locator.location).resolveId(\"./\" + locator.module);","        }","","        // Give opportunity to verify resolved ID to discover missing mappings for example","        var ret = bravojs.callPlugins(\"verifyModuleIdentifier\", [moduleIdentifier, {","            moduleIdentifier: originalModuleIdentifier,","            relativeModuleDir: relativeModuleDir,","            context: context","        }]);","        if (typeof ret != \"undefined\")","            moduleIdentifier = ret;","        if (/\.js$/.test(moduleIdentifier))","            moduleIdentifier = moduleIdentifier.substring(0, moduleIdentifier.length-3);","        return moduleIdentifier;","    }","","    if (moduleIdentifier === null)","    {","        if (typeof context.descriptor == \"undefined\" || typeof context.descriptor.main == \"undefined\")","            throw new Error(\"'main' property not set in package descriptor for: \" + this.id);","        return finalNormalization(context.id + \"@/\" + context.descriptor.main);","    }","    else","    if (typeof moduleIdentifier === \"object\")","    {","        // We have a mappings locator object","        moduleIdentifier = this.normalizeLocator(moduleIdentifier, context);","","        var id;","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            id = moduleIdentifier.location;","        }","        else","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            id = moduleIdentifier.id;","        }","        else","            throw new Error(\"Invalid mapping: \" + moduleIdentifier);","","        if (typeof moduleIdentifier.descriptor != \"undefined\" && typeof moduleIdentifier.descriptor.main != \"undefined\")","            return finalNormalization(this.bravojs.realpath(id + \"@/\" + moduleIdentifier.descriptor.main, false));","","        var context = this.bravojs.contextForId(id);","        if (typeof context.descriptor == \"undefined\" || typeof context.descriptor.main == \"undefined\")","            throw new Error(\"'main' property not set in package descriptor for: \" + context.id);","","        return finalNormalization(this.bravojs.realpath(context.id + \"@/\" + context.descriptor.main, false));","    }","","    // See if moduleIdentifier matches a mapping alias exactly","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor.mappings != \"undefined\" &&","        typeof context.descriptor.mappings[moduleIdentifier] != \"undefined\")","    {","        if (typeof context.descriptor.mappings[moduleIdentifier].available != \"undefined\" && context.descriptor.mappings[moduleIdentifier].available === false)","        {","            // If mapping is not available we return a null ID","            return null;","        }","        else","        if (typeof context.descriptor.mappings[moduleIdentifier].module != \"undefined\")","        {","            var mappedContextId = this.normalizeLocator(context.descriptor.mappings[moduleIdentifier], context).location,","                mappedContext = this.bravojs.contextForId(mappedContextId),","                mappedModule = context.descriptor.mappings[moduleIdentifier].module;","","            mappedModule = mappedModule.replace(/^\./, \"\");","","            if (mappedModule.charAt(0) == \"/\")","            {","                return finalNormalization(mappedContext.id + \"@\" + mappedModule);","            }","            else","            {","                return mappedContext.resolveId(\"./\" + context.descriptor.mappings[moduleIdentifier].module, null);","            }","        }","        else","            throw new Error(\"Unable to resolve ID '\" + moduleIdentifier + \"' for matching mapping as 'module' property not defined in mapping locator!\");","    }","","    var moduleIdentifierParts = moduleIdentifier.split(\"@/\");","","    // If module ID is absolute we get appropriate context","    if (moduleIdentifierParts.length == 2)","        context = this.bravojs.contextForId(moduleIdentifierParts[0]);","","    // NOTE: relativeModuleDir is checked here so we can skip this if we want a module from the package","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor[\"native\"] != \"undefined\" &&","        context.descriptor[\"native\"] === true &&","        relativeModuleDir)","    {","        return finalNormalization(moduleIdentifierParts.pop());","    }","    else","    if (moduleIdentifier.charAt(0) == \"/\")","        return finalNormalization(moduleIdentifier);","","    // From now on we only deal with the relative (relative to context) ID","    moduleIdentifier = moduleIdentifierParts.pop();","","    if (moduleIdentifier.charAt(0) == \".\" && relativeModuleDir)","        return finalNormalization(this.bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier, false));","    else","    if (context && context.id == \"_\")","        return finalNormalization(this.bravojs.realpath(this.bravojs.mainModuleDir + \"/\" + moduleIdentifier, false));","","    var parts;","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor.mappings != \"undefined\" &&","        (parts = moduleIdentifier.split(\"/\")).length > 1 &&","        typeof context.descriptor.mappings[parts[0]] != \"undefined\")","    {","        var normalizedLocator = this.normalizeLocator(context.descriptor.mappings[parts[0]], context),","            mappedContextId;","","        if (normalizedLocator.available === false)","            return false;","","        if (typeof normalizedLocator.provider != \"undefined\")","            mappedContextId = normalizedLocator.id;","        else","            mappedContextId = normalizedLocator.location;","","        var mappedContext = this.bravojs.contextForId(mappedContextId),","            mappedDescriptor = void 0;","","        if (typeof context.descriptor.mappings[parts[0]].descriptor != \"undefined\")","            mappedDescriptor = context.descriptor.mappings[parts[0]].descriptor;","","        // Make ID relative and do not pass relativeModuleDir so ID is resolved against root of package without checking mappings","        parts[0] = \".\";","        return mappedContext.resolveId(parts.join(\"/\"), null, mappedDescriptor);","    }","","    var libDir = context.libDir;","    if (typeof descriptor != \"undefined\" && typeof descriptor.directories != \"undefined\" && typeof descriptor.directories.lib != \"undefined\")","    {","        libDir = descriptor.directories.lib;","    }","    if (libDir && moduleIdentifier.substring(0, libDir.length + 1) == libDir + \"/\") {","        libDir = false;","    }","","    return finalNormalization(this.bravojs.realpath(context.id + \"@/\" + ((libDir)?libDir+\"/\":\"\") + moduleIdentifier, false));","}","","if (typeof bravojs != \"undefined\")","{","    // In Browser","    bravojs.registerPlugin(new Plugin());","}","else","if (typeof exports != \"undefined\")","{","    // On Server","    exports.Plugin = Plugin;","}","","","var calcMD5 = function() {","/*"," * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message"," * Digest Algorithm, as defined in RFC 1321."," * Copyright (C) Paul Johnston 1999 - 2000."," * Updated by Greg Holt 2000 - 2001."," * See http://pajhome.org.uk/site/legal.html for details."," */","","/*"," * Convert a 32-bit number to a hex string with ls-byte first"," */","var hex_chr = \"0123456789abcdef\";","function rhex(num)","{","  str = \"\";","  for(j = 0; j <= 3; j++)","    str += hex_chr.charAt((num >> (j * 8 + 4)) & 0x0F) +","           hex_chr.charAt((num >> (j * 8)) & 0x0F);","  return str;","}","","/*"," * Convert a string to a sequence of 16-word blocks, stored as an array."," * Append padding bits and the length, as described in the MD5 standard."," */","function str2blks_MD5(str)","{","  nblk = ((str.length + 8) >> 6) + 1;","  blks = new Array(nblk * 16);","  for(i = 0; i < nblk * 16; i++) blks[i] = 0;","  for(i = 0; i < str.length; i++)","    blks[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);","  blks[i >> 2] |= 0x80 << ((i % 4) * 8);","  blks[nblk * 16 - 2] = str.length * 8;","  return blks;","}","","/*"," * Add integers, wrapping at 2^32. This uses 16-bit operations internally "," * to work around bugs in some JS interpreters."," */","function add(x, y)","{","  var lsw = (x & 0xFFFF) + (y & 0xFFFF);","  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);","  return (msw << 16) | (lsw & 0xFFFF);","}","","/*"," * Bitwise rotate a 32-bit number to the left"," */","function rol(num, cnt)","{","  return (num << cnt) | (num >>> (32 - cnt));","}","","/*"," * These functions implement the basic operation for each round of the"," * algorithm."," */","function cmn(q, a, b, x, s, t)","{","  return add(rol(add(add(a, q), add(x, t)), s), b);","}","function ff(a, b, c, d, x, s, t)","{","  return cmn((b & c) | ((~b) & d), a, b, x, s, t);","}","function gg(a, b, c, d, x, s, t)","{","  return cmn((b & d) | (c & (~d)), a, b, x, s, t);","}","function hh(a, b, c, d, x, s, t)","{","  return cmn(b ^ c ^ d, a, b, x, s, t);","}","function ii(a, b, c, d, x, s, t)","{","  return cmn(c ^ (b | (~d)), a, b, x, s, t);","}","","/*"," * Take a string and return the hex representation of its MD5."," */","return function calcMD5(str)","{","  x = str2blks_MD5(str);","  a =  1732584193;","  b = -271733879;","  c = -1732584194;","  d =  271733878;","","  for(i = 0; i < x.length; i += 16)","  {","    olda = a;","    oldb = b;","    oldc = c;","    oldd = d;","","    a = ff(a, b, c, d, x[i+ 0], 7 , -680876936);","    d = ff(d, a, b, c, x[i+ 1], 12, -389564586);","    c = ff(c, d, a, b, x[i+ 2], 17,  606105819);","    b = ff(b, c, d, a, x[i+ 3], 22, -1044525330);","    a = ff(a, b, c, d, x[i+ 4], 7 , -176418897);","    d = ff(d, a, b, c, x[i+ 5], 12,  1200080426);","    c = ff(c, d, a, b, x[i+ 6], 17, -1473231341);","    b = ff(b, c, d, a, x[i+ 7], 22, -45705983);","    a = ff(a, b, c, d, x[i+ 8], 7 ,  1770035416);","    d = ff(d, a, b, c, x[i+ 9], 12, -1958414417);","    c = ff(c, d, a, b, x[i+10], 17, -42063);","    b = ff(b, c, d, a, x[i+11], 22, -1990404162);","    a = ff(a, b, c, d, x[i+12], 7 ,  1804603682);","    d = ff(d, a, b, c, x[i+13], 12, -40341101);","    c = ff(c, d, a, b, x[i+14], 17, -1502002290);","    b = ff(b, c, d, a, x[i+15], 22,  1236535329);    ","","    a = gg(a, b, c, d, x[i+ 1], 5 , -165796510);","    d = gg(d, a, b, c, x[i+ 6], 9 , -1069501632);","    c = gg(c, d, a, b, x[i+11], 14,  643717713);","    b = gg(b, c, d, a, x[i+ 0], 20, -373897302);","    a = gg(a, b, c, d, x[i+ 5], 5 , -701558691);","    d = gg(d, a, b, c, x[i+10], 9 ,  38016083);","    c = gg(c, d, a, b, x[i+15], 14, -660478335);","    b = gg(b, c, d, a, x[i+ 4], 20, -405537848);","    a = gg(a, b, c, d, x[i+ 9], 5 ,  568446438);","    d = gg(d, a, b, c, x[i+14], 9 , -1019803690);","    c = gg(c, d, a, b, x[i+ 3], 14, -187363961);","    b = gg(b, c, d, a, x[i+ 8], 20,  1163531501);","    a = gg(a, b, c, d, x[i+13], 5 , -1444681467);","    d = gg(d, a, b, c, x[i+ 2], 9 , -51403784);","    c = gg(c, d, a, b, x[i+ 7], 14,  1735328473);","    b = gg(b, c, d, a, x[i+12], 20, -1926607734);","    ","    a = hh(a, b, c, d, x[i+ 5], 4 , -378558);","    d = hh(d, a, b, c, x[i+ 8], 11, -2022574463);","    c = hh(c, d, a, b, x[i+11], 16,  1839030562);","    b = hh(b, c, d, a, x[i+14], 23, -35309556);","    a = hh(a, b, c, d, x[i+ 1], 4 , -1530992060);","    d = hh(d, a, b, c, x[i+ 4], 11,  1272893353);","    c = hh(c, d, a, b, x[i+ 7], 16, -155497632);","    b = hh(b, c, d, a, x[i+10], 23, -1094730640);","    a = hh(a, b, c, d, x[i+13], 4 ,  681279174);","    d = hh(d, a, b, c, x[i+ 0], 11, -358537222);","    c = hh(c, d, a, b, x[i+ 3], 16, -722521979);","    b = hh(b, c, d, a, x[i+ 6], 23,  76029189);","    a = hh(a, b, c, d, x[i+ 9], 4 , -640364487);","    d = hh(d, a, b, c, x[i+12], 11, -421815835);","    c = hh(c, d, a, b, x[i+15], 16,  530742520);","    b = hh(b, c, d, a, x[i+ 2], 23, -995338651);","","    a = ii(a, b, c, d, x[i+ 0], 6 , -198630844);","    d = ii(d, a, b, c, x[i+ 7], 10,  1126891415);","    c = ii(c, d, a, b, x[i+14], 15, -1416354905);","    b = ii(b, c, d, a, x[i+ 5], 21, -57434055);","    a = ii(a, b, c, d, x[i+12], 6 ,  1700485571);","    d = ii(d, a, b, c, x[i+ 3], 10, -1894986606);","    c = ii(c, d, a, b, x[i+10], 15, -1051523);","    b = ii(b, c, d, a, x[i+ 1], 21, -2054922799);","    a = ii(a, b, c, d, x[i+ 8], 6 ,  1873313359);","    d = ii(d, a, b, c, x[i+15], 10, -30611744);","    c = ii(c, d, a, b, x[i+ 6], 15, -1560198380);","    b = ii(b, c, d, a, x[i+13], 21,  1309151649);","    a = ii(a, b, c, d, x[i+ 4], 6 , -145523070);","    d = ii(d, a, b, c, x[i+11], 10, -1120210379);","    c = ii(c, d, a, b, x[i+ 2], 15,  718787259);","    b = ii(b, c, d, a, x[i+ 9], 21, -343485551);","","    a = add(a, olda);","    b = add(b, oldb);","    c = add(c, oldc);","    d = add(d, oldd);","  }","  return rhex(a) + rhex(b) + rhex(c) + rhex(d);","}","","}();","","})();",""].join("\n");
+return ["/**"," *  This file implements a bravojs core plugin to add"," *  package and package mappings support."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages() {","","var calcMD5 = function() {","/*"," * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message"," * Digest Algorithm, as defined in RFC 1321."," * Copyright (C) Paul Johnston 1999 - 2000."," * Updated by Greg Holt 2000 - 2001."," * See http://pajhome.org.uk/site/legal.html for details."," */","/*"," * Convert a 32-bit number to a hex string with ls-byte first"," */","var hex_chr = \"0123456789abcdef\";","function rhex(num)","{","  var str = \"\";","  for(var j = 0; j <= 3; j++)","    str += hex_chr.charAt((num >> (j * 8 + 4)) & 0x0F) +","           hex_chr.charAt((num >> (j * 8)) & 0x0F);","  return str;","}","/*"," * Convert a string to a sequence of 16-word blocks, stored as an array."," * Append padding bits and the length, as described in the MD5 standard."," */","function str2blks_MD5(str)","{","  var nblk = ((str.length + 8) >> 6) + 1;","  var blks = new Array(nblk * 16);","  for(var i = 0; i < nblk * 16; i++) blks[i] = 0;","  for(var i = 0; i < str.length; i++)","    blks[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);","  blks[i >> 2] |= 0x80 << ((i % 4) * 8);","  blks[nblk * 16 - 2] = str.length * 8;","  return blks;","}","/*"," * Add integers, wrapping at 2^32. This uses 16-bit operations internally "," * to work around bugs in some JS interpreters."," */","function add(x, y)","{","  var lsw = (x & 0xFFFF) + (y & 0xFFFF);","  var msw = (x >> 16) + (y >> 16) + (lsw >> 16);","  return (msw << 16) | (lsw & 0xFFFF);","}","/*"," * Bitwise rotate a 32-bit number to the left"," */","function rol(num, cnt)","{","  return (num << cnt) | (num >>> (32 - cnt));","}","/*"," * These functions implement the basic operation for each round of the"," * algorithm."," */","function cmn(q, a, b, x, s, t)","{","  return add(rol(add(add(a, q), add(x, t)), s), b);","}","function ff(a, b, c, d, x, s, t)","{","  return cmn((b & c) | ((~b) & d), a, b, x, s, t);","}","function gg(a, b, c, d, x, s, t)","{","  return cmn((b & d) | (c & (~d)), a, b, x, s, t);","}","function hh(a, b, c, d, x, s, t)","{","  return cmn(b ^ c ^ d, a, b, x, s, t);","}","function ii(a, b, c, d, x, s, t)","{","  return cmn(c ^ (b | (~d)), a, b, x, s, t);","}","/*"," * Take a string and return the hex representation of its MD5."," */","return function calcMD5(str)","{","  var x = str2blks_MD5(str);","  var a =  1732584193;","  var b = -271733879;","  var c = -1732584194;","  var d =  271733878;","","  for(var i = 0; i < x.length; i += 16)","  {","	var olda = a;","	var oldb = b;","	var oldc = c;","	var oldd = d;","","    a = ff(a, b, c, d, x[i+ 0], 7 , -680876936);","    d = ff(d, a, b, c, x[i+ 1], 12, -389564586);","    c = ff(c, d, a, b, x[i+ 2], 17,  606105819);","    b = ff(b, c, d, a, x[i+ 3], 22, -1044525330);","    a = ff(a, b, c, d, x[i+ 4], 7 , -176418897);","    d = ff(d, a, b, c, x[i+ 5], 12,  1200080426);","    c = ff(c, d, a, b, x[i+ 6], 17, -1473231341);","    b = ff(b, c, d, a, x[i+ 7], 22, -45705983);","    a = ff(a, b, c, d, x[i+ 8], 7 ,  1770035416);","    d = ff(d, a, b, c, x[i+ 9], 12, -1958414417);","    c = ff(c, d, a, b, x[i+10], 17, -42063);","    b = ff(b, c, d, a, x[i+11], 22, -1990404162);","    a = ff(a, b, c, d, x[i+12], 7 ,  1804603682);","    d = ff(d, a, b, c, x[i+13], 12, -40341101);","    c = ff(c, d, a, b, x[i+14], 17, -1502002290);","    b = ff(b, c, d, a, x[i+15], 22,  1236535329);    ","","    a = gg(a, b, c, d, x[i+ 1], 5 , -165796510);","    d = gg(d, a, b, c, x[i+ 6], 9 , -1069501632);","    c = gg(c, d, a, b, x[i+11], 14,  643717713);","    b = gg(b, c, d, a, x[i+ 0], 20, -373897302);","    a = gg(a, b, c, d, x[i+ 5], 5 , -701558691);","    d = gg(d, a, b, c, x[i+10], 9 ,  38016083);","    c = gg(c, d, a, b, x[i+15], 14, -660478335);","    b = gg(b, c, d, a, x[i+ 4], 20, -405537848);","    a = gg(a, b, c, d, x[i+ 9], 5 ,  568446438);","    d = gg(d, a, b, c, x[i+14], 9 , -1019803690);","    c = gg(c, d, a, b, x[i+ 3], 14, -187363961);","    b = gg(b, c, d, a, x[i+ 8], 20,  1163531501);","    a = gg(a, b, c, d, x[i+13], 5 , -1444681467);","    d = gg(d, a, b, c, x[i+ 2], 9 , -51403784);","    c = gg(c, d, a, b, x[i+ 7], 14,  1735328473);","    b = gg(b, c, d, a, x[i+12], 20, -1926607734);","    ","    a = hh(a, b, c, d, x[i+ 5], 4 , -378558);","    d = hh(d, a, b, c, x[i+ 8], 11, -2022574463);","    c = hh(c, d, a, b, x[i+11], 16,  1839030562);","    b = hh(b, c, d, a, x[i+14], 23, -35309556);","    a = hh(a, b, c, d, x[i+ 1], 4 , -1530992060);","    d = hh(d, a, b, c, x[i+ 4], 11,  1272893353);","    c = hh(c, d, a, b, x[i+ 7], 16, -155497632);","    b = hh(b, c, d, a, x[i+10], 23, -1094730640);","    a = hh(a, b, c, d, x[i+13], 4 ,  681279174);","    d = hh(d, a, b, c, x[i+ 0], 11, -358537222);","    c = hh(c, d, a, b, x[i+ 3], 16, -722521979);","    b = hh(b, c, d, a, x[i+ 6], 23,  76029189);","    a = hh(a, b, c, d, x[i+ 9], 4 , -640364487);","    d = hh(d, a, b, c, x[i+12], 11, -421815835);","    c = hh(c, d, a, b, x[i+15], 16,  530742520);","    b = hh(b, c, d, a, x[i+ 2], 23, -995338651);","","    a = ii(a, b, c, d, x[i+ 0], 6 , -198630844);","    d = ii(d, a, b, c, x[i+ 7], 10,  1126891415);","    c = ii(c, d, a, b, x[i+14], 15, -1416354905);","    b = ii(b, c, d, a, x[i+ 5], 21, -57434055);","    a = ii(a, b, c, d, x[i+12], 6 ,  1700485571);","    d = ii(d, a, b, c, x[i+ 3], 10, -1894986606);","    c = ii(c, d, a, b, x[i+10], 15, -1051523);","    b = ii(b, c, d, a, x[i+ 1], 21, -2054922799);","    a = ii(a, b, c, d, x[i+ 8], 6 ,  1873313359);","    d = ii(d, a, b, c, x[i+15], 10, -30611744);","    c = ii(c, d, a, b, x[i+ 6], 15, -1560198380);","    b = ii(b, c, d, a, x[i+13], 21,  1309151649);","    a = ii(a, b, c, d, x[i+ 4], 6 , -145523070);","    d = ii(d, a, b, c, x[i+11], 10, -1120210379);","    c = ii(c, d, a, b, x[i+ 2], 15,  718787259);","    b = ii(b, c, d, a, x[i+ 9], 21, -343485551);","","    a = add(a, olda);","    b = add(b, oldb);","    c = add(c, oldc);","    d = add(d, oldd);","  }","  return rhex(a) + rhex(b) + rhex(c) + rhex(d);","}","}();","","//@see http://www.webtoolkit.info/javascript-base64.html","var Base64 = {","	 ","	// private property","	_keyStr : \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\","," ","	// public method for encoding","	encode : function (input) {","		var output = \"\";","		var chr1, chr2, chr3, enc1, enc2, enc3, enc4;","		var i = 0;"," ","		input = Base64._utf8_encode(input);"," ","		while (i < input.length) {"," ","			chr1 = input.charCodeAt(i++);","			chr2 = input.charCodeAt(i++);","			chr3 = input.charCodeAt(i++);"," ","			enc1 = chr1 >> 2;","			enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);","			enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);","			enc4 = chr3 & 63;"," ","			if (isNaN(chr2)) {","				enc3 = enc4 = 64;","			} else if (isNaN(chr3)) {","				enc4 = 64;","			}"," ","			output = output +","			Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) +","			Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);"," ","		}"," ","		return output;","	},"," ","	// public method for decoding","	decode : function (input) {","		var output = \"\";","		var chr1, chr2, chr3;","		var enc1, enc2, enc3, enc4;","		var i = 0;"," ","		input = input.replace(/[^A-Za-z0-9\+\/\=]/g, \"\");"," ","		while (i < input.length) {"," ","			enc1 = Base64._keyStr.indexOf(input.charAt(i++));","			enc2 = Base64._keyStr.indexOf(input.charAt(i++));","			enc3 = Base64._keyStr.indexOf(input.charAt(i++));","			enc4 = Base64._keyStr.indexOf(input.charAt(i++));"," ","			chr1 = (enc1 << 2) | (enc2 >> 4);","			chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);","			chr3 = ((enc3 & 3) << 6) | enc4;"," ","			output = output + String.fromCharCode(chr1);"," ","			if (enc3 != 64) {","				output = output + String.fromCharCode(chr2);","			}","			if (enc4 != 64) {","				output = output + String.fromCharCode(chr3);","			}"," ","		}"," ","		output = Base64._utf8_decode(output);"," ","		return output;"," ","	},"," ","	// private method for UTF-8 encoding","	_utf8_encode : function (string) {","		string = string.replace(/\r\n/g,\"\n\");","		var utftext = \"\";"," ","		for (var n = 0; n < string.length; n++) {"," ","			var c = string.charCodeAt(n);"," ","			if (c < 128) {","				utftext += String.fromCharCode(c);","			}","			else if((c > 127) && (c < 2048)) {","				utftext += String.fromCharCode((c >> 6) | 192);","				utftext += String.fromCharCode((c & 63) | 128);","			}","			else {","				utftext += String.fromCharCode((c >> 12) | 224);","				utftext += String.fromCharCode(((c >> 6) & 63) | 128);","				utftext += String.fromCharCode((c & 63) | 128);","			}"," ","		}"," ","		return utftext;","	},"," ","	// private method for UTF-8 decoding","	_utf8_decode : function (utftext) {","		var string = \"\";","		var i = 0;","		var c = c1 = c2 = 0;"," ","		while ( i < utftext.length ) {"," ","			c = utftext.charCodeAt(i);"," ","			if (c < 128) {","				string += String.fromCharCode(c);","				i++;","			}","			else if((c > 191) && (c < 224)) {","				c2 = utftext.charCodeAt(i+1);","				string += String.fromCharCode(((c & 31) << 6) | (c2 & 63));","				i += 2;","			}","			else {","				c2 = utftext.charCodeAt(i+1);","				c3 = utftext.charCodeAt(i+2);","				string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));","				i += 3;","			}"," ","		}"," ","		return string;","	}"," ","}","","var Plugin = function()","{","}","","Plugin.prototype.init = function()","{","    var bravojs = this.bravojs;","","    /** Get a context for a given module ID used to resolve the ID. If a package","     *  prefix is found a context specific to the package is returned, otherwise","     *  the default context is returned.","     */","    bravojs.contextForId = function packages_bravojs_contextForId(id, onlyCreateIfDelimited)","    {","        if (typeof id == \"undefined\")","            return bravojs.contexts[\"_\"];","","        id = id.replace(/^\w*!/, \"\");","","        var parts = id.split(\"@/\");","        ","        id = parts[0];","","        if (/@$/.test(id))","            id = id.substring(0, id.length-1);","","        var ret = bravojs.callPlugins(\"contextForId\", [id]);","        if (typeof ret != \"undefined\")","            id = ret;","","        if (parts.length == 1 && typeof bravojs.contexts[id] != \"undefined\")","            return bravojs.contexts[id];","","        if (typeof bravojs.contexts[id] == \"undefined\")","        {","            if (onlyCreateIfDelimited === true && parts.length == 1)","                return bravojs.contexts[\"_\"];","","            bravojs.makeContext(id);","        }","","        return bravojs.contexts[id];","    };","","    bravojs.hasContextForId = function packages_bravojs_hasContext(id)","    {","        id = id.replace(/^\w*!/, \"\");","        var parts = id.split(\"@/\");","        if (parts.length == 2)","            id = parts[0];","        if (/@$/.test(id))","            id = id.substring(0, id.length-1);","        return (typeof bravojs.contexts[id] != \"undefined\");","    }","","    bravojs.makeContext = function packages_bravojs_makeContext(id)","    {","        id = id.replace(/^\w*!/, \"\");","        bravojs.contexts[id] = new bravojs.Context(id);","        /* The id so far is path-based. If the context/package descriptor specifies a UID we map","         * the same context to the UID as well.","         */","        if (typeof bravojs.contexts[id].uid != \"undefined\")","           bravojs.contexts[bravojs.contexts[id].uid] = bravojs.contexts[id];","        return bravojs.contexts[id];","    }","","    bravojs.Context = function packages_bravojs_Context(id)","    {","        this.id = id;","","        // We do not need to do anything for the default context","        if (this.id == \"_\")","            return;","","        id = this.id + \"@/package.json\";","","        if (bravojs.require.isMemoized(id))","        {","            this.descriptor = bravojs.require.getMemoized(id).moduleFactory();","        }","        else","        {","            this.descriptor = bravojs.callPlugins(\"loadPackageDescriptor\", [id]);","            var self = this;","            bravojs.require.memoize(id, [], function()","            {","                return self.descriptor;","            });","        }","","        this.libDir = this.descriptor.directories && this.descriptor.directories.lib;","        if (typeof this.libDir != \"string\")","            this.libDir = \"lib\";","    ","        this.uid = this.descriptor.uid || void 0;","        if (typeof this.uid != \"undefined\")","        {","            var m = this.uid.match(/^\w*:\/\/(.*)$/);","            if (!m)","                throw new Error(\"uid property '\" + this.uid + \"' must be a non-resolving or resolving URL with http or https protocol in: \" + id);","            this.uid = m[1];  // strip the protocol prefix","        }","    }","","    /** Get a map where labels point to package IDs for all declared mappings */","    bravojs.Context.prototype.getNormalizedMappings = function packages_bravojs_Context_getNormalizedMappings()","    {","        if (this.id == \"_\")","            throw new Error(\"Cannot get mappings for default context\");","    ","        if (typeof this.normalizedMappings != \"undefined\")","            return this.normalizedMappings;","","        this.normalizedMappings = {};","","        if (typeof this.descriptor.mappings != \"undefined\")","        {","            for (var label in this.descriptor.mappings)","            {","                var locator = bravojs.callPlugins(\"normalizeLocator\", [this.descriptor.mappings[label], this]);","                this.normalizedMappings[label] = locator.uid || locator.location;","            }","        }","        return this.normalizedMappings;","    }","","    bravojs.Context.prototype.resolveId = function packages_bravojs_Context_resolveId(moduleIdentifier, relativeModuleDir, descriptor)","    {","        // Pull out plugin if applicable","        var plugin;","        if (typeof moduleIdentifier == \"string\")","        {","            var m = moduleIdentifier.match(/^(\w*)!(.*)$/);","            if (m)","            {","                plugin = m[1];","                moduleIdentifier = m[2];","            }","        }","","        try {","            var ret = bravojs.callPlugins(\"normalizeModuleIdentifier\", [moduleIdentifier, relativeModuleDir, descriptor, this]);","            ","            // happens if mapping is ignored","            if (ret === false)","                return false;","            ","            if (typeof ret != \"undefined\")","                moduleIdentifier = ret;","        }","        catch(e)","        {","            var mappings = (typeof this.descriptor != \"undefined\" && typeof this.descriptor.mappings != \"undefined\")?JSON.stringify(this.descriptor.mappings):\"{}\";            ","            throw new Error(e + \" => \" + e.stack + \"\nUnable to resolve moduleIdentifier '\" + JSON.stringify(moduleIdentifier) + \"' against context '\" + this.id + \"' (mappings: \" + mappings + \") and relativeModuleDir '\" + relativeModuleDir + \"'.\");","        }","","        if (moduleIdentifier === null || moduleIdentifier === \"\")","            return moduleIdentifier;","","        if (moduleIdentifier.charAt(0) == \"/\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + moduleIdentifier;","","        if (moduleIdentifier.charAt(0) == \".\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier);","","        if (this.id == \"_\")","            return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(bravojs.mainModuleDir + \"/\" + moduleIdentifier);","","        return ((typeof plugin != \"undefined\")?plugin+\"!\":\"\") + bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier);","    }","","    /** Run just before providing Module to moduleFactory function in bravojs.initializeModule() */","    bravojs.Module.prototype.augment = function bravojs_Module_augment()","    {","        if (this._id === \"\")","            return;","    ","        var context = bravojs.contextForId(this._id, true);","        /* Only add extra module properties if context represents a package (i.e. not default '_' context) */","        if (context.id == \"_\")","            return;","","        /* If context supplies a UID use it over the path-based ID for the package ID */","        if (typeof context.descriptor !== \"undefined\" && typeof context.descriptor.uid !== \"undefined\") {","            this.pkgId = context.descriptor.uid.replace(/^\w*:\/\//, \"\");","            // TODO: If known registry found as prefix strip it from uid","        } else {","            this.pkgId = context.id;","        }","","        /* Normalized mappings are simply a map where labels point to package IDs */","        this.mappings = context.getNormalizedMappings();","","        this.hashId = calcMD5(this.id);","    }","    ","    bravojs.base64encode = Base64.encode;","    bravojs.base64decode = Base64.decode;","","    // We need to reset bravojs to use the Context object from above (but keep registered plugins)","    bravojs.reset(null, bravojs.plugins);","}","","Plugin.prototype.requireModule = function(id)","{","    if (!id)","        return undefined;","    ","    // The text plugins need special handeling","    if (id.match(/^text!/))","    {","        if (!this.bravojs.requireMemo[id] && this.bravojs.pendingModuleDeclarations[id])","        {","            this.bravojs.requireMemo[id] = this.bravojs.pendingModuleDeclarations[id].moduleFactory();","        }","        if (!this.bravojs.requireMemo[id]) {","            throw new Error(\"Module \" + id + \" is not available.\");","        }","        return true;","    }","    return undefined;","}","","Plugin.prototype.newRequire = function(helpers)","{","    var bravojs = this.bravojs;","","    var newRequire = function packages_require(moduleIdentifier) ","    {","        // RequireJS compatibility. Convert require([], callback) to module.load([], callback).","        if (Object.prototype.toString.call(moduleIdentifier) == \"[object Array]\" && arguments.length == 2)","        {","            if (moduleIdentifier.length > 1)","               throw new Error(\"require([], callback) with more than one module in [] is not supported yet!\");","","            var callback = arguments[1];","","            if (/^\//.test(moduleIdentifier[0]))","            {","	            bravojs.module.load(moduleIdentifier[0], function(id)","	            {","	                callback(newRequire(id));","	            });","            }","            else","            if (/^\./.test(moduleIdentifier[0]))","            {","	            moduleIdentifier = bravojs.contextForId(helpers.getContextSensitiveModuleDir()).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());","	            bravojs.module.load(moduleIdentifier, function(id)","	            {","	                callback(newRequire(id));","	            });","            }","            else","            {","	            if (typeof bravojs.mainContext == \"undefined\")","	                throw new Error(\"Cannot resolve ID for ASYNC require. bravojs.mainContext used to resolve ID not set!\");","	            // Load IDs are resolved against the default context. To resolve against a different","	            // context use module.load([], callback).","	            moduleIdentifier = bravojs.contextForId(bravojs.mainContext).resolveId(moduleIdentifier[0], helpers.getContextSensitiveModuleDir());","	            bravojs.module.load(moduleIdentifier, function(id)","	            {","	                callback(newRequire(id));","	            });","            }","            return undefined;","        }","        if (helpers.deps && helpers.deps[moduleIdentifier])","            return helpers.deps[moduleIdentifier]();","        return bravojs.requireModule(helpers.getContextSensitiveModuleDir(), moduleIdentifier);","    };","    return newRequire;","}","","Plugin.prototype.augmentNewRequire = function(newRequire, helpers)","{","    var bravojs = this.bravojs;","","    newRequire.pkg = function packages_require_pkg(packageIdentifierPath)","    {","        if (typeof helpers.module != \"undefined\" && typeof helpers.module.mappings != \"undefined\")","        {","            if (typeof helpers.module.mappings[packageIdentifierPath] != \"undefined\")","                packageIdentifierPath = helpers.module.mappings[packageIdentifierPath];","        }","        var context = bravojs.contextForId(packageIdentifierPath);","        return {","            id: function(moduleIdentifier, unsanitized)","            {","                if (typeof moduleIdentifier === \"undefined\" || !moduleIdentifier)","                {","                	// NOTE: The code below will likely go. pkg().id() should always return the path ID","                	//		 of the package and not the UID. Will need separate function to get UID.","//                    if (unsanitized)","//                       return context.id;","//                    return context.uid || context.id;","					return context.id;","                }","                else","                {","                    var id = context.resolveId(moduleIdentifier, helpers.getContextSensitiveModuleDir());","                    if (unsanitized)","                        return id;","                    return bravojs.callPlugins(\"sanitizeId\", [id]) || id;","                }","            }","        }","    }","","    newRequire.canonicalize = function packages_require_canonicalize(moduleIdentifier)","    {","        var id = bravojs.makeModuleId(helpers.getContextSensitiveModuleDir(), moduleIdentifier);","","        if (id === '')","            throw new Error(\"Cannot canonically name the resource bearing this main module\");","","        /* Remove package/module ID delimiter */","        id = bravojs.callPlugins(\"sanitizeId\", [id]) || id;","","        /* Some IDs may refer to non-js files */","        if (bravojs.basename(id).indexOf(\".\") == -1)","            id += \".js\";","","        return bravojs.window.location.protocol + \"/\" + id;","    }","","    newRequire.nameToUrl = function(moduleIdentifier)","    {","        if (arguments.length >= 2 && arguments[1] !== null)","            throw new Error(\"NYI - Second argument to require.nameToUrl() must be 'null'!\");","        else","        if (arguments.length >= 3 && arguments[2] != \"_\")","            throw new Error(\"NYI - Third argument to require.nameToUrl() must be '_'!\");","        throw new Error(\"NYI - require.nameToUrl()\");","/*","        var parts = moduleIdentifier.split(\"/\");","        if (parts.length == 0)","        {","        }","        else","        {","        }","*/","    }","}","","Plugin.prototype.sanitizeId = function(id)","{","    return id.replace(/@\//, \"/\").replace(/@$/, \"\");","}","","/**"," * Load a package descriptor from the server."," * "," * NOTE: This function will block until the server returns the response!"," *       Package descriptors should be memoized before booting the program"," *       for better loading performance."," */","Plugin.prototype.loadPackageDescriptor = function(id)","{","    // NOTE: Do NOT use require.canonicalize(id) here as it will cause an infinite loop!","    var URL = window.location.protocol + \"/\" + bravojs.realpath(id.replace(/@\/+/g, \"\/\"));","","    // TODO: Get this working in other browsers","    var req = new (this.bravojs.XMLHttpRequest || XMLHttpRequest)();","    req.open(\"GET\", URL, false);","    req.send(null);","    if(req.status == 200)","    {","        try","        {","            return JSON.parse(req.responseText);","        }","        catch(e)","        {","            throw new Error(\"Error parsing package descriptor from URL '\" + URL + \"': \" + e);","        }","    }","    else","        throw new Error(\"Error loading package descriptor from URL: \" + URL);","}","","/**"," * Given a mappings locator normalize it according to it's context by"," * setting an absolute path-based location property."," */","Plugin.prototype.normalizeLocator = function(locator, context)","{","    if (typeof locator.provider != \"undefined\")","    {","        // do nothing","//        locator.location = locator.provider;","    }","    else","    if (typeof locator.location != \"undefined\")","    {","        if ((locator.location.indexOf(\"./\") == 0) || (locator.location.indexOf(\"../\") == 0))","        {","            locator.location = this.bravojs.realpath(((context.id!=\"_\")?context.id:this.bravojs.mainModuleDir) + \"/\" + locator.location, false) + \"/\";","        }","    }","    else","    if (typeof locator.id != \"undefined\")","    {","        if (locator.id.charAt(0) != \"/\")","            locator.id = this.bravojs.mainModuleDir + \"/\" + locator.id;","    }","    else","    if (typeof locator.catalog != \"undefined\" || typeof locator.archive != \"undefined\")","    {","        if (typeof locator.catalog != \"undefined\" && typeof locator.name == \"undefined\")","            throw new Error(\"Catalog-based mappings locator does not specify 'name' property: \" + locator);","","        var ret = this.bravojs.callPlugins(\"resolveLocator\", [locator]);","        if (typeof ret == \"undefined\")","            throw new Error(\"Unable to resolve package locator: \" + JSON.stringify(locator));","","        locator.location = ret;","","        if (typeof id == \"undefined\")","            throw new Error(\"Mappings locator could not be resolved by plugins: \" + locator);","    }","","    if (typeof locator.location != \"undefined\" && locator.location.charAt(locator.location.length-1) == \"/\")","        locator.location = locator.location.substring(0, locator.location.length -1);","","    if (typeof locator.location != \"undefined\") {","        var newContext = this.bravojs.contextForId(locator.location);","        if(newContext && newContext.uid) {","            locator.uid = newContext.uid;","        }","    }","","    return locator;","}","","/**"," * Given a moduleIdentifier convert it to a top-level ID"," */","Plugin.prototype.normalizeModuleIdentifier = function(moduleIdentifier, relativeModuleDir, descriptor, context)","{","    if (moduleIdentifier === '')  /* Special case for main module */","        return '';","","    var self = this,","        bravojs = this.bravojs,","        originalModuleIdentifier = moduleIdentifier;","","    function finalNormalization(moduleIdentifier)","    {","        moduleIdentifier = moduleIdentifier.replace(/{platform}/g, bravojs.require.platform);","","        var parts = moduleIdentifier.replace(/\.js$/, \"\").split(\"@/\");","","        if (parts.length == 1)","            return moduleIdentifier;","","        var context = bravojs.contextForId(parts[0]);","        // Resolve mapped modules","        if (typeof context.descriptor.modules != \"undefined\" && typeof context.descriptor.modules[\"/\" + parts[1]] != \"undefined\")","        {","            var locator = self.normalizeLocator(context.descriptor.modules[\"/\" + parts[1]], context);","            if (typeof locator.available != \"undefined\" && locator.available === false)","                return null;","","            if (typeof locator.module != \"undefined\")","                moduleIdentifier = bravojs.contextForId(locator.location).resolveId(\"./\" + locator.module);","        }","","        // Give opportunity to verify resolved ID to discover missing mappings for example","        var ret = bravojs.callPlugins(\"verifyModuleIdentifier\", [moduleIdentifier, {","            moduleIdentifier: originalModuleIdentifier,","            relativeModuleDir: relativeModuleDir,","            context: context","        }]);","        if (typeof ret != \"undefined\")","            moduleIdentifier = ret;","        if (/\.js$/.test(moduleIdentifier))","            moduleIdentifier = moduleIdentifier.substring(0, moduleIdentifier.length-3);","        return moduleIdentifier;","    }","","    if (moduleIdentifier === null)","    {","        if (typeof context.descriptor == \"undefined\" || typeof context.descriptor.main == \"undefined\")","            throw new Error(\"'main' property not set in package descriptor for: \" + this.id);","        return finalNormalization(context.id + \"@/\" + context.descriptor.main);","    }","    else","    if (typeof moduleIdentifier === \"object\")","    {","        // We have a mappings locator object","        moduleIdentifier = this.normalizeLocator(moduleIdentifier, context);","","        var id;","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            id = moduleIdentifier.location;","        }","        else","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            id = moduleIdentifier.id;","        }","        else","            throw new Error(\"Invalid mapping: \" + moduleIdentifier);","","        if (typeof moduleIdentifier.descriptor != \"undefined\" && typeof moduleIdentifier.descriptor.main != \"undefined\")","            return finalNormalization(this.bravojs.realpath(id + \"@/\" + moduleIdentifier.descriptor.main, false));","","        var newContext = this.bravojs.contextForId(id);","","        if (typeof moduleIdentifier.module !== \"undefined\")","        {","            return finalNormalization(this.bravojs.realpath(newContext.id + \"@/\" + moduleIdentifier.module, false));","        }","        else","        {","            if (typeof newContext.descriptor == \"undefined\" || typeof newContext.descriptor.main == \"undefined\")","                throw new Error(\"'main' property not set in package descriptor for: \" + newContext.id);","","            return finalNormalization(this.bravojs.realpath(newContext.id + \"@/\" + newContext.descriptor.main, false));","        }","    }","","    // See if moduleIdentifier matches a mapping alias exactly","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor.mappings != \"undefined\" &&","        typeof context.descriptor.mappings[moduleIdentifier] != \"undefined\")","    {","        if (typeof context.descriptor.mappings[moduleIdentifier].available != \"undefined\" && context.descriptor.mappings[moduleIdentifier].available === false)","        {","            // If mapping is not available we return a null ID","            return null;","        }","        else","        if (typeof context.descriptor.mappings[moduleIdentifier].module != \"undefined\")","        {","            var mappedContextId = this.normalizeLocator(context.descriptor.mappings[moduleIdentifier], context).location,","                mappedContext = this.bravojs.contextForId(mappedContextId),","                mappedModule = context.descriptor.mappings[moduleIdentifier].module;","","            mappedModule = mappedModule.replace(/^\./, \"\");","","            if (mappedModule.charAt(0) == \"/\")","            {","                return finalNormalization(mappedContext.id + \"@\" + mappedModule);","            }","            else","            {","                return mappedContext.resolveId(\"./\" + context.descriptor.mappings[moduleIdentifier].module, null);","            }","        }","        else","        {","            var mappedContextId = this.normalizeLocator(context.descriptor.mappings[moduleIdentifier], context).location,","            	mappedContext = this.bravojs.contextForId(mappedContextId);","            if (mappedContext.descriptor && mappedContext.descriptor.main)","            {","            	return mappedContext.resolveId(null, null);","            }","            throw new Error(\"Unable to resolve ID '\" + moduleIdentifier + \"' for matching mapping as 'module' property not defined in mapping locator and 'main' property not defined in package descriptor!\");","        }","    }","","    var moduleIdentifierParts = moduleIdentifier.split(\"@/\");","","    // If module ID is absolute we get appropriate context","    if (moduleIdentifierParts.length == 2)","        context = this.bravojs.contextForId(moduleIdentifierParts[0]);","","    // NOTE: relativeModuleDir is checked here so we can skip this if we want a module from the package","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor[\"native\"] != \"undefined\" &&","        context.descriptor[\"native\"] === true &&","        relativeModuleDir)","    {","        return finalNormalization(moduleIdentifierParts.pop());","    }","    else","    if (moduleIdentifier.charAt(0) == \"/\")","        return finalNormalization(moduleIdentifier);","","    // From now on we only deal with the relative (relative to context) ID","    moduleIdentifier = moduleIdentifierParts.pop();","","    if (moduleIdentifier.charAt(0) == \".\" && relativeModuleDir)","        return finalNormalization(this.bravojs.realpath(relativeModuleDir + \"/\" + moduleIdentifier, false));","    else","    if (context && context.id == \"_\")","        return finalNormalization(this.bravojs.realpath(this.bravojs.mainModuleDir + \"/\" + moduleIdentifier, false));","","    var parts;","    if (typeof context.descriptor != \"undefined\" &&","        typeof context.descriptor.mappings != \"undefined\" &&","        (parts = moduleIdentifier.split(\"/\")).length > 1 &&","        typeof context.descriptor.mappings[parts[0]] != \"undefined\")","    {","        var normalizedLocator = this.normalizeLocator(context.descriptor.mappings[parts[0]], context),","            mappedContextId;","","        if (normalizedLocator.available === false)","            return false;","","        if (typeof normalizedLocator.provider != \"undefined\")","            mappedContextId = normalizedLocator.id;","        else","            mappedContextId = normalizedLocator.location;","","        var mappedContext = this.bravojs.contextForId(mappedContextId),","            mappedDescriptor = void 0;","","        if (typeof context.descriptor.mappings[parts[0]].descriptor != \"undefined\")","            mappedDescriptor = context.descriptor.mappings[parts[0]].descriptor;","","        // Make ID relative and do not pass relativeModuleDir so ID is resolved against root of package without checking mappings","        parts[0] = \".\";","        return mappedContext.resolveId(parts.join(\"/\"), null, mappedDescriptor);","    }","","    var libDir = context.libDir;","    if (typeof descriptor != \"undefined\" && typeof descriptor.directories != \"undefined\" && typeof descriptor.directories.lib != \"undefined\")","    {","        libDir = descriptor.directories.lib;","    }","    if (libDir && moduleIdentifier.substring(0, libDir.length + 1) == libDir + \"/\") {","        libDir = false;","    }","","    return finalNormalization(this.bravojs.realpath(context.id + \"@/\" + ((libDir)?libDir+\"/\":\"\") + moduleIdentifier, false));","}","","if (typeof bravojs != \"undefined\")","{","    // In Browser","    bravojs.registerPlugin(new Plugin());","}","else","if (typeof exports != \"undefined\")","{","    // On Server","    exports.Plugin = Plugin;","}","","})();",""].join("\n");
 });
 __loader__.memoize('text!bravojs/plugins/packages/loader.js', function(__require__, module, exports) {
 // ######################################################################
 // # /bravojs/plugins/packages/loader.js
 // ######################################################################
-return ["/**"," *  This file implements a bravojs core plugin to add"," *  dynamic module and package loading support where the server"," *  given a module or package ID will return the requested"," *  module (main module for package) and all dependencies"," *  in a single file."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages_loader() {","","bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)","{","    var uri;","    ","    if (typeof moduleIdentifier == \"object\")","    {","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            var pkg = bravojs.contextForId(moduleIdentifier.id);","            uri = pkg.resolveId(null);","        }","        else","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            uri = bravojs.mainModuleDir + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);","        }","        else","            throw new Error(\"NYI\");","    }","    else","    if (moduleIdentifier.charAt(0) != \"/\")","    {","        if (moduleIdentifier.charAt(0) != \".\")","        {","            // resolve mapped ID","            uri = bravojs.contextForId(this._id).resolveId(moduleIdentifier).replace(bravojs.mainModuleDir, bravojs.mainModuleDir);","        }","        else","            throw new Error(\"Cannot load module by relative ID: \" + moduleIdentifier);","    }","    else","    {","        uri = bravojs.mainModuleDir + moduleIdentifier.substring(bravojs.mainModuleDir.length);","    }","","    var lookupURI = uri;","    if (/\.js$/.test(lookupURI))","        lookupURI = lookupURI.substring(0, lookupURI.length-3);","","    if (bravojs.require.isMemoized(lookupURI))","    {","        callback(lookupURI);","        return;","    }","","    if (!/\.js$/.test(uri) && !/\/$/.test(uri))","        uri += \".js\";","","    // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)","    uri = uri.replace(/\.{2}\//g, \"__/\");","","    // WebWorker","    if (typeof importScripts === \"function\")","    {","        // Remove hostname","        uri = uri.replace(/^\/[^\/]*\//, \"/\");","","        importScripts(uri);","        ","        if (typeof __bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","","        var id = __bravojs_loaded_moduleIdentifier;","","        delete __bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","        return;","    }","","    var URL = window.location.protocol + \"/\" + uri;","","    // We expect a bunch of modules wrapped with:","    //  require.memoize('ID', [], function (require, exports, module) { ... });","","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", URL);","","    /* Fake script.onload for IE6-8 */","    script.onreadystatechange = function()","    {","        var cb;        ","        if (this.readyState === \"loaded\")","        {","            cb = this.onload;","            this.onload = null;","            setTimeout(cb,0);","        }","    }","","    script.onload = function packages_loader_onload()","    {","        this.onreadystatechange = null;","        ","        if (typeof window.__bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","        ","        var id = window.__bravojs_loaded_moduleIdentifier;","        ","        delete window.__bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","    }","    ","    /* Supply errors on browsers that can */","    script.onerror = function fastload_script_error()","    {","        if (typeof console != \"undefined\")","            console.error(\"Error contacting server URL = \" + script.src);","        else","            alert(\"Error contacting server\nURL=\" + script.src);","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","};","","})();",""].join("\n");
+return ["/**"," *  This file implements a bravojs core plugin to add"," *  dynamic module and package loading support where the server"," *  given a module or package ID will return the requested"," *  module (main module for package) and all dependencies"," *  in a single file."," *"," *  Copyright (c) 2011, Christoph Dorn"," *  Christoph Dorn, christoph@christophdorn.com"," *  MIT License"," *"," *  To use: Load BravoJS, then layer this plugin in"," *  by loading it into the extra-module environment."," */","","(function packages_loader() {","","bravojs.module.constructor.prototype.load = function packages_loader_load(moduleIdentifier, callback)","{","    var uri;","    ","    if (typeof moduleIdentifier == \"object\")","    {","        if (typeof moduleIdentifier.id != \"undefined\")","        {","            var pkg = bravojs.contextForId(moduleIdentifier.id);","            uri = pkg.resolveId(null);","        }","        else","        if (typeof moduleIdentifier.location != \"undefined\")","        {","            uri = bravojs.mainModuleDir + moduleIdentifier.location.substring(bravojs.mainModuleDir.length);","        }","        else","            throw new Error(\"NYI\");","    }","    else","    if (moduleIdentifier.charAt(0) != \"/\")","    {","        if (moduleIdentifier.charAt(0) != \".\")","        {","            // resolve mapped ID","            uri = bravojs.contextForId(this._id).resolveId(moduleIdentifier).replace(bravojs.mainModuleDir, bravojs.mainModuleDir);","        }","        else","            throw new Error(\"Cannot load module by relative ID: \" + moduleIdentifier);","    }","    else","    {","        uri = bravojs.mainModuleDir + moduleIdentifier.substring(bravojs.mainModuleDir.length);","    }","","    var lookupURI = uri;","    if (/\.js$/.test(lookupURI))","        lookupURI = lookupURI.substring(0, lookupURI.length-3);","","    if (bravojs.require.isMemoized(lookupURI))","    {","        callback(lookupURI);","        return;","    }","","    if (!/\.js$/.test(uri) && !/\/$/.test(uri))","        uri += \".js\";","","    // Encode ../ as we need to preserve them (servers/browsers will automatically normalize these directory up path segments)","    uri = uri.replace(/\.{2}\//g, \"__/\");","","    // WebWorker","    if (typeof importScripts === \"function\")","    {","        // Remove hostname","        uri = uri.replace(/^\/[^\/]*\//, \"/\");","","        importScripts(uri);","        ","        if (typeof __bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","","        var id = __bravojs_loaded_moduleIdentifier;","","        delete __bravojs_loaded_moduleIdentifierl","","        // all modules are memoized now so we can continue","        callback(id);","        return;","    }","","    var URL = window.location.protocol + \"/\" + uri;","","    // We expect a bunch of modules wrapped with:","    //  require.memoize('ID', [], function (require, exports, module) { ... });","","    var script = document.createElement('SCRIPT');","    script.setAttribute(\"type\",\"text/javascript\");","    script.setAttribute(\"src\", URL);","","    /* Fake script.onload for IE6-8 */","    script.onreadystatechange = function()","    {","        var cb;        ","        if (this.readyState === \"loaded\")","        {","            cb = this.onload;","            this.onload = null;","            setTimeout(cb,0);","        }","    }","","    script.onload = function packages_loader_onload()","    {","        this.onreadystatechange = null;","        ","        if (typeof window.__bravojs_loaded_moduleIdentifier == \"undefined\")","            throw new Error(\"__bravojs_loaded_moduleIdentifier not set by server!\");","        ","        var id = window.__bravojs_loaded_moduleIdentifier;","        ","        delete window.__bravojs_loaded_moduleIdentifier;","","        // all modules are memoized now so we can continue","        callback(id);","    }","    ","    /* Supply errors on browsers that can */","    script.onerror = function fastload_script_error()","    {","        if (typeof console != \"undefined\")","            console.error(\"Error contacting server URL = \" + script.src);","        else","            alert(\"Error contacting server\nURL=\" + script.src);","    }","","    document.getElementsByTagName(\"HEAD\")[0].appendChild(script);","};","","})();",""].join("\n");
 });
 __pinf_loader_scope__.boot = __loader__.__require__('loader').boot;
 };
-if(typeof exports != 'undefined') { __pinf_loader__(exports); } else { throw new Error('NYI'); }
+if(typeof exports != 'undefined') { __pinf_loader__(exports); } else { throw new Error('exports object not defined!'); }
 })();
