@@ -12,7 +12,7 @@ Narwhal
 
 OSX 10.7:
 
-    git clone git://github.com/cappuccino/narwhal.git
+    git clone git://github.com/280north/narwhal.git
 
 Make sure narwhal CLI is working:
 

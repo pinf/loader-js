@@ -86,7 +86,7 @@ automating software production and system operation. Any CommonJS package may be
 Install
 =======
 
-Requirements:
+Minimum Requirements:
 
   * UNIX system (Windows support is under development but still has some way to go)
   * NodeJS: [http://nodejs.org/](http://nodejs.org/)
@@ -108,6 +108,17 @@ Use any one of the following install solutions:
 Make sure it works:
 
     commonjs -h
+
+To install additional platforms (other than `node`) see:
+
+  * Individual platform projects
+  * [PINF JavaScript Platform for OSX Lion](https://github.com/pinf/platform-js/blob/master/docs/osx-lion.md) (includes all supported platforms)
+
+To run the loader on a different platform use:
+
+    commonjs --platform <PlatformAlias> ...
+
+Where `<PlatformAlias>` is any of `node`, `gpsee`, `v8cgi`, `narwhal` or `ringo`.
 
 
 Demo: Hello World
