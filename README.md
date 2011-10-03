@@ -120,6 +120,9 @@ To run the loader on a different platform use:
 
 Where `<PlatformAlias>` is any of `node`, `gpsee`, `v8cgi`, `narwhal` or `ringo`.
 
+NOTE: Not all features are supported on all platform yet due to incomplete 
+[API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter).
+
 
 Demo: Hello World
 =================
