@@ -21,6 +21,8 @@ exports.main = function(env)
     if (outputPath.charAt(0) != "/")
         outputPath = process.cwd() + "/" + outputPath;
 
+    outputPath = PATH.normalize(outputPath);
+    
     var files = SCANNER.scan(PATH.dirname(PATH.dirname(PATH.dirname(module.id))) + "/lib/pinf-loader-js", {
         platform: platform,
         textFiles: [
