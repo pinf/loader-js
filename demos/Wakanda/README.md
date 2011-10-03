@@ -18,7 +18,10 @@ Setup
 
 Import loader into wakanda project:
 
-    ../../bin/bundle-loader --platform wakanda ./project/modules/pinf-loader.js
+    ../../bin/bundle-loader --adapter wakanda ./project/modules/pinf-loader.js
+    # or
+    commonjs --bundle-loader wakanda ./project/modules/pinf-loader.js
+    
 
 Boot loader from wakanda bootstrap file:
 
