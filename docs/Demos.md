@@ -1,18 +1,19 @@
+PINF Loader Demos
+=================
 
-To run these demos you must have the loader [./Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md).
+These demos are intended for internal development and showcase various features.
+
+For some more use-friendly demos see the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) project.
+
+
+Requirements
+============
+
+See [./Setup.md](https://github.com/pinf/loader-js/blob/master/docs/Setup.md)
+
 
 Portable
 ========
-
-These demos work on the following platforms:
-
-  * NodeJS (default): `node` (**Tested**)
-  * Narwhal: `narwhal` (**Not tested lately**)
-  * RingoJS: `ringo` (**Not tested yet**)
-  * RingoJS: `gpsee` (**Not tested yet**)
-  * RingoJS: `v8cgi` (**Not tested yet**)
-
-To use a specific platform specify `--platform <alias>`. `node` is used by default.
 
     commonjs -v ./demos/HelloWorld
     commonjs -v ./demos/AMD
@@ -26,6 +27,17 @@ To use a specific platform specify `--platform <alias>`. `node` is used by defau
     commonjs -v ./demos/MapModule
     commonjs -v ./demos/NotAvailable
     commonjs -v https://gist.github.com/823078
+
+To run the programs on a different platform use:
+
+    commonjs -v --platform <PlatformAlias> ./demos/HelloWorld
+
+Where `<PlatformAlias>` is any of `node`, `gpsee`, `v8cgi`, `narwhal` or `ringo`.
+
+Drop the `-v` to omit the loader progress output.
+
+**NOTE: Currently requires running with `--platform node` (default) ONCE first to download dependencies due to incomplete 
+[API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter) for the other platforms.**
 
 
 Platform: NodeJS

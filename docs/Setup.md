@@ -1,97 +1,69 @@
 
-To use the loader the loader code is needed and a supported CommonJS platform.
+Install
+=======
 
-Requirements
-============
+Minimum Requirements:
 
-The loader should work on any CommonJS platform for which there is an adapter. NodeJS is recommended at this time.
+  * UNIX system (Windows support is under development but still has some way to go)
+  * NodeJS: [http://nodejs.org/](http://nodejs.org/)
 
-UNIX file paths are expected and no testing has been done on Windows.
+Use any one of the following install solutions:
 
-Compatibility
--------------
+    npm install -g pinf-loader-js
 
-  * `0.1.x` is compatible with NodeJS `<= 0.4`
-  * `0.2.x` is compatible with NodeJS `>= 0.4`
+    cd ~/
+    wget -O pinf-loader-js.tar.gz https://github.com/pinf/loader-js/tarball/master
+    tar -zxf pinf-loader-js.tar.gz
+    mv pinf-loader-js-* pinf-loader-js
+    alias commonjs='~/pinf-loader-js/pinf-loader.sh'
 
+    cd ~/
+    git clone git://github.com/pinf/loader-js.git pinf-loader-js
+    alias commonjs='~/pinf-loader-js/pinf-loader.sh'
 
-Loader Code
-===========
-
-Clone or download the [pinf/loader-js](https://github.com/pinf/loader-js) repository:
-
-    git clone git://github.com/pinf/loader-js.git
-    cd ./loader-js
-
-Link the `commonjs` command to the bootstrap script at `./pinf-loader.sh`:
-
-    ln -s /.../pinf-loader.sh /usr/local/bin/commonjs
-
-To update the loader to the latest code at any time:
-
-    git pull origin master
-
-_Downloadable and installable releases of the loader will be made available in time._
-
-
-CommonJS Platform
-=================
-
-Install one or more of the following platforms. __NodeJS__ is required at minimum at this time as it is the most popular, complete and tested.
-
-When done make sure the loader is working:
+Make sure it works:
 
     commonjs -h
 
-You are now ready to check out the [./Demos.md](https://github.com/pinf/loader-js/tree/master/docs/Demos.md).
+To install additional platforms (other than `node`) see:
+
+  * [Individual platform projects](https://github.com/pinf/loader-js)
+  * [PINF JavaScript Platform for OSX Lion](https://github.com/pinf/platform-js/blob/master/docs/osx-lion.md) (includes all supported platforms)
+
+To run the loader on a different platform (other than `node`) use:
+
+    commonjs --platform <PlatformAlias> ...
+
+Where `<PlatformAlias>` is any of `node`, `gpsee`, `v8cgi`, `narwhal` or `ringo`.
+
+NOTE: Not all features are supported on all platform yet due to incomplete 
+[API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter).
 
 
-NodeJS
-------
+Alternative Invocation
+======================
 
-Homepage: [http://nodejs.org/](http://nodejs.org/)
+The loader does not have to be used via the `commonjs` command. It can be invoked directly as a script.
 
-Install Instructions: [https://github.com/joyent/node/wiki/Installation](https://github.com/joyent/node/wiki/Installation)
+Checkout or download the project source, then invoke as follows:
 
-    # download and compile node
-    git clone git://github.com/joyent/node.git
-    cd ./node
-    ./configure
-    make
-    make install
+    node ./pinf-loader.js -h
+    v8cgi ./pinf-loader.js -h
+    gsr ./pinf-loader.js -h
+    ringo ./pinf-loader.js -h
+    narwhal ./pinf-loader.js -h
+
+The complete loader may also be inlined into one CommonJS module that can be 
+included in a platform-specific project:
+
+    # Implemented
+    commonjs --bundle-loader jetpack .../node-pinf-loader.js
+    commonjs --bundle-loader titanium .../node-pinf-loader.js
+    commonjs --bundle-loader air .../node-pinf-loader.js
     
-    # make sure node works
-    node -h
-    
-    # make sure the loader works with the platform
-    commonjs --test-platform node
-
-
-Narwhal
--------
-
-Homepage: [http://narwhaljs.org/](http://narwhaljs.org/)
-
-**NOTE: Only the `rhino` engine has been tested on OSX thus far.**
-
-Install Instructions: [http://narwhaljs.org/quick-start.html](http://narwhaljs.org/quick-start.html)
-
-    # download narwhal and activate
-    git clone git://github.com/280north/narwhal.git
-    source narwhal/bin/activate
-    
-    # make sure narwhal works
-    narwhal -h
-    
-    # make sure the loader works with the platform
-    commonjs --test-platform narwhal
-
-
-Jetpack
--------
-
-The Jetpack platform is not intended to be used from the command line at this time.
-
-The loader is intended to be included in a Jetpack extension to _host_ the program code.
-
-See: [../demos/JetpackExtension](https://github.com/pinf/loader-js/tree/master/demos/JetpackExtension)
+    # Not Yet Implemented
+    commonjs --bundle-loader node .../node-pinf-loader.js
+    commonjs --bundle-loader v8cgi .../v8cgi-pinf-loader.js
+    commonjs --bundle-loader gpsee .../gpsee-pinf-loader.js
+    commonjs --bundle-loader narwhal .../narwhal-pinf-loader.js
+    commonjs --bundle-loader ringo .../ringo-pinf-loader.js
