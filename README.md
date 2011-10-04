@@ -114,7 +114,7 @@ To install additional platforms (other than `node`) see:
   * Individual platform projects
   * [PINF JavaScript Platform for OSX Lion](https://github.com/pinf/platform-js/blob/master/docs/osx-lion.md) (includes all supported platforms)
 
-To run the loader on a different platform use:
+To run the loader on a different platform (other than `node`) use:
 
     commonjs --platform <PlatformAlias> ...
 
