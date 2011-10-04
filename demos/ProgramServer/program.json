@@ -20,11 +20,11 @@
                 }
             }
         },
-        "nodejs.org": {
-            "provider": "nodejs.org"
+        "nodejs.org/": {
+            "provider": "nodejs.org/"
         },
-        "pinf.org/loader": {
-            "provider": "pinf.org/loader"
+        "pinf.org/loader/": {
+            "provider": "pinf.org/loader/"
         }
     }
 }

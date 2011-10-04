@@ -9,8 +9,8 @@
                 "location": "./"
             }
         },
-        "nodejs.org": {
-            "provider": "nodejs.org"
+        "nodejs.org/": {
+            "provider": "nodejs.org/"
         }
     }
 }

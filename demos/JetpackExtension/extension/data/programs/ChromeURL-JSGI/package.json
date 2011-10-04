@@ -3,10 +3,10 @@
     "main": "main.js",
     "mappings": {
         "pinf": {
-            "id": "pinf.org/loader"
+            "id": "pinf.org/loader/"
         },
         "jetpack": {
-            "id": "mozilla.org/labs/jetpack"
+            "id": "mozilla.org/labs/jetpack/"
         }
     }
 }

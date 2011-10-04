@@ -6,11 +6,11 @@
                 "location": "./"
             }
         },
-        "mozilla.org/labs/jetpack": {
-            "provider": "mozilla.org/labs/jetpack"
+        "mozilla.org/labs/jetpack/": {
+            "provider": "mozilla.org/labs/jetpack/"
         },
-        "pinf.org/loader": {
-            "provider": "pinf.org/loader"
+        "pinf.org/loader/": {
+            "provider": "pinf.org/loader/"
         }
     }
 }

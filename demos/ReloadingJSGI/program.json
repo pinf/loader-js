@@ -18,8 +18,8 @@
                 "location": "./jsgi/"
             }
         },
-        "pinf.org/loader": {
-            "provider": "pinf.org/loader"
+        "pinf.org/loader/": {
+            "provider": "pinf.org/loader/"
         }
     }
 }

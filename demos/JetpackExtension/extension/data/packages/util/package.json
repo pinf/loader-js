@@ -5,7 +5,7 @@
     },
     "mappings": {
         "jetpack": {
-            "id": "mozilla.org/labs/jetpack"
+            "id": "mozilla.org/labs/jetpack/"
         }
     }
 }

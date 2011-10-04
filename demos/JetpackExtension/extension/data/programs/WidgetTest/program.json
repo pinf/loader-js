@@ -6,8 +6,8 @@
                 "location": "./"
             }
         },
-        "mozilla.org/labs/jetpack": {
-            "provider": "mozilla.org/labs/jetpack"
+        "mozilla.org/labs/jetpack/": {
+            "provider": "mozilla.org/labs/jetpack/"
         },
         "github.com/pinf/loader-js/demos/JetpackExtension/extension/data/packages/util/": {}
     }

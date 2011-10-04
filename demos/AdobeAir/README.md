@@ -25,7 +25,7 @@ Dev
 
 Import loader into air application:
 
-    ../../bin/bundle-loader --platform air ./app/pinf-loader.js
+    ../../bin/bundle-loader --adapter air ./app/pinf-loader.js
 
 Boot loader from project's `bootstrap.js` file:
 

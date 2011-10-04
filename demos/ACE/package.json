@@ -9,10 +9,10 @@
             "id": "github.com/ajaxorg/ace/"
         },
         "nodejs": {
-            "id": "nodejs.org"
+            "id": "nodejs.org/"
         },
         "pinf": {
-            "id": "pinf.org/loader"
+            "id": "pinf.org/loader/"
         },
         "jsgi": {
             "archive": "https://github.com/kriszyp/jsgi-node/zipball/master"
