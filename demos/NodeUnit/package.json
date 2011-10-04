@@ -6,10 +6,10 @@
     ],
     "mappings": {
         "nodejs": {
-            "id": "nodejs.org"
+            "id": "nodejs.org/"
         },
         "pinf": {
-            "id": "pinf.org/loader"
+            "id": "pinf.org/loader/"
         },
         "nodeunit": {
             "archive": "https://github.com/caolan/nodeunit/zipball/0.4.0"

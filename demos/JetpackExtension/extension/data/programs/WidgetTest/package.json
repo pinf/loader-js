@@ -6,7 +6,7 @@
     },
     "mappings": {
         "jetpack": {
-            "id": "mozilla.org/labs/jetpack"
+            "id": "mozilla.org/labs/jetpack/"
         },
         "util": {
             "location": "../../packages/util/"
