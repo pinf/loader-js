@@ -23,7 +23,7 @@ OSX 10.7:
     cd ../
     
     cd gpsee
-    ./configure --with-mozilla=/pinf/workspaces/github.com/pinf/loader-js/demos/GPSEE/tracemonkey
+    ./configure --with-mozilla=`pwd`/../tracemonkey
     make build
     sudo make install
 
