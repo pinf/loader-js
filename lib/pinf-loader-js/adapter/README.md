@@ -10,6 +10,9 @@ Until unit tests are available, the best approach to working on an adapter is to
 the [PINF JavaScript Test Programs](https://github.com/pinf/test-programs-js) and/or 
 [../../Demos/](https://github.com/pinf/loader-js/tree/master/demos) programs against the platform and follow the errors.
 
+Delete the `.pinf_packages` folder (created when running with `--platform node` i.e. a complete adapter) to force the loader to download the dependencies
+which is most likely where the adapter is failing.
+
 For support and questions post to: [http://groups.google.com/group/pinf-dev/](http://groups.google.com/group/pinf-dev/)
 
 Existing discussions:
