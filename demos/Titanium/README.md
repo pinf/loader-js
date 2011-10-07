@@ -52,3 +52,4 @@ Links
 =====
 
   * http://developer.appcelerator.com/apidoc/mobile/latest/
+  * http://wiki.appcelerator.org/display/guides/Using+CommonJS+to+Build+an+App

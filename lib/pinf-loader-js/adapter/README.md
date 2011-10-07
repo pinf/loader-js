@@ -15,6 +15,7 @@ For support and questions post to: [http://groups.google.com/group/pinf-dev/](ht
 Existing discussions:
 
   * [`v8cgi` - PINF JavaScript Loader support for v8cgi](http://groups.google.com/group/v8cgi/browse_thread/thread/17b8687e30578460)
+  * [`v8cgi` - Adapter EXEC implementation](http://groups.google.com/group/v8cgi/browse_thread/thread/ffa16af0436efabf/845bf099c0851146#845bf099c0851146)
 
 
 TODO
