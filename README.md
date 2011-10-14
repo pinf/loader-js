@@ -12,7 +12,7 @@ for any supported platform (on servers, in browsers, desktop applications, secur
 is ideally suited to be used as the target for the `commonjs` command (currently being standardized) and the
 development of cross-platform JavaScript applications and libraries that may be shared with the CommonJS ecosystem.
 
-![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v1.png)
+![Loader overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFLoaderJSOverview_v2.png)
 
 This module loader brings __[CommonJS](http://www.commonjs.org/) Modules/2__ _(currently in draft)_ plus
 __CommonJS Packages__, __Package Mappings__ and further concepts to the following platforms:
@@ -20,12 +20,12 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * `commonjs` - Use it as a target for the `commonjs` command being standardized
   * __[NodeJS](http://nodejs.org/)__ - Use it in any NodeJS application (**Default CLI and utility platform** until [API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter) come along)
   * __[Jetpack](https://jetpack.mozillalabs.com/)__ - Use it in any Gecko/XULRunner extension or application
-  * __[Titanium](http://www.appcelerator.com/)__ - Use it in any Appcelerator Titanium application
-  * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
-  * __[AdobeAir](http://www.adobe.com/products/air/)__ - Use it in any AdobeAir application
-  * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it in any GPSEE application
   * __[v8cgi](http://code.google.com/p/v8cgi)__ - Use it in any v8cgi application
+  * __[GPSEE](http://code.google.com/p/gpsee/)__ - Use it in any GPSEE application
+  * __[RingoJS](http://ringojs.org/)__ - Use it in any RingoJS application
   * __[Narwhal](https://github.com/280north/narwhal)__ - Use it with any Narwhal engine platform
+  * __[Titanium](http://www.appcelerator.com/)__ - Use it in any Appcelerator Titanium application
+  * __[AdobeAir](http://www.adobe.com/products/air/)__ - Use it in any AdobeAir application
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
   * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
@@ -80,7 +80,7 @@ The loader is a sub-project of the [PINF Toolchain Automation Platform](http://w
 The toolchain is an organized body of code & services maintained collectively for the purpose of
 automating software production and system operation. Any CommonJS package may be used as part of the toolchain.
 
-![Platform overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFPlatformOverview_v1.png)
+![Platform overview image](https://github.com/pinf/loader-js/raw/master/docs/images/PINFPlatformOverview_v2.png)
 
 
 Install
