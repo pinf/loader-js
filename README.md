@@ -120,7 +120,7 @@ To run the loader on a different platform (other than `node`) use:
 
 Where `<PlatformAlias>` is any of `node`, `gpsee`, `v8cgi`, `narwhal` or `ringo`.
 
-NOTE: Not all features are supported on all platform yet due to incomplete 
+NOTE: Not all features are supported on all platforms yet due to incomplete 
 [API adapters](https://github.com/pinf/loader-js/tree/master/lib/pinf-loader-js/adapter).
 
 
@@ -135,10 +135,15 @@ More demos:
   * **Internal/development:** See [./docs/Demos.md](https://github.com/pinf/loader-js/blob/master/docs/Demos.md).
 
 
-Documentation
+Presentations
 =============
 
-  * [High-level Introduction](https://github.com/pinf/loader-js/blob/master/docs/Presentations/Introduction.md) (presentation slides)
+  1. [CommonJS Everywhere (Wakanday 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-Everywhere-%28Wakanday-2011,-Boston%29)
+  2. [CommonJS via PINF JavaScript Loader ~ Introduction (Boston JavaScript 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-via-PINF-JavaScript-Loader-~-Introduction-%28Boston-JavaScript-2011,-Boston%29)
+
+
+Documentation
+=============
 
   * [Setup](https://github.com/pinf/loader-js/blob/master/docs/Setup.md) - Setup your `commonjs` command.
   * [Demos](https://github.com/pinf/loader-js/blob/master/docs/Demos.md) - Looking at the source code of the demos is a good place to start.
@@ -175,6 +180,7 @@ Priority: High
   * Refactored and abstracted program server to support various plugins.
   * Consistent and reliable file and line info for errors and stack traces across all platforms.
   * Run exported programs on various browser loaders (RequireJS, NobleJS) in addition to BravoJS.
+  * Update to daemon@0.4.0 to get https://github.com/indexzero/daemon.node/issues/4#issuecomment-2488911
 
 Priority: Medium
 ----------------
