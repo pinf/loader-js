@@ -29,6 +29,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[Wakanda](http://www.wakanda.org/)__ (__In Progress__)
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
   * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
+  * __[PhantomJS](http://www.phantomjs.org/)__ (__Not Yet Implemented__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
     * __[BravoJS](http://code.google.com/p/bravojs/)__ - Default browser loader with full CommonJS package support (**11.8 KB minified & gziped**)
@@ -138,8 +139,8 @@ More demos:
 Presentations
 =============
 
-  1. [CommonJS Everywhere (Wakanday 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-Everywhere-%28Wakanday-2011,-Boston%29)
-  2. [CommonJS via PINF JavaScript Loader ~ Introduction (Boston JavaScript 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-via-PINF-JavaScript-Loader-~-Introduction-%28Boston-JavaScript-2011,-Boston%29)
+  1. [CommonJS Everywhere (Wakanday 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-Everywhere-%28Wakanday-2011,-Boston%29) *(__Video__: 30m)*
+  2. [CommonJS via PINF JavaScript Loader ~ Introduction (Boston JavaScript 2011, Boston)](https://github.com/pinf/loader-js/wiki/Presentation:-CommonJS-via-PINF-JavaScript-Loader-~-Introduction-%28Boston-JavaScript-2011,-Boston%29) *(__Video__: 1h 39m)*
 
 
 Documentation
@@ -181,12 +182,14 @@ Priority: High
   * Consistent and reliable file and line info for errors and stack traces across all platforms.
   * Run exported programs on various browser loaders (RequireJS, NobleJS) in addition to BravoJS.
   * Update to daemon@0.4.0 to get https://github.com/indexzero/daemon.node/issues/4#issuecomment-2488911
+  * Wakanda adapter
 
 Priority: Medium
 ----------------
 
   * Remove color characters when printing to browser consoles and buffer until newline
   * Profiling code in loader to time various things with an option to monitor interpreter spawn/load time as well.
+  * PhantomJS adapter
 
 Priority: Low
 -------------
