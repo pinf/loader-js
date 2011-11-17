@@ -174,12 +174,19 @@ Support, Feedback & News
 TODO
 ====
 
+Enhancements
+------------
+
+  * `pinf/insight-js/NEXT` will be incorporated for logging/output (do not spend much time on improving log/output messages until this is in place)
+  * `pinf/test-js/NEXT` will be incorporated for advanced testing (do not spend much time on improving testing until this is in place)
+
 Priority: High
 --------------
 
   * Clean hierarchical sandbox implementation.
   * Refactored and abstracted program server to support various plugins.
-  * Consistent and reliable file and line info for errors and stack traces across all platforms.
+  * Consistent and reliable file and line info for errors and stack traces across all platforms
+    * http://pmuellr.blogspot.com/2011/11/debugging-concatenated-javascript-files.html
   * Run exported programs on various browser loaders (RequireJS, NobleJS) in addition to BravoJS.
   * Update to daemon@0.4.0 to get https://github.com/indexzero/daemon.node/issues/4#issuecomment-2488911
   * Wakanda adapter
