@@ -1,0 +1,9 @@
+{
+    "uid": "http://github.com/pinf/loader-js/programs/extjs-loader-test/ui/",
+    "main": "main.js",
+    "mappings": {
+        "extjs4": {
+            "id": "sencha.com/products/extjs4/"
+        }
+    }
+}

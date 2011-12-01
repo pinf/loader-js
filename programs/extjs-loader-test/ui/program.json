@@ -1,0 +1,18 @@
+{
+    "extends": {
+        "location": "../program.packages.json"
+    },
+    "boot": "github.com/pinf/loader-js/programs/extjs-loader-test/ui/",
+    "contexts": {
+        "top": {
+            "github.com/pinf/loader-js/programs/extjs-loader-test/ui/": {}
+        }
+    },
+    "packages": {
+        "github.com/pinf/loader-js/programs/extjs-loader-test/ui/": {
+            "locator": {
+                "location": "./"
+            }
+        }
+    }
+}

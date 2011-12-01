@@ -1,0 +1,10 @@
+{
+    "packages": {
+        "sencha.com/products/extjs4/": {
+            "locator": {
+                "archive": "http://extjs.cachefly.net/ext-4.0.2-commercial.zip",
+                "resource": true
+            }
+        }
+    }
+}

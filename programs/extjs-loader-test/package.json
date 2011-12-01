@@ -1,0 +1,29 @@
+{
+    "uid": "http://github.com/pinf/loader-js/programs/extjs-loader-test/",
+    "main": "server.js",
+    "directories": {
+        "lib": ""
+    },
+    "scripts": {
+        "serve": {
+            "id": "github.com/pinf/server-js/"
+        }
+    },
+    "mappings": {
+        "pinf": {
+            "id": "pinf.org/loader/"
+        },
+        "nodejs": {
+            "id": "nodejs.org/"
+        },
+        "modules": {
+            "id": "github.com/pinf/modules-js/"
+        },
+        "server": {
+            "id": "github.com/pinf/server-js/"
+        },
+        "extjs4": {
+            "id": "sencha.com/products/extjs4/"
+        }
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "extends": [
+        {
+            "location": "https://raw.github.com/pinf/server-js/v0.1.19/program.packages.json"
+        },
+        {
+            "location": "./program.packages.json"
+        }
+    ],
+    "boot": "github.com/pinf/loader-js/programs/extjs-loader-test/",
+    "implements": {
+        "github.com/pinf/server-js/-meta/strawman/vhost/0.1": {
+        }
+    },
+    "packages": {
+        "github.com/pinf/loader-js/programs/extjs-loader-test/": {
+            "locator": {
+                "location": "./"
+            }
+        },
+        "github.com/pinf/server-js/": {
+            "locator": {
+                "location": false,
+                "archive": "https://github.com/pinf/server-js/zipball/v0.1.19"
+            }
+        }
+    }
+}
