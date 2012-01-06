@@ -30,6 +30,7 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[CouchApp](http://couchapp.org/page/index)__ (__Initial exploration__)
   * __[PhoneGap](http://www.phonegap.com/)__ (__Initial exploration__)
   * __[PhantomJS](http://www.phantomjs.org/)__ (__Not Yet Implemented__)
+  * __[IronJS](https://github.com/fholm/IronJS)__ (__Not Yet Implemented__)
   * __[SilkJS](http://github.com/mschwartz/SilkJS)__ (__Not Yet Implemented__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
@@ -184,7 +185,7 @@ Enhancements
 Priority: High
 --------------
 
-  * Clean hierarchical sandbox implementation.
+  * Clean hierarchical sandbox implementation (use [https://github.com/sourcemint/loader-js](https://github.com/sourcemint/loader-js))
   * Refactored and abstracted program server to support various plugins.
   * Consistent and reliable file and line info for errors and stack traces across all platforms
     * http://pmuellr.blogspot.com/2011/11/debugging-concatenated-javascript-files.html
