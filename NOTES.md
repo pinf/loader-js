@@ -45,6 +45,12 @@ General
   * Rename ./lib/pinf-loader-js to ./lib/pinf-loader
 
 
+  * Path resolution in `config files` files:
+    * `/from/THIS/PACKAGE/root`
+    * `./relative/to/CONFIG/FILE`
+    * `from/TOP/PACKAGE/root` config files get merged and path gets resolved from seed config file.
+
+
 NodeJS
 -------
 
