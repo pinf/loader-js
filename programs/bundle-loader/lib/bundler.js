@@ -13,6 +13,23 @@ Bundler.prototype.writeTo = function(bundlePath)
 {
     var code = [];
 
+    if (this.options.platform === "jetpack")
+    {
+        code.push("var __platformName__ = 'jetpack';");
+        code.push("var __platformLoaderModule__ = module;");
+        code.push("var __platformRequire__ = require;");
+        code.push("require('page-mod');");
+        code.push("require('timers');");
+        code.push("require('windows');");
+        code.push("require('self');");
+        code.push("require('preferences-service');");
+        code.push("require('tabs');");
+        code.push("require('widget');");
+        code.push("require('net');");
+        code.push("require('panel');");
+        code.push("require('panel');");
+    }
+
     code.push("(function() {");
     code.push("var __pinf_loader__ = function(__pinf_loader_scope__) {");
 
