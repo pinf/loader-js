@@ -33,6 +33,8 @@ __CommonJS Packages__, __Package Mappings__ and further concepts to the followin
   * __[IronJS](https://github.com/fholm/IronJS)__ (__Not Yet Implemented__)
   * __[SilkJS](http://github.com/mschwartz/SilkJS)__ (__Not Yet Implemented__)
   * __[Rhino](http://www.mozilla.org/rhino/)__ (__Not Yet Implemented__)
+  * __[JSPL](http://jspl.msg.mx/)__ (__Not Yet Implemented__)
+  * __[PSLib](https://github.com/theiviaxx/PSLib)__ (__Not Yet Implemented__)
   * __Browser__ - For development and optimized production purposes
     * __[BravoJS](http://code.google.com/p/bravojs/)__ - Default browser loader with full CommonJS package support (**11.8 KB minified & gziped**)
     * __PINF Browser Loader__ - Optimized production browser loader with goal of < 3 to 5 KB minified & gziped (__Not Yet Implemented__)
