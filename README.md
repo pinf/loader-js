@@ -1,3 +1,5 @@
+**EARLY STALLED EXPLORATION**
+
 Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
 ========================================================================================
 
