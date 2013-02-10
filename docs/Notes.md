@@ -28,8 +28,11 @@ I envision the following layers:
      * Automated testing
      * Continuous integration
 
-All this can be facilitated by a few layers of metadata and each transformation or build step can be run at any point in the stack depending on the capabilities of the stack without needing to touch the source code.
+All this can be facilitated by a few layers of metadata and each transformation or build step can be run at any point in the stack depending on the capabilities of the stack without needing to touch the original source code.
 
+The following implementations aim to achieve all of the above by using the metadata of the packages.
+
+  * [sm](github.com/sourcemint/sm)
 
 
 Packages
