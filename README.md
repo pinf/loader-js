@@ -1,5 +1,8 @@
 **EARLY STALLED EXPLORATION**
 
+**New implementation: [github.com/pinf/pinf-loader-js](https://github.com/pinf/pinf-loader-js)**
+
+
 Versatile & Complete Cross-Platform CommonJS JavaScript Module, Package & Program Loader
 ========================================================================================
 
